@@ -1,0 +1,121 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <model name="cell_frame">
+    <static>true</static>
+
+    <!-- Vertical posts: 2020 extrusion, 0.6m tall, centers at z=1.200 -->
+    <link name="post_front_left">
+      <pose>0.45 0.25 1.200 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="post_front_right">
+      <pose>0.45 -0.25 1.200 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="post_back_left">
+      <pose>-0.45 0.25 1.200 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="post_back_right">
+      <pose>-0.45 -0.25 1.200 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.02 0.02 0.6</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Top rails (staggered to avoid corner overlap) -->
+    <link name="rail_top_left">
+      <pose>0 0.25 1.510 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.90 0.02 0.02</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.90 0.02 0.02</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="rail_top_right">
+      <pose>0 -0.25 1.510 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.90 0.02 0.02</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.90 0.02 0.02</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="rail_top_front">
+      <pose>0.45 0 1.490 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.02 0.50 0.02</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.02 0.50 0.02</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="rail_top_back">
+      <pose>-0.45 0 1.490 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.02 0.50 0.02</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.02 0.50 0.02</size></box></geometry>
+        <material>
+          <ambient>0.6 0.6 0.65 1</ambient>
+          <diffuse>0.75 0.75 0.8 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

@@ -1,0 +1,83 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <model name="workbench">
+    <static>true</static>
+
+    <!-- Bench top: 1.0 x 0.6 x 0.025 m, top surface at z=0.900 -->
+    <link name="top">
+      <pose>0 0 0.8875 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box><size>1.0 0.6 0.025</size></box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <box><size>1.0 0.6 0.025</size></box>
+        </geometry>
+        <material>
+          <ambient>0.3 0.2 0.1 1</ambient>
+          <diffuse>0.5 0.35 0.2 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Four legs: 4040 extrusion, 0.875m long -->
+    <link name="leg_front_left">
+      <pose>0.46 0.26 0.4375 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.3 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="leg_front_right">
+      <pose>0.46 -0.26 0.4375 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.3 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="leg_back_left">
+      <pose>-0.46 0.26 0.4375 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.3 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="leg_back_right">
+      <pose>-0.46 -0.26 0.4375 0 0 0</pose>
+      <collision name="collision">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.3 0.3 0.3 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

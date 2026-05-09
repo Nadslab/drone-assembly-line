@@ -1,0 +1,78 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <world name="frame_assembly_cell">
+
+    <!-- Cell dimensions reference:
+         Bench top:    1.0 x 0.6 m at z=0.900 (top surface)
+         Bench legs:   4040 extrusion (0.04x0.04), 0.875 m tall
+         Cell frame:   2020 extrusion (0.02x0.02), 0.6 m above bench
+         Convention:   +Z up, +X is the long axis of the bench -->
+
+    <!-- Physics: 1ms step, real-time factor 1.0 -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- Required system plugins for Gazebo Harmonic -->
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <!-- Sun -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Ground plane -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>20 20</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>20 20</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Models will be included below as we build them -->
+    <!-- Workbench -->
+    <include>
+        <uri>model://workbench</uri>
+        <pose>0 0 0 0 0 0</pose>
+    </include>
+    <!-- Cell frame (2020 extrusion cage) -->
+    <include>
+        <uri>model://cell_frame</uri>
+         <pose>0 0 0 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>
