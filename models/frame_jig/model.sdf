@@ -3,7 +3,7 @@
   <model name="frame_jig">
     <static>true</static>
 
-    <description>
+    <!--
       Frame-holding jig for GEPRC Mark 4 7" bottom plate (5mm thick carbon).
       Real CAD frame envelope: 263.76 x 223.30mm (X x Y).
       Pegs locate the four motor-mount center holes at arm tips:
@@ -16,7 +16,7 @@
       sequence can be reordered virtually. Revise in Phase 1 once the
       bottom-plate spine standoff hole positions are measured -- those
       are the correct locators for the physical jig.
-    </description>
+    -->
 
     <!-- Base plate: 260x230x10mm. Pose lifts it so its bottom sits at z=0
          in the model's local frame. -->
