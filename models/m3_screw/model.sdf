@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="m3_screw">
+    <!--
+      Generic M3x16 cap-head screw — steel, mass specified as 1 g.
+
+      Geometry: solid cylinder, r = 0.0015 m, h = 0.016 m.
+      Cylinder axis is Z by default in SDF.
+
+      Cylinder inertia (axis = Z):
+        Ixx = Iyy = m/12*(3r²+h²)
+            = 0.001/12*(3*0.0015²+0.016²)
+            = 8.333e-5*(0.00000675+0.000256)
+            = 8.333e-5*0.00026275 = 2.19e-8 kg·m²
+        Izz = m/2*r²
+            = 0.001/2*0.0015²
+            = 0.0005*0.00000225 = 1.13e-9 kg·m²
+    -->
+
+    <link name="link">
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>2.19e-8</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>2.19e-8</iyy>  <iyz>0</iyz>
+          <izz>1.13e-9</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <cylinder><radius>0.0015</radius><length>0.016</length></cylinder>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <cylinder><radius>0.0015</radius><length>0.016</length></cylinder>
+        </geometry>
+        <material>
+          <ambient>0.4 0.4 0.4 1</ambient>
+          <diffuse>0.65 0.65 0.65 1</diffuse>
+          <specular>0.8 0.8 0.8 1</specular>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

@@ -85,5 +85,45 @@
       <pose>0.3 0 0.9 0 0 0</pose>
     </include>
 
+    <!-- ── Dynamic parts (step 1.4) — fall under gravity ──────────────────
+         Spawned at staggered z so you can watch gravity pull them down.
+         None overlap the existing jigs (frame_jig at x=0 y=0,
+         motor_jig at x=0.3 y=0).  All land on the workbench top (z≈0.9 m). -->
+
+    <include>
+      <uri>model://bottom_plate</uri>
+      <name>bottom_plate</name>
+      <!-- left-centre of bench, clear of frame_jig -->
+      <pose>-0.35 0.00 1.2 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://top_plate</uri>
+      <name>top_plate</name>
+      <!-- left of bench, offset in Y to clear frame_jig -->
+      <pose>-0.10 0.20 1.4 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://arm</uri>
+      <name>arm</name>
+      <!-- right of bench, clear of motor_jig in Y -->
+      <pose>0.30 0.20 1.6 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://m3_screw</uri>
+      <name>m3_screw</name>
+      <!-- front-left corner of bench -->
+      <pose>-0.35 -0.20 1.8 0 0 0</pose>
+    </include>
+
+    <include>
+      <uri>model://emax_motor</uri>
+      <name>emax_motor</name>
+      <!-- front-right corner of bench, clear of motor_jig in Y -->
+      <pose>0.30 -0.20 2.0 0 0 0</pose>
+    </include>
+
   </world>
 </sdf>

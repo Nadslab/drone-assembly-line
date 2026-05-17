@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="arm">
+    <!--
+      GEPRC Mark 4 7" single arm — carbon fibre, rho = 1600 kg/m³.
+
+      Reference dims (single arm, collision bbox): 120 x 25 x 5 mm
+        l = 0.120 m   w = 0.025 m   h = 0.005 m
+        V = 0.120*0.025*0.005 = 1.500e-5 m³
+        m = 1600 * 1.500e-5 = 0.024 kg
+
+      Box inertia:
+        Ixx = m/12*(w²+h²) = 0.024/12*(0.025²+0.005²)
+            = 0.002*(0.000625+0.000025) = 1.30e-6 kg·m²
+        Iyy = m/12*(l²+h²) = 0.024/12*(0.120²+0.005²)
+            = 0.002*(0.014400+0.000025) = 2.89e-5 kg·m²
+        Izz = m/12*(l²+w²) = 0.024/12*(0.120²+0.025²)
+            = 0.002*(0.014400+0.000625) = 3.01e-5 kg·m²
+
+      Visual: arm.stl — NOTE this STL is the full 4-arm cross assembly
+        (bbox ~269x231x5mm). A single-arm export is needed for final polish.
+        STL bbox: X [0, 0.2692], Y [0, 0.2306], Z [0, 0.005]
+        Offset = (-0.1346, -0.1153, -0.0025)
+    -->
+
+    <link name="link">
+      <inertial>
+        <mass>0.024</mass>
+        <inertia>
+          <ixx>1.30e-6</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>2.89e-5</iyy>  <iyz>0</iyz>
+          <izz>3.01e-5</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.120 0.025 0.005</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.1346 -0.1153 -0.0025 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://arm/arm.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.08 0.08 0.08 1</ambient>
+          <diffuse>0.12 0.12 0.12 1</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

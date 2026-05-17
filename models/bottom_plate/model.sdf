@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="bottom_plate">
+    <!--
+      GEPRC Mark 4 7" bottom plate — carbon fibre, rho = 1600 kg/m³.
+
+      Reference envelope (collision bbox): 263 x 223 x 2 mm
+        l = 0.263 m   w = 0.223 m   h = 0.002 m
+        V = l*w*h = 0.263*0.223*0.002 = 1.17348e-4 m³
+        m = rho*V = 1600 * 1.17348e-4 = 0.1878 kg
+
+      Box inertia (principal axes, CoM at origin):
+        Ixx = m/12*(w²+h²) = 0.1877/12*(0.223²+0.002²)
+            = 0.015642*(0.049729+0.000004) = 7.779e-4 kg·m²
+        Iyy = m/12*(l²+h²) = 0.1877/12*(0.263²+0.002²)
+            = 0.015642*(0.069169+0.000004) = 1.0820e-3 kg·m²
+        Izz = m/12*(l²+w²) = 0.1877/12*(0.263²+0.223²)
+            = 0.015642*(0.069169+0.049729) = 1.8590e-3 kg·m²
+        NOTE: Thin plate → Izz ≈ Ixx+Iyy. Using 4 sig-figs to satisfy
+        Dartsim triangle inequality (Izz < Ixx+Iyy):
+        Ixx+Iyy = 7.779e-4+1.0820e-3 = 1.8599e-3 > Izz=1.8590e-3 ✓
+
+      Visual: bottom_plate.stl (already in metres, 50x177x2.5mm bounding box).
+        Mesh origin is at corner [0,0,0]; visual pose offsets to centre it.
+        STL bbox: X [0, 0.0496], Y [0, 0.1766], Z [0, 0.0025]
+        Offset = (-0.0248, -0.0883, -0.00125)
+    -->
+
+    <link name="link">
+      <inertial>
+        <mass>0.1877</mass>
+        <inertia>
+          <ixx>7.779e-4</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>1.0820e-3</iyy> <iyz>0</iyz>
+          <izz>1.8590e-3</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.263 0.223 0.002</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.0248 -0.0883 -0.00125 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://bottom_plate/bottom_plate.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.08 0.08 0.08 1</ambient>
+          <diffuse>0.12 0.12 0.12 1</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="emax_motor">
+    <!--
+      EMAX ECO II 2807 brushless motor — mixed materials, mass specified 30 g.
+      Source STL (Emax Motor.STL) is 181 MB — too large for simulation.
+      Using primitive cylinder as both visual and collision geometry.
+
+      Geometry: solid cylinder, r = 0.014 m, h = 0.032 m.
+
+      Cylinder inertia (axis = Z):
+        Ixx = Iyy = m/12*(3r²+h²)
+            = 0.030/12*(3*0.014²+0.032²)
+            = 0.0025*(3*0.000196+0.001024)
+            = 0.0025*(0.000588+0.001024)
+            = 0.0025*0.001612 = 4.03e-6 kg·m²
+        Izz = m/2*r²
+            = 0.030/2*0.014²
+            = 0.015*0.000196 = 2.94e-6 kg·m²
+    -->
+
+    <link name="link">
+      <inertial>
+        <mass>0.030</mass>
+        <inertia>
+          <ixx>4.03e-6</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>4.03e-6</iyy>  <iyz>0</iyz>
+          <izz>2.94e-6</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <cylinder><radius>0.014</radius><length>0.032</length></cylinder>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <cylinder><radius>0.014</radius><length>0.032</length></cylinder>
+        </geometry>
+        <material>
+          <ambient>0.05 0.05 0.15 1</ambient>
+          <diffuse>0.10 0.10 0.25 1</diffuse>
+          <specular>0.4 0.4 0.6 1</specular>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>
