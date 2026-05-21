@@ -1,0 +1,126 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <!--
+    Screw feeder — gravity-fed magazine chute.
+
+    Model origin sits at the base of the column on the bench surface.
+    World pose (from frame_assembly.sdf): (0.3, -0.2, 0.95)
+
+    Inner channel: 30 mm wide (x) × 40 mm deep (y) × 150 mm tall (z).
+    Wall thickness: 2 mm each side.
+    Outer footprint: 34 mm × 44 mm.
+
+    Front wall (-y side) is cut short at z = 40 mm to leave a 40 mm
+    opening for the pickup ramp exit.
+
+    Ramp: tilted −25° about x-axis (front edge lower), guides screws
+    from column interior toward the −y exit.
+    Ramp exit in world frame ≈ (0.30, −0.231, 0.961).
+    Pickup spawn point ≈ (0.30, −0.229, 0.967).
+
+    Bench non-intersection check:
+      Bench top z ∈ [0.875, 0.900].  Feeder at world z = 0.95.
+      Lowest feeder geometry in world: z = 0.95 + 0.011 = 0.961 (ramp bottom).
+      0.961 > 0.900  → no intersection.
+  -->
+  <model name="screw_feeder">
+    <static>true</static>
+
+    <!-- Material shorthand: light gray -->
+    <!-- ambient 0.75 0.75 0.75 / diffuse 0.85 0.85 0.85 -->
+
+    <!-- ── Left wall (−x outer) ─────────────────────────────────── -->
+    <link name="wall_left">
+      <pose>-0.016 0 0.075 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.002 0.044 0.150</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.002 0.044 0.150</size></box></geometry>
+        <material>
+          <ambient>0.75 0.75 0.75 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ── Right wall (+x outer) ────────────────────────────────── -->
+    <link name="wall_right">
+      <pose>0.016 0 0.075 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.002 0.044 0.150</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.002 0.044 0.150</size></box></geometry>
+        <material>
+          <ambient>0.75 0.75 0.75 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ── Back wall (+y outer, full height) ────────────────────── -->
+    <link name="wall_back">
+      <pose>0 0.021 0.075 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.034 0.002 0.150</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.034 0.002 0.150</size></box></geometry>
+        <material>
+          <ambient>0.75 0.75 0.75 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ── Front wall (−y outer, starts at z=0.040 — leaves 40 mm exit gap) -->
+    <link name="wall_front">
+      <!-- Center of this panel: z = (0.040 + 0.150) / 2 = 0.095; height = 0.110 -->
+      <pose>0 -0.021 0.095 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.034 0.002 0.110</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.034 0.002 0.110</size></box></geometry>
+        <material>
+          <ambient>0.75 0.75 0.75 1</ambient>
+          <diffuse>0.85 0.85 0.85 1</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ── Pickup ramp ───────────────────────────────────────────── -->
+    <!--
+      Tilted −25° about x-axis (front/−y edge is lower).
+      Size: 28 mm wide × 50 mm long × 4 mm thick.
+      Center in model frame: (0, −0.008, 0.022).
+      rpy = (−0.436, 0, 0) which is −25° in radians.
+
+      Geometry endpoints (unrotated then rotated):
+        half-length = 0.025 m at 25° angle:
+        Back (+y) high end:  y ≈ +0.015,  z ≈ +0.033
+        Front (−y) low end:  y ≈ −0.031,  z ≈  0.011
+      → Ramp exit world z ≈ 0.95 + 0.011 = 0.961.
+    -->
+    <link name="ramp">
+      <pose>0 -0.008 0.022 -0.436 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.028 0.050 0.004</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.028 0.050 0.004</size></box></geometry>
+        <material>
+          <ambient>0.60 0.62 0.65 1</ambient>
+          <diffuse>0.70 0.72 0.75 1</diffuse>
+          <specular>0.4 0.4 0.4 1</specular>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

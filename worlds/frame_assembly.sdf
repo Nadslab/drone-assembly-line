@@ -125,5 +125,16 @@
       <pose>0.30 -0.20 2.0 0 0 0</pose>
     </include>
 
+    <!-- ── Screw feeder (step 1.6) ───────────────────────────────────────
+         Right side, near front edge of bench.
+         Column base at world z=0.95 (5 mm above bench top at z=0.900).
+         Inner channel: 30×40×150 mm.  Ramp exit ≈ (0.30, -0.231, 0.961).
+         Pickup spawn point ≈ (0.30, -0.229, 0.967). -->
+    <include>
+      <uri>model://screw_feeder</uri>
+      <name>screw_feeder</name>
+      <pose>0.3 -0.2 0.95 0 0 0</pose>
+    </include>
+
   </world>
 </sdf>

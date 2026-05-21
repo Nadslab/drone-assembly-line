@@ -125,6 +125,14 @@ def generate_launch_description():
         ],
     )
 
+    # ── Screw spawner service ──────────────────────────────────────────────
+    screw_spawner = Node(
+        package='drone_assembly_cell',
+        executable='screw_spawner.py',
+        name='screw_spawner',
+        output='screen',
+    )
+
     return LaunchDescription([
         gz_server,
         gz_bridge,
@@ -133,4 +141,5 @@ def generate_launch_description():
         spawn_arm,
         load_jsb,
         load_arm_ctrl,
+        screw_spawner,
     ])

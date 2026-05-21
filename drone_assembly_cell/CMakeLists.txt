@@ -6,6 +6,11 @@ find_package(ament_cmake REQUIRED)
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})
 
+install(PROGRAMS
+  scripts/screw_spawner.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../models
   DESTINATION share/${PROJECT_NAME})
 
