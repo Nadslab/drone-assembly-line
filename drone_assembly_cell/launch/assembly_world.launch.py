@@ -1,7 +1,9 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, TimerAction
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import xacro
 
@@ -31,6 +33,21 @@ def generate_launch_description():
         'LD_LIBRARY_PATH': f'{ros_lib}:{os.environ.get("LD_LIBRARY_PATH", "")}',
     }
 
+    rviz_config = os.path.join(pkg_share, 'rviz', 'cell.rviz')
+
+    # ── Launch arguments ───────────────────────────────────────────────────
+    gui_arg = DeclareLaunchArgument(
+        'gui', default_value='true',
+        description='Start the Gazebo GUI (set false for headless/CI runs)',
+    )
+    rviz_arg = DeclareLaunchArgument(
+        'rviz', default_value='false',
+        description='Launch RViz2 with the cell.rviz config',
+    )
+
+    gui = LaunchConfiguration('gui')
+    rviz = LaunchConfiguration('rviz')
+
     # ── Gazebo server ──────────────────────────────────────────────────────
     gz_server = ExecuteProcess(
         cmd=['gz', 'sim', '-s', '-r', world_file],
@@ -45,17 +62,33 @@ def generate_launch_description():
                 cmd=['gz', 'sim', '-g'],
                 additional_env=gz_env,
                 output='screen',
+                condition=IfCondition(gui),
             )
         ],
     )
 
     # ── ROS-GZ bridge ──────────────────────────────────────────────────────
+    # Bridge notation:
+    #   topic@ros_type[gz_type   →  subscribe from Gazebo, publish to ROS
+    #   topic@ros_type]gz_type   →  subscribe from ROS, publish to Gazebo
+    #   topic@ros_type@gz_type   →  bidirectional
     gz_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
+        name='ros_gz_bridge',
         arguments=[
+            # Simulation clock
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            '/world/frame_assembly_cell/pose/info@geometry_msgs/msg/PoseArray[gz.msgs.Pose_V',
+            # All-model poses (static + dynamic together, 10 Hz from SceneBroadcaster)
+            '/world/frame_assembly_cell/pose/info'
+            '@geometry_msgs/msg/PoseArray[gz.msgs.Pose_V',
+            # High-rate dynamic poses only (physics-stepped, every sim step)
+            '/world/frame_assembly_cell/dynamic_pose/info'
+            '@geometry_msgs/msg/PoseArray[gz.msgs.Pose_V',
+            # Gripper contact sensor — placeholder until gripper link + sensor are added.
+            # The bridge sits idle if no Gazebo publisher exists on this topic yet.
+            '/gripper/contact'
+            '@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts',
         ],
         output='screen',
     )
@@ -72,7 +105,6 @@ def generate_launch_description():
     )
 
     # ── SO-101 arm: spawn in Gazebo at (-0.3, 0, 0.9) ─────────────────────
-    # Delay spawn until Gazebo server is ready (5 s)
     spawn_arm = TimerAction(
         period=5.0,
         actions=[
@@ -133,7 +165,24 @@ def generate_launch_description():
         output='screen',
     )
 
+    # ── RViz2 (optional) ──────────────────────────────────────────────────
+    rviz_node = TimerAction(
+        period=18.0,
+        actions=[
+            Node(
+                package='rviz2',
+                executable='rviz2',
+                name='rviz2',
+                arguments=['-d', rviz_config],
+                output='screen',
+                condition=IfCondition(rviz),
+            )
+        ],
+    )
+
     return LaunchDescription([
+        gui_arg,
+        rviz_arg,
         gz_server,
         gz_bridge,
         gz_gui,
@@ -142,4 +191,5 @@ def generate_launch_description():
         load_jsb,
         load_arm_ctrl,
         screw_spawner,
+        rviz_node,
     ])
