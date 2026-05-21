@@ -12,6 +12,10 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>ros_gz_sim</depend>
+  <depend>so101_description</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>controller_manager</depend>
+  <depend>xacro</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
