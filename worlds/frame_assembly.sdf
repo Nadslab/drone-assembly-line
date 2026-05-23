@@ -8,17 +8,19 @@
          Main conveyor:   Y=0.000, runs X direction (parts flow +X → right)
          Return conveyor: Y=0.350, parallel, parts flow −X ← left
          Side conveyor:   X=−1.45, connects return→main (left end)
-         Finished area:   separate platform to the left (X≈−2.0)
+         Finished area:   standalone platform at (X=−1.8, Y=+0.8)
 
-         5 robot stations along main conveyor at 0.6m spacing:
-           St.1 X=−1.0  (LeRobot arm, bins A B C D)
-           St.2 X=−0.4  (LeRobot arm, bins E F G H)
-           St.3 X=+0.2  (LeRobot arm, bins I J)
-           St.4 X=+0.8  (screw robot, screw bin + feeder)
-           St.5 X=+1.4  (future station)
+         5 robot stations at 0.6m spacing, ALL on front side (Y=−0.35):
+           St.1 X=−1.2  Screw Robot  — bin_screw at (−1.2, −0.50)
+           St.2 X=−0.6  LeRobot #1   — bins A/B front row Y=−0.50,
+                                             C/D back row  Y=−0.65
+           St.3 X= 0.0  LeRobot #2   — bins E/F front row Y=−0.50,
+                                             G/H back row  Y=−0.65
+           St.4 X=+0.6  Solder Robot — no bins
+           St.5 X=+1.2  LeRobot #3   — bins I/J front row Y=−0.50
 
-         Bin inner row: Y=−0.20   outer row: Y=−0.37
-         Station markers: Y=−0.42, bright yellow discs on table surface.
+         Bins front row: Y=−0.50   bins back row: Y=−0.65
+         Station markers: Y=−0.35, bright yellow discs on table surface.
     ──────────────────────────────────────────────────────────────────────── -->
 
     <!-- Physics: 1ms step, real-time factor 1.0 -->
@@ -95,7 +97,7 @@
       <uri>model://finished_area</uri>
       <name>finished_area</name>
       <!-- Left of the table, centered on return-conveyor Y -->
-      <pose>-2.05 0.175 0 0 0 0</pose>
+      <pose>-1.8 0.8 0 0 0 0</pose>
     </include>
 
     <!-- ── Screw feeder (station 4, repositioned) ────────────────────────── -->
@@ -103,7 +105,7 @@
       <uri>model://screw_feeder</uri>
       <name>screw_feeder</name>
       <!-- 50mm above table top (same offset as before) -->
-      <pose>0.8 -0.35 0.950 0 0 0</pose>
+      <pose>-1.2 -0.35 0.950 0 0 0</pose>
     </include>
 
     <!-- ═══════════════════════════════════════════════════════════════════
@@ -114,7 +116,7 @@
 
     <model name="station_marker_1">
       <static>true</static>
-      <pose>-1.0 -0.42 0.900 0 0 0</pose>
+      <pose>-1.2 -0.35 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -129,7 +131,7 @@
 
     <model name="station_marker_2">
       <static>true</static>
-      <pose>-0.4 -0.42 0.900 0 0 0</pose>
+      <pose>-0.6 -0.35 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -144,7 +146,7 @@
 
     <model name="station_marker_3">
       <static>true</static>
-      <pose>0.2 -0.42 0.900 0 0 0</pose>
+      <pose>0.0 -0.35 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -159,7 +161,7 @@
 
     <model name="station_marker_4">
       <static>true</static>
-      <pose>0.8 -0.42 0.900 0 0 0</pose>
+      <pose>0.6 -0.35 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -174,7 +176,7 @@
 
     <model name="station_marker_5">
       <static>true</static>
-      <pose>1.4 -0.42 0.900 0 0 0</pose>
+      <pose>1.2 -0.35 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -190,18 +192,21 @@
     <!-- ═══════════════════════════════════════════════════════════════════
          Parts bins — 11 total, each defined inline with a distinct color.
          Outer dims: 0.15 × 0.15 × 0.10m (5 links: floor + 4 walls).
-         All included at table surface Z=0.900 (bin floor bottom = table top).
+         Z=0.900 for all bins (table surface height).
 
-         Station 1 (arm at X=−1.0): bins A B C D
-         Station 2 (arm at X=−0.4): bins E F G H
-         Station 3 (arm at X=+0.2): bins I J
-         Station 4 screw feeder:    bin_screw
+         St.1 X=−1.2  Screw Robot:  bin_screw (−1.2, −0.50)
+         St.2 X=−0.6  LeRobot #1:   A(−0.7,−0.50) B(−0.5,−0.50)
+                                     C(−0.7,−0.65) D(−0.5,−0.65)
+         St.3 X= 0.0  LeRobot #2:   E(−0.1,−0.50) F(+0.1,−0.50)
+                                     G(−0.1,−0.65) H(+0.1,−0.65)
+         St.4 X=+0.6  Solder Robot: (no bins)
+         St.5 X=+1.2  LeRobot #3:   I(+1.1,−0.50) J(+1.3,−0.50)
     ═══════════════════════════════════════════════════════════════════════ -->
 
     <!-- ── Bin A (red) — station 1, left-outer ───────────────────────────── -->
     <model name="bin_A">
       <static>true</static>
-      <pose>-1.20 -0.37 0.900 0 0 0</pose>
+      <pose>-0.7 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -237,7 +242,7 @@
     <!-- ── Bin B (blue) — station 1, left-inner ──────────────────────────── -->
     <model name="bin_B">
       <static>true</static>
-      <pose>-1.20 -0.20 0.900 0 0 0</pose>
+      <pose>-0.5 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -273,7 +278,7 @@
     <!-- ── Bin C (green) — station 1, right-outer ────────────────────────── -->
     <model name="bin_C">
       <static>true</static>
-      <pose>-0.82 -0.37 0.900 0 0 0</pose>
+      <pose>-0.7 -0.65 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -309,7 +314,7 @@
     <!-- ── Bin D (yellow) — station 1, right-inner ───────────────────────── -->
     <model name="bin_D">
       <static>true</static>
-      <pose>-0.82 -0.20 0.900 0 0 0</pose>
+      <pose>-0.5 -0.65 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -345,7 +350,7 @@
     <!-- ── Bin E (orange) — station 2, left-outer ────────────────────────── -->
     <model name="bin_E">
       <static>true</static>
-      <pose>-0.58 -0.37 0.900 0 0 0</pose>
+      <pose>-0.1 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -381,7 +386,7 @@
     <!-- ── Bin F (purple) — station 2, left-inner ────────────────────────── -->
     <model name="bin_F">
       <static>true</static>
-      <pose>-0.58 -0.20 0.900 0 0 0</pose>
+      <pose>0.1 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -417,7 +422,7 @@
     <!-- ── Bin G (cyan) — station 2, right-outer ─────────────────────────── -->
     <model name="bin_G">
       <static>true</static>
-      <pose>-0.22 -0.37 0.900 0 0 0</pose>
+      <pose>-0.1 -0.65 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -453,7 +458,7 @@
     <!-- ── Bin H (magenta) — station 2, right-inner ──────────────────────── -->
     <model name="bin_H">
       <static>true</static>
-      <pose>-0.22 -0.20 0.900 0 0 0</pose>
+      <pose>0.1 -0.65 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -489,7 +494,7 @@
     <!-- ── Bin I (lime) — station 3, left ────────────────────────────────── -->
     <model name="bin_I">
       <static>true</static>
-      <pose>0.02 -0.37 0.900 0 0 0</pose>
+      <pose>1.1 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -525,7 +530,7 @@
     <!-- ── Bin J (teal) — station 3, right ───────────────────────────────── -->
     <model name="bin_J">
       <static>true</static>
-      <pose>0.38 -0.37 0.900 0 0 0</pose>
+      <pose>1.3 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -561,7 +566,7 @@
     <!-- ── Bin screw (orange-red) — station 4 screw feeder ───────────────── -->
     <model name="bin_screw">
       <static>true</static>
-      <pose>0.62 -0.37 0.900 0 0 0</pose>
+      <pose>-1.2 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>

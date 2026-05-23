@@ -7,7 +7,7 @@ Each call creates a new m3_screw entity in the running Gazebo world
 at the feeder pickup point (ramp exit, just in front of the feeder column).
 
 Pickup point (world frame):
-  x = 0.800  (feeder centre x, station 4)
+  x = -1.200 (feeder centre x, station 1)
   y = -0.379 (≈ 29 mm in front of feeder column centre at y = -0.350)
   z = 0.967  (≈ 6 mm above ramp surface at world z ≈ 0.961)
 
@@ -59,9 +59,9 @@ _M3_SCREW_SDF = """\
 </sdf>"""
 
 # Base pickup coordinates (world frame).  See module docstring.
-# Screw feeder relocated to station 4 at (0.8, -0.35, 0.950).
+# Screw feeder at station 1: world pose (-1.2, -0.35, 0.950).
 # Pickup point = feeder pose + same relative offset as before.
-_PICKUP_X = 0.800
+_PICKUP_X = -1.200
 _PICKUP_Y = -0.379
 _PICKUP_Z = 0.967
 

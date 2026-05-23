@@ -114,7 +114,7 @@ def generate_launch_description():
                 arguments=[
                     '-name', 'so101',
                     '-string', robot_desc,
-                    '-x', '-1.0',   # station 1 X
+                    '-x', '-0.6',   # station 2 (LeRobot #1)
                     '-y', '-0.40',  # front edge of table
                     '-z', '0.9',    # table surface
                     '-R', '0.0',
