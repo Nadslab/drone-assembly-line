@@ -1,0 +1,64 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <!-- Generic open-top parts bin.
+       Outer dimensions: 0.15 x 0.15 x 0.10m.  Wall thickness: 0.010m.
+       Model origin at bottom of floor — include at table surface height (z=0.900).
+
+       In the world file, bins are defined inline with per-instance colors.
+       This file is the reference template (default gray).
+  -->
+  <model name="bin">
+    <static>true</static>
+
+    <!-- Floor: 0.15 x 0.15 x 0.010m, center at z=0.005 -->
+    <link name="floor">
+      <pose>0 0 0.005 0 0 0</pose>
+      <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+      <visual name="vis">
+        <geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+        <material><ambient>0.40 0.40 0.40 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- Front wall (-Y): 0.15 x 0.010 x 0.090m, bottom at z=0.010 -->
+    <link name="wall_front">
+      <pose>0 -0.070 0.055 0 0 0</pose>
+      <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+      <visual name="vis">
+        <geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+        <material><ambient>0.40 0.40 0.40 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- Back wall (+Y) -->
+    <link name="wall_back">
+      <pose>0 0.070 0.055 0 0 0</pose>
+      <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+      <visual name="vis">
+        <geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+        <material><ambient>0.40 0.40 0.40 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- Left wall (-X): 0.010 x 0.130 x 0.090m (fits between front/back walls) -->
+    <link name="wall_left">
+      <pose>-0.070 0 0.055 0 0 0</pose>
+      <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+      <visual name="vis">
+        <geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+        <material><ambient>0.40 0.40 0.40 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- Right wall (+X) -->
+    <link name="wall_right">
+      <pose>0.070 0 0.055 0 0 0</pose>
+      <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+      <visual name="vis">
+        <geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+        <material><ambient>0.40 0.40 0.40 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse></material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

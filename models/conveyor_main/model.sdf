@@ -1,0 +1,92 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <!-- Main forward conveyor: 2.9m long, 0.15m wide.
+       Model origin is at the bottom of the belt (floor level of the conveyor).
+       Include in world at (0, 0, 0.900) so belt sits on table surface.
+
+       Belt:      2.9 x 0.15 x 0.008m — dark gray
+       Side rails: 2.9 x 0.010 x 0.030m at y = ±0.080 — near-black
+  -->
+  <model name="conveyor_main">
+    <static>true</static>
+
+    <!-- Belt surface -->
+    <link name="belt">
+      <pose>0 0 0.004 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>2.9 0.15 0.008</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>2.9 0.15 0.008</size></box></geometry>
+        <material>
+          <ambient>0.18 0.18 0.18 1</ambient>
+          <diffuse>0.28 0.28 0.28 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Left rail (-Y side, robot-facing) -->
+    <link name="rail_left">
+      <pose>0 -0.080 0.023 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>2.9 0.010 0.030</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>2.9 0.010 0.030</size></box></geometry>
+        <material>
+          <ambient>0.10 0.10 0.10 1</ambient>
+          <diffuse>0.18 0.18 0.18 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Right rail (+Y side, return-conveyor side) -->
+    <link name="rail_right">
+      <pose>0 0.080 0.023 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>2.9 0.010 0.030</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>2.9 0.010 0.030</size></box></geometry>
+        <material>
+          <ambient>0.10 0.10 0.10 1</ambient>
+          <diffuse>0.18 0.18 0.18 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Left end cap -->
+    <link name="cap_left">
+      <pose>-1.45 0 0.019 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.010 0.170 0.030</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.010 0.170 0.030</size></box></geometry>
+        <material>
+          <ambient>0.10 0.10 0.10 1</ambient>
+          <diffuse>0.18 0.18 0.18 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Right end cap -->
+    <link name="cap_right">
+      <pose>1.45 0 0.019 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.010 0.170 0.030</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.010 0.170 0.030</size></box></geometry>
+        <material>
+          <ambient>0.10 0.10 0.10 1</ambient>
+          <diffuse>0.18 0.18 0.18 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

@@ -2,11 +2,24 @@
 <sdf version="1.10">
   <world name="frame_assembly_cell">
 
-    <!-- Cell dimensions reference:
-         Bench top:    1.0 x 0.6 m at z=0.900 (top surface)
-         Bench legs:   4040 extrusion (0.04x0.04), 0.875 m tall
-         Cell frame:   2020 extrusion (0.02x0.02), 0.6 m above bench
-         Convention:   +Z up, +X is the long axis of the bench -->
+    <!-- ── Layout reference ────────────────────────────────────────────────
+         Assembly table: 3.0m (X) × 0.9m (Y), top at Z=0.900.
+           X range: [-1.5, +1.5]   Y range: [-0.45, +0.45]
+         Main conveyor:   Y=0.000, runs X direction (parts flow +X → right)
+         Return conveyor: Y=0.350, parallel, parts flow −X ← left
+         Side conveyor:   X=−1.45, connects return→main (left end)
+         Finished area:   separate platform to the left (X≈−2.0)
+
+         5 robot stations along main conveyor at 0.6m spacing:
+           St.1 X=−1.0  (LeRobot arm, bins A B C D)
+           St.2 X=−0.4  (LeRobot arm, bins E F G H)
+           St.3 X=+0.2  (LeRobot arm, bins I J)
+           St.4 X=+0.8  (screw robot, screw bin + feeder)
+           St.5 X=+1.4  (future station)
+
+         Bin inner row: Y=−0.20   outer row: Y=−0.37
+         Station markers: Y=−0.42, bright yellow discs on table surface.
+    ──────────────────────────────────────────────────────────────────────── -->
 
     <!-- Physics: 1ms step, real-time factor 1.0 -->
     <physics name="1ms" type="ignored">
@@ -14,7 +27,6 @@
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
-    <!-- Required system plugins for Gazebo Harmonic -->
     <plugin filename="gz-sim-physics-system"
             name="gz::sim::systems::Physics"/>
     <plugin filename="gz-sim-user-commands-system"
@@ -40,101 +52,547 @@
       <static>true</static>
       <link name="link">
         <collision name="collision">
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>20 20</size>
-            </plane>
-          </geometry>
+          <geometry><plane><normal>0 0 1</normal><size>30 30</size></plane></geometry>
         </collision>
         <visual name="visual">
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>20 20</size>
-            </plane>
-          </geometry>
+          <geometry><plane><normal>0 0 1</normal><size>30 30</size></plane></geometry>
           <material>
-            <ambient>0.4 0.4 0.4 1</ambient>
-            <diffuse>0.6 0.6 0.6 1</diffuse>
+            <ambient>0.38 0.38 0.38 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
           </material>
         </visual>
       </link>
     </model>
 
-    <!-- Models will be included below as we build them -->
-    <!-- Workbench -->
+    <!-- ── Assembly line table ──────────────────────────────────────────── -->
     <include>
-        <uri>model://workbench</uri>
-        <pose>0 0 0 0 0 0</pose>
+      <uri>model://assembly_table</uri>
+      <name>assembly_table</name>
+      <pose>0 0 0 0 0 0</pose>
     </include>
-    <!-- Cell frame (2020 extrusion cage) -->
+
+    <!-- ── Conveyors (all included at table surface Z=0.900) ────────────── -->
     <include>
-        <uri>model://cell_frame</uri>
-         <pose>0 0 0 0 0 0</pose>
-    </include>
-    <include>
-      <uri>model://frame_jig</uri>
-      <name>frame_jig</name>
-      <pose>0 0 0.9 0 0 0</pose>
+      <uri>model://conveyor_main</uri>
+      <name>conveyor_main</name>
+      <pose>0 0 0.900 0 0 0</pose>
     </include>
 
     <include>
-      <uri>model://motor_jig</uri>
-      <name>motor_jig</name>
-      <pose>0.3 0 0.9 0 0 0</pose>
-    </include>
-
-    <!-- ── Dynamic parts (step 1.4) — fall under gravity ──────────────────
-         Spawned at staggered z so you can watch gravity pull them down.
-         None overlap the existing jigs (frame_jig at x=0 y=0,
-         motor_jig at x=0.3 y=0).  All land on the workbench top (z≈0.9 m). -->
-
-    <include>
-      <uri>model://bottom_plate</uri>
-      <name>bottom_plate</name>
-      <!-- left-centre of bench, clear of frame_jig -->
-      <pose>-0.35 0.00 1.2 0 0 0</pose>
+      <uri>model://conveyor_return</uri>
+      <name>conveyor_return</name>
+      <pose>0 0.35 0.900 0 0 0</pose>
     </include>
 
     <include>
-      <uri>model://top_plate</uri>
-      <name>top_plate</name>
-      <!-- left of bench, offset in Y to clear frame_jig -->
-      <pose>-0.10 0.20 1.4 0 0 0</pose>
+      <uri>model://conveyor_side</uri>
+      <name>conveyor_side</name>
+      <pose>-1.45 0.175 0.900 0 0 0</pose>
     </include>
 
+    <!-- ── Finished product area ─────────────────────────────────────────── -->
     <include>
-      <uri>model://arm</uri>
-      <name>arm</name>
-      <!-- right of bench, clear of motor_jig in Y -->
-      <pose>0.30 0.20 1.6 0 0 0</pose>
+      <uri>model://finished_area</uri>
+      <name>finished_area</name>
+      <!-- Left of the table, centered on return-conveyor Y -->
+      <pose>-2.05 0.175 0 0 0 0</pose>
     </include>
 
-    <include>
-      <uri>model://m3_screw</uri>
-      <name>m3_screw</name>
-      <!-- front-left corner of bench -->
-      <pose>-0.35 -0.20 1.8 0 0 0</pose>
-    </include>
-
-    <include>
-      <uri>model://emax_motor</uri>
-      <name>emax_motor</name>
-      <!-- front-right corner of bench, clear of motor_jig in Y -->
-      <pose>0.30 -0.20 2.0 0 0 0</pose>
-    </include>
-
-    <!-- ── Screw feeder (step 1.6) ───────────────────────────────────────
-         Right side, near front edge of bench.
-         Column base at world z=0.95 (5 mm above bench top at z=0.900).
-         Inner channel: 30×40×150 mm.  Ramp exit ≈ (0.30, -0.231, 0.961).
-         Pickup spawn point ≈ (0.30, -0.229, 0.967). -->
+    <!-- ── Screw feeder (station 4, repositioned) ────────────────────────── -->
     <include>
       <uri>model://screw_feeder</uri>
       <name>screw_feeder</name>
-      <pose>0.3 -0.2 0.95 0 0 0</pose>
+      <!-- 50mm above table top (same offset as before) -->
+      <pose>0.8 -0.35 0.950 0 0 0</pose>
     </include>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         Robot station mounting markers — bright yellow discs on table.
+         Cylinder radius 0.04m, height 0.020m, bottom at Z=0.900.
+         Y=−0.42: front edge of table, between conveyor rail and table edge.
+    ═══════════════════════════════════════════════════════════════════════ -->
+
+    <model name="station_marker_1">
+      <static>true</static>
+      <pose>-1.0 -0.42 0.900 0 0 0</pose>
+      <link name="disc">
+        <pose>0 0 0.010 0 0 0</pose>
+        <collision name="col">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="station_marker_2">
+      <static>true</static>
+      <pose>-0.4 -0.42 0.900 0 0 0</pose>
+      <link name="disc">
+        <pose>0 0 0.010 0 0 0</pose>
+        <collision name="col">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="station_marker_3">
+      <static>true</static>
+      <pose>0.2 -0.42 0.900 0 0 0</pose>
+      <link name="disc">
+        <pose>0 0 0.010 0 0 0</pose>
+        <collision name="col">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="station_marker_4">
+      <static>true</static>
+      <pose>0.8 -0.42 0.900 0 0 0</pose>
+      <link name="disc">
+        <pose>0 0 0.010 0 0 0</pose>
+        <collision name="col">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="station_marker_5">
+      <static>true</static>
+      <pose>1.4 -0.42 0.900 0 0 0</pose>
+      <link name="disc">
+        <pose>0 0 0.010 0 0 0</pose>
+        <collision name="col">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         Parts bins — 11 total, each defined inline with a distinct color.
+         Outer dims: 0.15 × 0.15 × 0.10m (5 links: floor + 4 walls).
+         All included at table surface Z=0.900 (bin floor bottom = table top).
+
+         Station 1 (arm at X=−1.0): bins A B C D
+         Station 2 (arm at X=−0.4): bins E F G H
+         Station 3 (arm at X=+0.2): bins I J
+         Station 4 screw feeder:    bin_screw
+    ═══════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── Bin A (red) — station 1, left-outer ───────────────────────────── -->
+    <model name="bin_A">
+      <static>true</static>
+      <pose>-1.20 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin B (blue) — station 1, left-inner ──────────────────────────── -->
+    <model name="bin_B">
+      <static>true</static>
+      <pose>-1.20 -0.20 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin C (green) — station 1, right-outer ────────────────────────── -->
+    <model name="bin_C">
+      <static>true</static>
+      <pose>-0.82 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin D (yellow) — station 1, right-inner ───────────────────────── -->
+    <model name="bin_D">
+      <static>true</static>
+      <pose>-0.82 -0.20 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin E (orange) — station 2, left-outer ────────────────────────── -->
+    <model name="bin_E">
+      <static>true</static>
+      <pose>-0.58 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin F (purple) — station 2, left-inner ────────────────────────── -->
+    <model name="bin_F">
+      <static>true</static>
+      <pose>-0.58 -0.20 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin G (cyan) — station 2, right-outer ─────────────────────────── -->
+    <model name="bin_G">
+      <static>true</static>
+      <pose>-0.22 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.10 0.60 0.70 1</ambient><diffuse>0.15 0.80 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.60 0.70 1</ambient><diffuse>0.15 0.80 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.60 0.70 1</ambient><diffuse>0.15 0.80 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.60 0.70 1</ambient><diffuse>0.15 0.80 0.90 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.60 0.70 1</ambient><diffuse>0.15 0.80 0.90 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin H (magenta) — station 2, right-inner ──────────────────────── -->
+    <model name="bin_H">
+      <static>true</static>
+      <pose>-0.22 -0.20 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.75 0.10 0.60 1</ambient><diffuse>0.90 0.20 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.75 0.10 0.60 1</ambient><diffuse>0.90 0.20 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.75 0.10 0.60 1</ambient><diffuse>0.90 0.20 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.75 0.10 0.60 1</ambient><diffuse>0.90 0.20 0.75 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.75 0.10 0.60 1</ambient><diffuse>0.90 0.20 0.75 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin I (lime) — station 3, left ────────────────────────────────── -->
+    <model name="bin_I">
+      <static>true</static>
+      <pose>0.02 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.50 0.80 0.10 1</ambient><diffuse>0.65 1.00 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.50 0.80 0.10 1</ambient><diffuse>0.65 1.00 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.50 0.80 0.10 1</ambient><diffuse>0.65 1.00 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.50 0.80 0.10 1</ambient><diffuse>0.65 1.00 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.50 0.80 0.10 1</ambient><diffuse>0.65 1.00 0.15 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin J (teal) — station 3, right ───────────────────────────────── -->
+    <model name="bin_J">
+      <static>true</static>
+      <pose>0.38 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.10 0.50 0.50 1</ambient><diffuse>0.15 0.70 0.65 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.50 0.50 1</ambient><diffuse>0.15 0.70 0.65 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.10 0.50 0.50 1</ambient><diffuse>0.15 0.70 0.65 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.50 0.50 1</ambient><diffuse>0.15 0.70 0.65 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.10 0.50 0.50 1</ambient><diffuse>0.15 0.70 0.65 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin screw (orange-red) — station 4 screw feeder ───────────────── -->
+    <model name="bin_screw">
+      <static>true</static>
+      <pose>0.62 -0.37 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.85 0.22 0.05 1</ambient><diffuse>1.00 0.30 0.08 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.85 0.22 0.05 1</ambient><diffuse>1.00 0.30 0.08 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.090</size></box></geometry>
+          <material><ambient>0.85 0.22 0.05 1</ambient><diffuse>1.00 0.30 0.08 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.85 0.22 0.05 1</ambient><diffuse>1.00 0.30 0.08 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.055 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.090</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.090</size></box></geometry>
+          <material><ambient>0.85 0.22 0.05 1</ambient><diffuse>1.00 0.30 0.08 1</diffuse></material></visual>
+      </link>
+    </model>
 
   </world>
 </sdf>

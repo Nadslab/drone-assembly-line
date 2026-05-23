@@ -1,0 +1,85 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <!-- Return conveyor: 2.9m long, 0.12m wide.
+       Narrower and slightly lighter than the main conveyor.
+       Include in world at (0, 0.35, 0.900).
+
+       Belt:      2.9 x 0.12 x 0.008m
+       Side rails: 2.9 x 0.008 x 0.025m at y = ±0.064
+  -->
+  <model name="conveyor_return">
+    <static>true</static>
+
+    <link name="belt">
+      <pose>0 0 0.004 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>2.9 0.12 0.008</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>2.9 0.12 0.008</size></box></geometry>
+        <material>
+          <ambient>0.22 0.22 0.22 1</ambient>
+          <diffuse>0.32 0.32 0.32 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <link name="rail_front">
+      <pose>0 -0.064 0.0205 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>2.9 0.008 0.025</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>2.9 0.008 0.025</size></box></geometry>
+        <material>
+          <ambient>0.12 0.12 0.12 1</ambient>
+          <diffuse>0.20 0.20 0.20 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="rail_back">
+      <pose>0 0.064 0.0205 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>2.9 0.008 0.025</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>2.9 0.008 0.025</size></box></geometry>
+        <material>
+          <ambient>0.12 0.12 0.12 1</ambient>
+          <diffuse>0.20 0.20 0.20 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="cap_left">
+      <pose>-1.45 0 0.0165 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.008 0.136 0.025</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.008 0.136 0.025</size></box></geometry>
+        <material>
+          <ambient>0.12 0.12 0.12 1</ambient>
+          <diffuse>0.20 0.20 0.20 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="cap_right">
+      <pose>1.45 0 0.0165 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.008 0.136 0.025</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.008 0.136 0.025</size></box></geometry>
+        <material>
+          <ambient>0.12 0.12 0.12 1</ambient>
+          <diffuse>0.20 0.20 0.20 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

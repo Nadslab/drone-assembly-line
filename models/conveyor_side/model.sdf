@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+<sdf version="1.10">
+  <!-- Side conveyor: connects left end of return conveyor to left end of main.
+       Runs in the Y direction (model +Y = world +Y).
+       Belt length in Y: 0.35m to span the 0.35m gap between main (Y=0) and return (Y=0.35).
+       Include in world at (-1.45, 0.175, 0.900) — centered between the two conveyors.
+
+       Belt:      0.10 x 0.35 x 0.008m (x=width, y=length)
+       Side rails: 0.008 x 0.35 x 0.025m at x = ±0.054
+  -->
+  <model name="conveyor_side">
+    <static>true</static>
+
+    <link name="belt">
+      <pose>0 0 0.004 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.10 0.35 0.008</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.10 0.35 0.008</size></box></geometry>
+        <material>
+          <ambient>0.20 0.20 0.20 1</ambient>
+          <diffuse>0.30 0.30 0.30 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Rail on -X side (outward from table) -->
+    <link name="rail_left">
+      <pose>-0.054 0 0.0205 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.008 0.35 0.025</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.008 0.35 0.025</size></box></geometry>
+        <material>
+          <ambient>0.12 0.12 0.12 1</ambient>
+          <diffuse>0.20 0.20 0.20 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- Rail on +X side (toward table interior) -->
+    <link name="rail_right">
+      <pose>0.054 0 0.0205 0 0 0</pose>
+      <collision name="col">
+        <geometry><box><size>0.008 0.35 0.025</size></box></geometry>
+      </collision>
+      <visual name="vis">
+        <geometry><box><size>0.008 0.35 0.025</size></box></geometry>
+        <material>
+          <ambient>0.12 0.12 0.12 1</ambient>
+          <diffuse>0.20 0.20 0.20 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>
