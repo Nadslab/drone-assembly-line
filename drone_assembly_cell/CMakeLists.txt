@@ -27,4 +27,11 @@ foreach(MESH bottom_plate top_plate arm)
     DESTINATION share/${PROJECT_NAME}/models/${MESH})
 endforeach()
 
+# drone part models — install STL into each model's meshes/ subfolder
+# (model://drone_PART/meshes/PART.stl → models/drone_PART/meshes/PART.stl)
+foreach(MESH single_arm bottom_plate emax_motor speedybee_stack capacitor vtx camera vtx_antenna rx_antenna tbs_antenna)
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../meshes/${MESH}.stl
+    DESTINATION share/${PROJECT_NAME}/models/drone_${MESH}/meshes)
+endforeach()
+
 ament_package()

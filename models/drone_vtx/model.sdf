@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="drone_vtx">
+    <!--
+      AKK RaceRanger VTX — electronics, rho = 1200 kg/m³.
+      STL bbox (mm): X[0.180,36.180]  Y[0.183,36.483]  Z[0.046,10.146]
+      Collision box (m): 0.036000 × 0.036300 × 0.010100
+        V = 0.036 * 0.0363 * 0.0101 = 1.320e-5 m³
+        m = 1.320e-5 * 1200 = 0.01584 kg
+      Box inertia:
+        Ixx = m*(ly²+lz²)/12 = 0.01584*(0.0363²+0.0101²)/12 = 1.87e-6 kg·m²
+        Iyy = m*(lx²+lz²)/12 = 0.01584*(0.036²+0.0101²)/12 = 1.85e-6 kg·m²
+        Izz = m*(lx²+ly²)/12 = 0.01584*(0.036²+0.0363²)/12 = 3.45e-6 kg·m²
+    -->
+    <link name="link">
+      <inertial>
+        <mass>0.01584</mass>
+        <inertia>
+          <ixx>1.87e-6</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>1.85e-6</iyy>  <iyz>0</iyz>
+          <izz>3.45e-6</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.036000 0.036300 0.010100</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.018180 -0.018333 -0.005096 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://drone_vtx/meshes/vtx.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.10 0.10 0.05 1</ambient>
+          <diffuse>0.25 0.20 0.05 1</diffuse>
+          <specular>0.3 0.3 0.2 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="drone_camera">
+    <!--
+      Caddx Ratel 2 camera — electronics, rho = 1200 kg/m³.
+      STL bbox (m): X[0,0.0193]  Y[0,0.0144]  Z[0,0.0140]
+      Collision box (m): 0.019300 × 0.014400 × 0.014000
+        V = 0.0193 * 0.0144 * 0.014 = 3.891e-6 m³
+        m = 3.891e-6 * 1200 = 0.004669 kg
+      Box inertia:
+        Ixx = m*(ly²+lz²)/12 = 0.004669*(0.0144²+0.014²)/12 = 1.57e-7 kg·m²
+        Iyy = m*(lx²+lz²)/12 = 0.004669*(0.0193²+0.014²)/12 = 2.21e-7 kg·m²
+        Izz = m*(lx²+ly²)/12 = 0.004669*(0.0193²+0.0144²)/12 = 2.26e-7 kg·m²
+    -->
+    <link name="link">
+      <inertial>
+        <mass>0.004669</mass>
+        <inertia>
+          <ixx>1.57e-7</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>2.21e-7</iyy>  <iyz>0</iyz>
+          <izz>2.26e-7</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.019300 0.014400 0.014000</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.009650 -0.007200 -0.007000 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://drone_camera/meshes/camera.stl</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.08 0.06 0.05 1</ambient>
+          <diffuse>0.15 0.12 0.10 1</diffuse>
+          <specular>0.2 0.2 0.2 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

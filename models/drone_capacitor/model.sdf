@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="drone_capacitor">
+    <!--
+      1000uF capacitor — metal, rho = 7800 kg/m³.
+      STL bbox (mm): X[0,13.2]  Y[0,47.5]  Z[0,13.2]  (Y is the tall axis)
+      Collision box (m): 0.013200 × 0.047500 × 0.013200
+        V = 0.0132 * 0.0475 * 0.0132 = 8.279e-6 m³
+        m = 8.279e-6 * 7800 = 0.06458 kg
+      Box inertia (lx=lz=0.0132, ly=0.0475):
+        Ixx = m*(ly²+lz²)/12 = 0.06458*(0.0475²+0.0132²)/12 = 1.31e-5 kg·m²
+        Iyy = m*(lx²+lz²)/12 = 0.06458*(0.0132²+0.0132²)/12 = 1.88e-6 kg·m²
+        Izz = m*(lx²+ly²)/12 = 0.06458*(0.0132²+0.0475²)/12 = 1.31e-5 kg·m²
+    -->
+    <link name="link">
+      <inertial>
+        <mass>0.06458</mass>
+        <inertia>
+          <ixx>1.31e-5</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>1.88e-6</iyy>  <iyz>0</iyz>
+          <izz>1.31e-5</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.013200 0.047500 0.013200</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.006600 -0.023750 -0.006600 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://drone_capacitor/meshes/capacitor.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.05 0.05 0.15 1</ambient>
+          <diffuse>0.10 0.10 0.30 1</diffuse>
+          <specular>0.4 0.4 0.6 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

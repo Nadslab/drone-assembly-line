@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="drone_tbs_antenna">
+    <!--
+      TBS Crossfire antenna — plastic, rho = 500 kg/m³.
+      STL bbox (mm): X[0.200,23.050]  Y[0.755,151.755]  Z[0.796,6.796]  (Y is tall axis)
+      Collision box (m): 0.022850 × 0.151000 × 0.006000
+        V = 0.02285 * 0.151 * 0.006 = 2.070e-5 m³
+        m = 2.070e-5 * 500 = 0.01035 kg
+      Box inertia:
+        Ixx = m*(ly²+lz²)/12 = 0.01035*(0.151²+0.006²)/12 = 1.97e-5 kg·m²
+        Iyy = m*(lx²+lz²)/12 = 0.01035*(0.02285²+0.006²)/12 = 4.81e-7 kg·m²
+        Izz = m*(lx²+ly²)/12 = 0.01035*(0.02285²+0.151²)/12 = 2.01e-5 kg·m²
+    -->
+    <link name="link">
+      <inertial>
+        <mass>0.01035</mass>
+        <inertia>
+          <ixx>1.97e-5</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>4.81e-7</iyy>  <iyz>0</iyz>
+          <izz>2.01e-5</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.022850 0.151000 0.006000</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.011625 -0.076255 -0.003796 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://drone_tbs_antenna/meshes/tbs_antenna.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.06 0.06 0.06 1</ambient>
+          <diffuse>0.14 0.14 0.14 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

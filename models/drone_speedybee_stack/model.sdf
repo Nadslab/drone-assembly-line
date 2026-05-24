@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="drone_speedybee_stack">
+    <!--
+      SpeedyBee F405 Mini Stack — electronics, rho = 1200 kg/m³.
+      STL bbox (mm): X[0.150,32.168]  Y[0.020,14.380]  Z[0.194,37.875]
+      Collision box (m): 0.032018 × 0.014360 × 0.037681
+        V = 0.032018 * 0.01436 * 0.037681 = 1.733e-5 m³
+        m = 1.733e-5 * 1200 = 0.02080 kg
+      Box inertia:
+        Ixx = m*(ly²+lz²)/12 = 0.02080*(0.01436²+0.037681²)/12 = 2.82e-6 kg·m²
+        Iyy = m*(lx²+lz²)/12 = 0.02080*(0.032018²+0.037681²)/12 = 4.24e-6 kg·m²
+        Izz = m*(lx²+ly²)/12 = 0.02080*(0.032018²+0.01436²)/12 = 2.13e-6 kg·m²
+    -->
+    <link name="link">
+      <inertial>
+        <mass>0.02080</mass>
+        <inertia>
+          <ixx>2.82e-6</ixx>  <ixy>0</ixy>  <ixz>0</ixz>
+          <iyy>4.24e-6</iyy>  <iyz>0</iyz>
+          <izz>2.13e-6</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <box><size>0.032018 0.014360 0.037681</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>-0.016159 -0.007200 -0.019035 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://drone_speedybee_stack/meshes/speedybee_stack.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.08 0.05 0.05 1</ambient>
+          <diffuse>0.20 0.10 0.10 1</diffuse>
+          <specular>0.2 0.2 0.2 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
