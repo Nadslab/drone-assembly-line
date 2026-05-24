@@ -239,10 +239,10 @@
       </link>
     </model>
 
-    <!-- ── Bin B (blue) — LeRobot #1, pair-1 front (−0.75,  0.00) ──────────── -->
+    <!-- ── Bin B (blue) — LeRobot #1, pair-1 front (−0.75,  0.05) ──────────── -->
     <model name="bin_B">
       <static>true</static>
-      <pose>-0.75 0 0.900 0 0 0</pose>
+      <pose>-0.75 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -314,7 +314,7 @@
     <!-- ── Bin D (yellow) — LeRobot #1, pair-2 front (−0.40,  0.00) ──────────── -->
     <model name="bin_D">
       <static>true</static>
-      <pose>-0.4 0.00 0.900 0 0 0</pose>
+      <pose>-0.4 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -386,7 +386,7 @@
     <!-- ── Bin F (purple) — LeRobot #2, pair-1 front (−0.15,  0.00) ──────────── -->
     <model name="bin_F">
       <static>true</static>
-      <pose>-0.15 0.00 0.900 0 0 0</pose>
+      <pose>-0.15 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -458,7 +458,7 @@
     <!-- ── Bin H (magenta) — LeRobot #2, pair-2 front (+0.20,  0.00) ──────────── -->
     <model name="bin_H">
       <static>true</static>
-      <pose>0.2 0.00 0.900 0 0 0</pose>
+      <pose>0.2 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -605,32 +605,62 @@
          Upright parts: roll=1.5708 rotates local Y (tall axis) → world Z
          ══════════════════════════════════════════════════════════════════ -->
 
-    <!-- Bin A — single_arm, roll=0.3 tilt -->
+    <!-- Bin A — 4× single_arm heaped; Z staggered 5 mm per layer -->
     <include>
       <uri>model://drone_single_arm</uri>
-      <name>part_single_arm</name>
-      <pose>-0.75 0.2 0.913 0.3 0 0</pose>
+      <name>arm_1</name>
+      <pose>-0.75 0.20 0.913 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://drone_single_arm</uri>
+      <name>arm_2</name>
+      <pose>-0.75 0.20 0.918 0 0 0.5</pose>
+    </include>
+    <include>
+      <uri>model://drone_single_arm</uri>
+      <name>arm_3</name>
+      <pose>-0.74 0.21 0.923 0.2 0 0</pose>
+    </include>
+    <include>
+      <uri>model://drone_single_arm</uri>
+      <name>arm_4</name>
+      <pose>-0.76 0.19 0.928 0 0 -0.4</pose>
     </include>
 
-    <!-- Bin B — bottom_plate, pitch=0.2 tilt -->
+    <!-- Bin B — bottom_plate leaning (bin shifted +0.05 in Y; Z raised, pitch=0.35, roll=0.15) -->
     <include>
       <uri>model://drone_bottom_plate</uri>
       <name>part_bottom_plate</name>
-      <pose>-0.75 0.0 0.912 0 0.2 0</pose>
+      <pose>-0.75 0.05 0.962 0.15 0.35 0</pose>
     </include>
 
-    <!-- Bin C — emax_motor, upright (local Y → world Z) -->
+    <!-- Bin C — 4× emax_motor upright, ±30 mm from bin centre -->
     <include>
       <uri>model://drone_emax_motor</uri>
-      <name>part_emax_motor</name>
-      <pose>-0.4 0.2 0.928 1.5708 0 0</pose>
+      <name>motor_1</name>
+      <pose>-0.43 0.17 0.928 1.5708 0 0</pose>
+    </include>
+    <include>
+      <uri>model://drone_emax_motor</uri>
+      <name>motor_2</name>
+      <pose>-0.37 0.17 0.928 1.5708 0 0</pose>
+    </include>
+    <include>
+      <uri>model://drone_emax_motor</uri>
+      <name>motor_3</name>
+      <pose>-0.43 0.23 0.928 1.5708 0 0</pose>
+    </include>
+    <include>
+      <uri>model://drone_emax_motor</uri>
+      <name>motor_4</name>
+      <pose>-0.37 0.23 0.928 1.5708 0 0</pose>
     </include>
 
-    <!-- Bin D — speedybee_stack, flat -->
+    <!-- Bin D — speedybee_stack, flat (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_speedybee_stack</uri>
       <name>part_speedybee_stack</name>
-      <pose>-0.4 0.0 0.929 0 0 0</pose>
+      <pose>-0.4 0.05 0.929 0 0 0</pose>
     </include>
 
     <!-- Bin E — capacitor, upright (local Y → world Z) -->
@@ -640,11 +670,11 @@
       <pose>-0.15 0.2 0.934 1.5708 0 0</pose>
     </include>
 
-    <!-- Bin F — vtx, flat -->
+    <!-- Bin F — vtx, flat (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_vtx</uri>
       <name>part_vtx</name>
-      <pose>-0.15 0.0 0.915 0 0 0</pose>
+      <pose>-0.15 0.05 0.915 0 0 0</pose>
     </include>
 
     <!-- Bin G — camera, flat -->
@@ -654,11 +684,11 @@
       <pose>0.2 0.2 0.917 0 0 0</pose>
     </include>
 
-    <!-- Bin H — vtx_antenna, upright (local Y → world Z) -->
+    <!-- Bin H — vtx_antenna, upright (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_vtx_antenna</uri>
       <name>part_vtx_antenna</name>
-      <pose>0.2 0.0 0.935 1.5708 0 0</pose>
+      <pose>0.2 0.05 0.935 1.5708 0 0</pose>
     </include>
 
     <!-- Bin I — rx_antenna, upright (local Y → world Z) -->
