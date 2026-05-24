@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="so101" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <xacro:arg name="namespace" default=""/>
+  <xacro:arg name="controllers_yaml" default="$(find so101_description)/config/ros2_controllers.yaml"/>
+
   <!-- Materials -->
   <material name="3d_printed">
     <color rgba="1.0 0.82 0.12 1.0"/>
@@ -361,7 +364,10 @@
        ============================================================ -->
   <gazebo>
     <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-      <parameters>$(find so101_description)/config/ros2_controllers.yaml</parameters>
+      <ros>
+        <namespace>$(arg namespace)</namespace>
+      </ros>
+      <parameters>$(arg controllers_yaml)</parameters>
     </plugin>
   </gazebo>
 
