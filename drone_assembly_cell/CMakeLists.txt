@@ -2,12 +2,20 @@ cmake_minimum_required(VERSION 3.8)
 project(drone_assembly_cell)
 
 find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+# ── Custom service interfaces ──────────────────────────────────────────────
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/MoveToStation.srv"
+)
+ament_export_dependencies(rosidl_default_runtime)
 
 install(DIRECTORY launch rviz
   DESTINATION share/${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/screw_spawner.py
+  scripts/conveyor_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

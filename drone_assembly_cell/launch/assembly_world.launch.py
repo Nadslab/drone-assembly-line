@@ -128,7 +128,14 @@ def generate_launch_description():
         name='screw_spawner', output='screen',
     )
 
-    actions = [gui_arg, rviz_arg, gz_server, gz_bridge, gz_gui, screw_spawner]
+    # ── Virtual conveyor transport service ────────────────────────────────
+    conveyor_node = Node(
+        package='drone_assembly_cell', executable='conveyor_node.py',
+        name='conveyor_node', output='screen',
+    )
+
+    actions = [gui_arg, rviz_arg, gz_server, gz_bridge, gz_gui,
+               screw_spawner, conveyor_node]
 
     # ── Per-arm: RSP + Gazebo spawn + controllers ──────────────────────────
     # Model spawns are staggered 3 s apart so each arm's gz_ros2_control

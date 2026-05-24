@@ -1,0 +1,5 @@
+string drone_id
+int32 target_station
+---
+bool success
+string message
