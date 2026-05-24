@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<robot name="so101">
+
+  <!-- ── Planning groups ─────────────────────────────────────────────── -->
+
+  <!-- 5-DOF arm chain: shoulder_pan → wrist_roll -->
+  <group name="arm">
+    <chain base_link="base_link" tip_link="gripper_link"/>
+  </group>
+
+  <!-- 1-DOF gripper -->
+  <group name="gripper">
+    <joint name="gripper"/>
+  </group>
+
+  <!-- End effector attached to the arm tip -->
+  <end_effector name="gripper_ee" parent_link="gripper_link" group="gripper"/>
+
+  <!-- ── Named poses (arm group) ─────────────────────────────────────── -->
+
+  <group_state name="home" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="0.0"/>
+    <joint name="elbow_flex"    value="0.0"/>
+    <joint name="wrist_flex"    value="0.0"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- Arm partially raised — safe travel pose -->
+  <group_state name="safe" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="-0.5"/>
+    <joint name="elbow_flex"    value="0.0"/>
+    <joint name="wrist_flex"    value="0.0"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- Bin A: world (-0.7, -0.55) → lerobot_1 delta (-0.1, -0.65) -->
+  <group_state name="bin_A_approach" group="arm">
+    <joint name="shoulder_pan"  value="-0.3"/>
+    <joint name="shoulder_lift" value="0.8"/>
+    <joint name="elbow_flex"    value="0.7"/>
+    <joint name="wrist_flex"    value="-0.5"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- Bin B: world (-0.5, -0.55) → lerobot_1 delta (+0.1, -0.65) -->
+  <group_state name="bin_B_approach" group="arm">
+    <joint name="shoulder_pan"  value="0.3"/>
+    <joint name="shoulder_lift" value="0.8"/>
+    <joint name="elbow_flex"    value="0.7"/>
+    <joint name="wrist_flex"    value="-0.5"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- Bin C: world (-0.7, -0.70) → lerobot_1 delta (-0.1, -0.80) -->
+  <group_state name="bin_C_approach" group="arm">
+    <joint name="shoulder_pan"  value="-0.3"/>
+    <joint name="shoulder_lift" value="1.0"/>
+    <joint name="elbow_flex"    value="0.9"/>
+    <joint name="wrist_flex"    value="-0.7"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- Bin D: world (-0.5, -0.70) → lerobot_1 delta (+0.1, -0.80) -->
+  <group_state name="bin_D_approach" group="arm">
+    <joint name="shoulder_pan"  value="0.3"/>
+    <joint name="shoulder_lift" value="1.0"/>
+    <joint name="elbow_flex"    value="0.9"/>
+    <joint name="wrist_flex"    value="-0.7"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- Conveyor place: world (-0.6, 0.0) → lerobot_1 delta (0, -0.1) -->
+  <group_state name="conveyor_place" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="0.3"/>
+    <joint name="elbow_flex"    value="0.5"/>
+    <joint name="wrist_flex"    value="-0.7"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- ── Collision exclusions ────────────────────────────────────────── -->
+
+  <disable_collisions link1="world"                   link2="base_link"               reason="Adjacent"/>
+  <disable_collisions link1="base_link"               link2="shoulder_link"            reason="Adjacent"/>
+  <disable_collisions link1="shoulder_link"           link2="upper_arm_link"           reason="Adjacent"/>
+  <disable_collisions link1="upper_arm_link"          link2="lower_arm_link"           reason="Adjacent"/>
+  <disable_collisions link1="lower_arm_link"          link2="wrist_link"               reason="Adjacent"/>
+  <disable_collisions link1="wrist_link"              link2="gripper_link"             reason="Adjacent"/>
+  <disable_collisions link1="gripper_link"            link2="gripper_frame_link"       reason="Adjacent"/>
+  <disable_collisions link1="gripper_link"            link2="moving_jaw_so101_v1_link" reason="Adjacent"/>
+  <disable_collisions link1="base_link"               link2="upper_arm_link"           reason="Never"/>
+  <disable_collisions link1="shoulder_link"           link2="lower_arm_link"           reason="Never"/>
+  <disable_collisions link1="upper_arm_link"          link2="wrist_link"               reason="Never"/>
+
+</robot>
