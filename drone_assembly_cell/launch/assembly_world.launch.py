@@ -85,8 +85,9 @@ def generate_launch_description():
         'LD_LIBRARY_PATH':           f'{ros_lib}:{os.environ.get("LD_LIBRARY_PATH", "")}',
     }
 
-    rviz_config = os.path.join(pkg_share, 'rviz', 'cell.rviz')
-    xacro_file  = os.path.join(so101_pkg, 'urdf', 'so101.urdf.xacro')
+    rviz_config       = os.path.join(pkg_share, 'rviz', 'cell.rviz')
+    xacro_file        = os.path.join(so101_pkg, 'urdf', 'so101.urdf.xacro')
+    xacro_screwdriver = os.path.join(so101_pkg, 'urdf', 'so101_screwdriver.urdf.xacro')
 
     # ── Launch arguments ───────────────────────────────────────────────────
     gui_arg  = DeclareLaunchArgument('gui',  default_value='true',
@@ -156,8 +157,10 @@ def generate_launch_description():
 
         yaml_path  = _write_arm_yaml(ns)
 
+        # screw_robot uses the screwdriver-variant xacro (adds tip link/joint)
+        arm_xacro = xacro_screwdriver if ns == 'screw_robot' else xacro_file
         robot_desc = xacro.process_file(
-            xacro_file,
+            arm_xacro,
             mappings={'namespace': ns, 'controllers_yaml': yaml_path},
         ).toxml()
 
