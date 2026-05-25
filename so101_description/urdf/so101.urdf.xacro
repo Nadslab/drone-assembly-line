@@ -3,8 +3,6 @@
 
   <xacro:arg name="namespace" default=""/>
   <xacro:arg name="controllers_yaml" default="$(find so101_description)/config/ros2_controllers.yaml"/>
-  <!-- Set screwdriver:=true to add the screwdriver end-effector (used by screw_robot) -->
-  <xacro:arg name="screwdriver" default="false"/>
 
   <!-- Materials -->
   <material name="3d_printed">
@@ -373,57 +371,5 @@
     </plugin>
   </gazebo>
 
-  <!-- ============================================================
-       Screwdriver end-effector (enabled when screwdriver:=true)
-       Attaches to gripper_link; bit points in −Z of gripper_link frame.
-
-       Geometry (both STLs are in mm → scale 0.001):
-         bit_holder : 20mm ⌀ × 25.6mm tall, base at Z=0, tip at +Z in STL
-         screwdriver_bit : 4mm ⌀ × 43mm long
-       Both are flipped 180° (rpy π 0 0) so the tip extends in −Z.
-  ============================================================ -->
-  <xacro:if value="$(arg screwdriver)">
-
-    <link name="screwdriver_tip_link">
-      <inertial>
-        <origin xyz="0 0 -0.035" rpy="0 0 0"/>
-        <mass value="0.025"/>
-        <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-6"/>
-      </inertial>
-      <!-- bit holder: flipped so chuck tip points in −Z -->
-      <visual>
-        <origin xyz="0 0 0" rpy="3.14159 0 0"/>
-        <geometry>
-          <mesh filename="package://so101_description/meshes/so101_screwdriver_bit_holder.stl"
-                scale="0.001 0.001 0.001"/>
-        </geometry>
-        <material name="sts3215"/>
-      </visual>
-      <!-- screwdriver bit: starts just below the holder tip -->
-      <visual>
-        <origin xyz="0 0 -0.026" rpy="3.14159 0 0"/>
-        <geometry>
-          <mesh filename="package://so101_description/meshes/screwdriver_bit.stl"
-                scale="0.001 0.001 0.001"/>
-        </geometry>
-        <material name="3d_printed"/>
-      </visual>
-      <!-- simplified collision: cylinder covering holder + bit -->
-      <collision>
-        <origin xyz="0 0 -0.035" rpy="0 0 0"/>
-        <geometry>
-          <cylinder radius="0.005" length="0.070"/>
-        </geometry>
-      </collision>
-    </link>
-
-    <!-- Fixed joint: 30mm below gripper_link origin, aligned with tool axis -->
-    <joint name="screwdriver_tip_joint" type="fixed">
-      <origin xyz="0 0 -0.030" rpy="0 0 0"/>
-      <parent link="gripper_link"/>
-      <child link="screwdriver_tip_link"/>
-    </joint>
-
-  </xacro:if>
 
 </robot>

@@ -159,10 +159,10 @@ def generate_launch_description():
 
         # screw_robot uses the screwdriver-variant xacro (adds tip link/joint)
         arm_xacro = xacro_screwdriver if ns == 'screw_robot' else xacro_file
-        robot_desc = xacro.process_file(
-            arm_xacro,
-            mappings={'namespace': ns, 'controllers_yaml': yaml_path},
-        ).toxml()
+        xacro_mappings = {'namespace': ns, 'controllers_yaml': yaml_path}
+        if ns == 'screw_robot':
+            xacro_mappings['screwdriver'] = 'true'
+        robot_desc = xacro.process_file(arm_xacro, mappings=xacro_mappings).toxml()
 
         # robot_state_publisher — unique namespace + frame_prefix avoids TF clashes
         rsp = Node(
