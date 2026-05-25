@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<!--
+  lerobot_2  station: world X=0.00, Y=+0.10
+  Bin layout (world coords → delta from arm base):
+    bin_E  (-0.15, +0.20)  →  (-0.15, +0.10)  left-back
+    bin_F  (-0.15, +0.05)  →  (-0.15, -0.05)  left-front
+    bin_G  (+0.20, +0.20)  →  (+0.20, +0.10)  right-back
+    bin_H  (+0.20, +0.05)  →  (+0.20, -0.05)  right-front
+  Conveyor main  (X=0.00, Y=-0.15)  →  (0.00, -0.25)  forward
+-->
+<robot name="so101">
+
+  <group name="arm">
+    <chain base_link="base_link" tip_link="gripper_link"/>
+  </group>
+  <group name="gripper">
+    <joint name="gripper"/>
+  </group>
+  <end_effector name="gripper_ee" parent_link="gripper_link" group="gripper"/>
+
+  <!-- ── Named poses ─────────────────────────────────────────────────── -->
+
+  <group_state name="home" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="0.0"/>
+    <joint name="elbow_flex"    value="0.0"/>
+    <joint name="wrist_flex"    value="0.0"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <group_state name="safe" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="-0.5"/>
+    <joint name="elbow_flex"    value="0.0"/>
+    <joint name="wrist_flex"    value="0.0"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- bin_E: delta (-0.15, +0.10) — left, slightly back -->
+  <group_state name="bin_E_approach" group="arm">
+    <joint name="shoulder_pan"  value="-0.5"/>
+    <joint name="shoulder_lift" value="0.3"/>
+    <joint name="elbow_flex"    value="0.3"/>
+    <joint name="wrist_flex"    value="-0.3"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- bin_F: delta (-0.15, -0.05) — left, slightly forward -->
+  <group_state name="bin_F_approach" group="arm">
+    <joint name="shoulder_pan"  value="-0.5"/>
+    <joint name="shoulder_lift" value="0.5"/>
+    <joint name="elbow_flex"    value="0.3"/>
+    <joint name="wrist_flex"    value="-0.3"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- bin_G: delta (+0.20, +0.10) — right, slightly back -->
+  <group_state name="bin_G_approach" group="arm">
+    <joint name="shoulder_pan"  value="0.5"/>
+    <joint name="shoulder_lift" value="0.3"/>
+    <joint name="elbow_flex"    value="0.3"/>
+    <joint name="wrist_flex"    value="-0.3"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- bin_H: delta (+0.20, -0.05) — right, slightly forward -->
+  <group_state name="bin_H_approach" group="arm">
+    <joint name="shoulder_pan"  value="0.5"/>
+    <joint name="shoulder_lift" value="0.5"/>
+    <joint name="elbow_flex"    value="0.3"/>
+    <joint name="wrist_flex"    value="-0.3"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- conveyor: delta (0.00, -0.25) — directly forward (-Y) -->
+  <group_state name="conveyor_place" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="0.5"/>
+    <joint name="elbow_flex"    value="0.5"/>
+    <joint name="wrist_flex"    value="-0.7"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- ── Collision exclusions ────────────────────────────────────────── -->
+  <disable_collisions link1="world"                   link2="base_link"               reason="Adjacent"/>
+  <disable_collisions link1="base_link"               link2="shoulder_link"            reason="Adjacent"/>
+  <disable_collisions link1="shoulder_link"           link2="upper_arm_link"           reason="Adjacent"/>
+  <disable_collisions link1="upper_arm_link"          link2="lower_arm_link"           reason="Adjacent"/>
+  <disable_collisions link1="lower_arm_link"          link2="wrist_link"               reason="Adjacent"/>
+  <disable_collisions link1="wrist_link"              link2="gripper_link"             reason="Adjacent"/>
+  <disable_collisions link1="gripper_link"            link2="gripper_frame_link"       reason="Adjacent"/>
+  <disable_collisions link1="gripper_link"            link2="moving_jaw_so101_v1_link" reason="Adjacent"/>
+  <disable_collisions link1="base_link"               link2="upper_arm_link"           reason="Never"/>
+  <disable_collisions link1="shoulder_link"           link2="lower_arm_link"           reason="Never"/>
+  <disable_collisions link1="upper_arm_link"          link2="wrist_link"               reason="Never"/>
+
+</robot>

@@ -1,0 +1,24 @@
+/**:
+  ros__parameters:
+    planning_pipelines:
+      pipeline_names:
+        - ompl
+
+    ompl:
+      planning_plugins:
+        - ompl_interface/OMPLPlanner
+      request_adapters:
+        - default_planning_request_adapters/ResolveConstraintFrames
+        - default_planning_request_adapters/ValidateWorkspaceBounds
+        - default_planning_request_adapters/CheckStartStateBounds
+        - default_planning_request_adapters/CheckStartStateCollision
+      response_adapters:
+        - default_planning_response_adapters/AddTimeOptimalParameterization
+        - default_planning_response_adapters/ValidateSolution
+        - default_planning_response_adapters/DisplayMotionPath
+
+    default_planning_pipeline: ompl
+    planning_attempts: 10
+    planning_time: 5.0
+    max_velocity_scaling_factor: 0.5
+    max_acceleration_scaling_factor: 0.5
