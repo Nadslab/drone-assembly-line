@@ -3,24 +3,24 @@
   <world name="frame_assembly_cell">
 
     <!-- ── Layout reference ────────────────────────────────────────────────
-         Assembly table: 3.0m (X) × 1.3m (Y), top at Z=0.900.
-           X range: [-1.5, +1.5]   Y range: [-0.65, +0.65]
+         Assembly table: 3.0m (X) × 0.9m (Y), top at Z=0.900.
+           X range: [-1.5, +1.5]   Y range: [-0.45, +0.45]
          Main conveyor:   Y=−0.15, runs X direction (parts flow +X → right)
          Return conveyor: Y=+0.35, parallel, parts flow −X ← left
          Side conveyor:   X=−1.40, Y=+0.10, connects return→main (left end)
          Finished area:   standalone platform at (X=−1.10, Y=+0.825)
 
-         4 robot stations; front=−Y, back=+Y:
-           St.1 X=−1.2  Screw Robot  — front (Y=−0.40) — bin_screw (−1.20,−0.55)
-           St.1 X=−1.2  LeRobot #1   — back  (Y=+0.55) — A(−1.30,+0.65) B(−1.10,+0.65)
-                                                            C(−1.30,+0.80) D(−1.10,+0.80)
-           St.2 X=−0.6  LeRobot #2   — front (Y=−0.40) — E(−0.70,−0.55) F(−0.50,−0.55)
-                                                            G(−0.70,−0.70) H(−0.50,−0.70)
-           St.3 X= 0.0  Solder Robot — front (Y=−0.40) — no bins
-           St.4 X=+0.6  LeRobot #3   — front (Y=−0.40) — I(+0.50,−0.55) J(+0.70,−0.55)
-                                        back  (Y=+0.65) — K(+0.50,+0.65) L(+0.70,+0.65) [empty]
+         5 robot stations at 0.6m spacing, markers at Y=+0.10:
+           St.1 X=−1.2  Screw Robot  — bin_screw at (−1.00, +0.10)
+           St.2 X=−0.6  LeRobot #1   — A(−0.75,+0.20) B(−0.75,0.00)
+                                             C(−0.40,+0.20) D(−0.40,0.00)
+           St.3 X= 0.0  LeRobot #2   — E(−0.15,+0.20) F(−0.15,0.00)
+                                             G(+0.20,+0.20) H(+0.20,0.00)
+           St.4 X=+0.6  Solder Robot — no bins
+           St.5 X=+1.2  LeRobot #3   — I(+1.05,−0.50) J(+1.30,−0.50)
 
-         Station markers: Y=+0.10 (front arms), Y=+0.40 (lerobot_1 back).
+         Bins A–H: Y=+0.20 (back row) or Y=0.00 (front row); I/J: Y=−0.50
+         Station markers: Y=+0.10, bright yellow discs on table surface.
     ──────────────────────────────────────────────────────────────────────── -->
 
     <!-- Physics: 0.5ms step for numerical stability with 5 active arms -->
@@ -111,8 +111,7 @@
     <!-- ═══════════════════════════════════════════════════════════════════
          Robot station mounting markers — bright yellow discs on table.
          Cylinder radius 0.04m, height 0.020m, bottom at Z=0.900.
-         Front arms: Y=+0.10 (between conveyors).
-         lerobot_1 back: Y=+0.40 (just ahead of arm on back side).
+         Y=−0.42: front edge of table, between conveyor rail and table edge.
     ═══════════════════════════════════════════════════════════════════════ -->
 
     <model name="station_marker_1">
@@ -130,24 +129,7 @@
       </link>
     </model>
 
-    <!-- lerobot_1 back side (Y=+0.40) -->
     <model name="station_marker_2">
-      <static>true</static>
-      <pose>-1.2 0.4 0.900 0 0 0</pose>
-      <link name="disc">
-        <pose>0 0 0.010 0 0 0</pose>
-        <collision name="col">
-          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
-        </collision>
-        <visual name="vis">
-          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
-          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- lerobot_2 front (X=-0.6) -->
-    <model name="station_marker_3">
       <static>true</static>
       <pose>-0.6 0.1 0.900 0 0 0</pose>
       <link name="disc">
@@ -162,8 +144,7 @@
       </link>
     </model>
 
-    <!-- solder_robot front (X=0.0) -->
-    <model name="station_marker_4">
+    <model name="station_marker_3">
       <static>true</static>
       <pose>0.0 0.1 0.900 0 0 0</pose>
       <link name="disc">
@@ -178,8 +159,7 @@
       </link>
     </model>
 
-    <!-- lerobot_3 front (X=+0.6) -->
-    <model name="station_marker_5">
+    <model name="station_marker_4">
       <static>true</static>
       <pose>0.6 0.1 0.900 0 0 0</pose>
       <link name="disc">
@@ -194,25 +174,39 @@
       </link>
     </model>
 
+    <model name="station_marker_5">
+      <static>true</static>
+      <pose>1.2 0.1 0.900 0 0 0</pose>
+      <link name="disc">
+        <pose>0 0 0.010 0 0 0</pose>
+        <collision name="col">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>0.04</radius><length>0.020</length></cylinder></geometry>
+          <material><ambient>0.80 0.60 0.00 1</ambient><diffuse>1.00 0.75 0.00 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
     <!-- ═══════════════════════════════════════════════════════════════════
-         Parts bins — 13 total, each defined inline with a distinct color.
+         Parts bins — 11 total, each defined inline with a distinct color.
          Outer dims: 0.15 × 0.15 × 0.055m (5 links: floor + 4 walls).
          Z=0.900 for all bins (table surface height).
 
-         Screw Robot:   bin_screw (−1.20,−0.55)
-         LeRobot #1:    A(−1.30,+0.65) B(−1.10,+0.65)   [back side]
-                        C(−1.30,+0.80) D(−1.10,+0.80)
-         LeRobot #2:    E(−0.70,−0.55) F(−0.50,−0.55)   [front side]
-                        G(−0.70,−0.70) H(−0.50,−0.70)
+         Screw Robot:   bin_screw (−1.00, +0.10)
+         LeRobot #1:    A(−0.75,+0.20) B(−0.75, 0.00)
+                        C(−0.40,+0.20) D(−0.40, 0.00)
+         LeRobot #2:    E(−0.15,+0.20) F(−0.15, 0.00)
+                        G(+0.20,+0.20) H(+0.20, 0.00)
          Solder Robot:  (no bins)
-         LeRobot #3:    I(+0.50,−0.55) J(+0.70,−0.55)   [front side]
-                        K(+0.50,+0.65) L(+0.70,+0.65)   [back side, empty white]
+         LeRobot #3:    I(+1.05,−0.50) J(+1.30,−0.50)
     ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- ── Bin A (red) — LeRobot #1, back side (−1.30, +0.65) ──────────── -->
+    <!-- ── Bin A (red) — LeRobot #1, pair-1 back  (−0.75, +0.20) ──────────── -->
     <model name="bin_A">
       <static>true</static>
-      <pose>-1.30 0.65 0.900 0 0 0</pose>
+      <pose>-0.75 0.2 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -245,10 +239,10 @@
       </link>
     </model>
 
-    <!-- ── Bin B (blue) — LeRobot #1, back side (−1.10, +0.65) ──────────── -->
+    <!-- ── Bin B (blue) — LeRobot #1, pair-1 front (−0.75,  0.05) ──────────── -->
     <model name="bin_B">
       <static>true</static>
-      <pose>-1.10 0.65 0.900 0 0 0</pose>
+      <pose>-0.75 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -281,10 +275,10 @@
       </link>
     </model>
 
-    <!-- ── Bin C (green) — LeRobot #1, back side (−1.30, +0.80) ──────────── -->
+    <!-- ── Bin C (green) — LeRobot #1, pair-2 back  (−0.40, +0.20) ──────────── -->
     <model name="bin_C">
       <static>true</static>
-      <pose>-1.30 0.80 0.900 0 0 0</pose>
+      <pose>-0.4 0.2 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -317,10 +311,10 @@
       </link>
     </model>
 
-    <!-- ── Bin D (yellow) — LeRobot #1, back side (−1.10, +0.80) ──────────── -->
+    <!-- ── Bin D (yellow) — LeRobot #1, pair-2 front (−0.40,  0.00) ──────────── -->
     <model name="bin_D">
       <static>true</static>
-      <pose>-1.10 0.80 0.900 0 0 0</pose>
+      <pose>-0.4 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -353,10 +347,10 @@
       </link>
     </model>
 
-    <!-- ── Bin E (orange) — LeRobot #2, front side (−0.70, −0.55) ──────────── -->
+    <!-- ── Bin E (orange) — LeRobot #2, pair-1 back  (−0.15, +0.20) ──────────── -->
     <model name="bin_E">
       <static>true</static>
-      <pose>-0.70 -0.55 0.900 0 0 0</pose>
+      <pose>-0.15 0.2 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -389,10 +383,10 @@
       </link>
     </model>
 
-    <!-- ── Bin F (purple) — LeRobot #2, front side (−0.50, −0.55) ──────────── -->
+    <!-- ── Bin F (purple) — LeRobot #2, pair-1 front (−0.15,  0.00) ──────────── -->
     <model name="bin_F">
       <static>true</static>
-      <pose>-0.50 -0.55 0.900 0 0 0</pose>
+      <pose>-0.15 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -425,10 +419,10 @@
       </link>
     </model>
 
-    <!-- ── Bin G (cyan) — LeRobot #2, front side (−0.70, −0.70) ──────────── -->
+    <!-- ── Bin G (cyan) — LeRobot #2, pair-2 back  (+0.20, +0.20) ──────────── -->
     <model name="bin_G">
       <static>true</static>
-      <pose>-0.70 -0.70 0.900 0 0 0</pose>
+      <pose>0.2 0.2 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -461,10 +455,10 @@
       </link>
     </model>
 
-    <!-- ── Bin H (magenta) — LeRobot #2, front side (−0.50, −0.70) ──────────── -->
+    <!-- ── Bin H (magenta) — LeRobot #2, pair-2 front (+0.20,  0.00) ──────────── -->
     <model name="bin_H">
       <static>true</static>
-      <pose>-0.50 -0.70 0.900 0 0 0</pose>
+      <pose>0.2 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -497,10 +491,10 @@
       </link>
     </model>
 
-    <!-- ── Bin I (lime) — LeRobot #3, front side (+0.50, −0.55) ─────────────── -->
+    <!-- ── Bin I (lime) — LeRobot #3, left  (+1.05, −0.50) ─────────────────── -->
     <model name="bin_I">
       <static>true</static>
-      <pose>0.50 -0.55 0.900 0 0 0</pose>
+      <pose>1.05 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -533,10 +527,10 @@
       </link>
     </model>
 
-    <!-- ── Bin J (teal) — LeRobot #3, front side (+0.70, −0.55) ─────────────── -->
+    <!-- ── Bin J (teal) — LeRobot #3, right (+1.30, −0.50) ─────────────────── -->
     <model name="bin_J">
       <static>true</static>
-      <pose>0.70 -0.55 0.900 0 0 0</pose>
+      <pose>1.3 -0.50 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -569,10 +563,10 @@
       </link>
     </model>
 
-    <!-- ── Bin screw (orange-red) — Screw Robot (−1.20, −0.55) ──────────── -->
+    <!-- ── Bin screw (orange-red) — Screw Robot     (−1.00, +0.10) ──────────── -->
     <model name="bin_screw">
       <static>true</static>
-      <pose>-1.20 -0.55 0.900 0 0 0</pose>
+      <pose>-1.0 0.1 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -602,78 +596,6 @@
         <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
           <material><ambient>0.85 0.22 0.05 1</ambient><diffuse>1.00 0.30 0.08 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <!-- ── Bin K (white) — LeRobot #3, back side (+0.50, +0.65) — empty placeholder -->
-    <model name="bin_K">
-      <static>true</static>
-      <pose>0.50 0.65 0.900 0 0 0</pose>
-      <link name="floor">
-        <pose>0 0 0.005 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_front">
-        <pose>0 -0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_back">
-        <pose>0 0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_left">
-        <pose>-0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_right">
-        <pose>0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <!-- ── Bin L (white) — LeRobot #3, back side (+0.70, +0.65) — empty placeholder -->
-    <model name="bin_L">
-      <static>true</static>
-      <pose>0.70 0.65 0.900 0 0 0</pose>
-      <link name="floor">
-        <pose>0 0 0.005 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_front">
-        <pose>0 -0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_back">
-        <pose>0 0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_left">
-        <pose>-0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
-      </link>
-      <link name="wall_right">
-        <pose>0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
       </link>
     </model>
 
@@ -687,100 +609,100 @@
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_1</name>
-      <pose>-1.30 0.65 0.913 0 0 0</pose>
+      <pose>-0.75 0.20 0.913 0 0 0</pose>
     </include>
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_2</name>
-      <pose>-1.30 0.65 0.918 0 0 0.5</pose>
+      <pose>-0.75 0.20 0.918 0 0 0.5</pose>
     </include>
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_3</name>
-      <pose>-1.29 0.66 0.923 0.2 0 0</pose>
+      <pose>-0.74 0.21 0.923 0.2 0 0</pose>
     </include>
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_4</name>
-      <pose>-1.31 0.64 0.928 0 0 -0.4</pose>
+      <pose>-0.76 0.19 0.928 0 0 -0.4</pose>
     </include>
 
-    <!-- Bin B — bottom_plate leaning (Z raised, pitch=0.35, roll=0.15) -->
+    <!-- Bin B — bottom_plate leaning (bin shifted +0.05 in Y; Z raised, pitch=0.35, roll=0.15) -->
     <include>
       <uri>model://drone_bottom_plate</uri>
       <name>part_bottom_plate</name>
-      <pose>-1.10 0.65 0.962 0.15 0.35 0</pose>
+      <pose>-0.75 0.05 0.962 0.15 0.35 0</pose>
     </include>
 
     <!-- Bin C — 4× emax_motor upright, ±30 mm from bin centre -->
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_1</name>
-      <pose>-1.33 0.77 0.928 1.5708 0 0</pose>
+      <pose>-0.43 0.17 0.928 1.5708 0 0</pose>
     </include>
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_2</name>
-      <pose>-1.27 0.77 0.928 1.5708 0 0</pose>
+      <pose>-0.37 0.17 0.928 1.5708 0 0</pose>
     </include>
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_3</name>
-      <pose>-1.33 0.83 0.928 1.5708 0 0</pose>
+      <pose>-0.43 0.23 0.928 1.5708 0 0</pose>
     </include>
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_4</name>
-      <pose>-1.27 0.83 0.928 1.5708 0 0</pose>
+      <pose>-0.37 0.23 0.928 1.5708 0 0</pose>
     </include>
 
-    <!-- Bin D — speedybee_stack, flat -->
+    <!-- Bin D — speedybee_stack, flat (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_speedybee_stack</uri>
       <name>part_speedybee_stack</name>
-      <pose>-1.10 0.80 0.929 0 0 0</pose>
+      <pose>-0.4 0.05 0.929 0 0 0</pose>
     </include>
 
     <!-- Bin E — capacitor, upright (local Y → world Z) -->
     <include>
       <uri>model://drone_capacitor</uri>
       <name>part_capacitor</name>
-      <pose>-0.70 -0.55 0.934 1.5708 0 0</pose>
+      <pose>-0.15 0.2 0.934 1.5708 0 0</pose>
     </include>
 
-    <!-- Bin F — vtx, flat -->
+    <!-- Bin F — vtx, flat (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_vtx</uri>
       <name>part_vtx</name>
-      <pose>-0.50 -0.55 0.915 0 0 0</pose>
+      <pose>-0.15 0.05 0.915 0 0 0</pose>
     </include>
 
     <!-- Bin G — camera, flat -->
     <include>
       <uri>model://drone_camera</uri>
       <name>part_camera</name>
-      <pose>-0.70 -0.70 0.917 0 0 0</pose>
+      <pose>0.2 0.2 0.917 0 0 0</pose>
     </include>
 
-    <!-- Bin H — vtx_antenna, upright -->
+    <!-- Bin H — vtx_antenna, upright (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_vtx_antenna</uri>
       <name>part_vtx_antenna</name>
-      <pose>-0.50 -0.70 0.935 1.5708 0 0</pose>
+      <pose>0.2 0.05 0.935 1.5708 0 0</pose>
     </include>
 
     <!-- Bin I — rx_antenna, upright (local Y → world Z) -->
     <include>
       <uri>model://drone_rx_antenna</uri>
       <name>part_rx_antenna</name>
-      <pose>0.50 -0.55 0.937 1.5708 0 0</pose>
+      <pose>1.05 -0.5 0.937 1.5708 0 0</pose>
     </include>
 
     <!-- Bin J — tbs_antenna, upright (local Y → world Z); 151 mm tall sticks above bin walls -->
     <include>
       <uri>model://drone_tbs_antenna</uri>
       <name>part_tbs_antenna</name>
-      <pose>0.70 -0.55 0.986 1.5708 0 0</pose>
+      <pose>1.3 -0.5 0.986 1.5708 0 0</pose>
     </include>
 
   </world>
