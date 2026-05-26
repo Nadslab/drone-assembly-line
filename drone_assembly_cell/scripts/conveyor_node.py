@@ -22,11 +22,10 @@ from drone_assembly_cell.srv import MoveToStation
 # Station poses on the conveyor centreline (world frame).
 # Values match the station marker positions in frame_assembly.sdf.
 _STATIONS = {
-    1: (-1.2, 0.0, 0.95),
-    2: (-0.6, 0.0, 0.95),
-    3: ( 0.0, 0.0, 0.95),
-    4: ( 0.6, 0.0, 0.95),
-    5: ( 1.2, 0.0, 0.95),
+    1: (-1.2, 0.0, 0.95),  # screw_robot + lerobot_1
+    2: (-0.6, 0.0, 0.95),  # lerobot_2
+    3: ( 0.0, 0.0, 0.95),  # solder_robot
+    4: ( 0.6, 0.0, 0.95),  # lerobot_3
 }
 
 
@@ -75,7 +74,7 @@ class ConveyorNode(Node):
         if station not in _STATIONS:
             response.success = False
             response.message = (
-                f'Invalid station {station}; valid range is 1–5')
+                f'Invalid station {station}; valid range is 1–4')
             return response
 
         x, y, z = _STATIONS[station]

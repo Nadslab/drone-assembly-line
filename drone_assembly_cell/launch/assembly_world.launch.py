@@ -10,11 +10,11 @@ import xacro
 
 # One entry per robot station.  The namespace also becomes the Gazebo model name.
 ARMS = [
-    {'ns': 'screw_robot',  'x': -1.2, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_1',    'x': -0.6, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_2',    'x':  0.0, 'y': 0.1, 'z': 0.9},
-    {'ns': 'solder_robot', 'x':  0.6, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_3',    'x':  1.2, 'y': 0.1, 'z': 0.9},
+    {'ns': 'screw_robot',  'x': -1.2, 'y': -0.40, 'z': 0.9, 'yaw': 0.0},
+    {'ns': 'lerobot_1',    'x': -1.2, 'y':  0.55, 'z': 0.9, 'yaw': 3.14159},
+    {'ns': 'lerobot_2',    'x': -0.6, 'y': -0.40, 'z': 0.9, 'yaw': 0.0},
+    {'ns': 'solder_robot', 'x':  0.0, 'y': -0.40, 'z': 0.9, 'yaw': 0.0},
+    {'ns': 'lerobot_3',    'x':  0.6, 'y': -0.40, 'z': 0.9, 'yaw': 0.0},
 ]
 
 _JOINTS = ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper']
@@ -185,7 +185,7 @@ def generate_launch_description():
                     '-x', str(arm['x']),
                     '-y', str(arm['y']),
                     '-z', str(arm['z']),
-                    '-R', '0.0', '-P', '0.0', '-Y', '0.0',
+                    '-R', '0.0', '-P', '0.0', '-Y', str(arm['yaw']),
                 ],
                 output='screen',
             )
