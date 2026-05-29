@@ -16,6 +16,7 @@ install(DIRECTORY launch rviz
 install(PROGRAMS
   scripts/screw_spawner.py
   scripts/conveyor_node.py
+  scripts/gripper_attach_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

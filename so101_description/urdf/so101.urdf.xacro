@@ -371,5 +371,16 @@
     </plugin>
   </gazebo>
 
+  <!-- Contact sensor on moving jaw — per-arm gz topic via namespace arg -->
+  <gazebo reference="moving_jaw_so101_v1_link">
+    <sensor name="gripper_contact_sensor" type="contact">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <contact>
+        <collision>moving_jaw_so101_v1_link_collision</collision>
+      </contact>
+      <topic>$(arg namespace)/gripper/contact</topic>
+    </sensor>
+  </gazebo>
 
 </robot>

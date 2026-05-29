@@ -11,8 +11,8 @@ import xacro
 # One entry per robot station.  The namespace also becomes the Gazebo model name.
 ARMS = [
     {'ns': 'screw_robot',  'x': -1.2, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_1',    'x': -0.6, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_2',    'x':  0.0, 'y': 0.1, 'z': 0.9},
+    {'ns': 'lerobot_1',    'x': -1.1, 'y': -0.4, 'z': 0.9},
+    {'ns': 'lerobot_2',    'x': -0.6, 'y':  0.1, 'z': 0.9},
     {'ns': 'solder_robot', 'x':  0.6, 'y': 0.1, 'z': 0.9},
     {'ns': 'lerobot_3',    'x':  1.2, 'y': 0.1, 'z': 0.9},
 ]
@@ -108,6 +108,10 @@ def generate_launch_description():
     ])
 
     # ── ROS-GZ bridge ──────────────────────────────────────────────────────
+    contact_bridges = [
+        f'/{arm["ns"]}/gripper/contact@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts'
+        for arm in ARMS
+    ]
     gz_bridge = Node(
         package='ros_gz_bridge', executable='parameter_bridge',
         name='ros_gz_bridge',
@@ -117,8 +121,7 @@ def generate_launch_description():
             '@geometry_msgs/msg/PoseArray[gz.msgs.Pose_V',
             '/world/frame_assembly_cell/dynamic_pose/info'
             '@geometry_msgs/msg/PoseArray[gz.msgs.Pose_V',
-            '/gripper/contact'
-            '@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts',
+            *contact_bridges,
         ],
         output='screen',
     )
@@ -215,6 +218,25 @@ def generate_launch_description():
         ])
 
         actions += [rsp, spawn, load_jsb, load_arm_ctrl]
+
+        if ns != 'screw_robot':
+            load_attach = TimerAction(period=arm_ctrl_t + 2.0, actions=[
+                Node(
+                    package='drone_assembly_cell',
+                    executable='gripper_attach_node.py',
+                    name=f'gripper_attach_{ns}',
+                    parameters=[{
+                        'namespace': ns,
+                        'world': 'frame_assembly_cell',
+                        'gz_bin': '/opt/ros/jazzy/opt/gz_tools_vendor/bin/gz',
+                        'base_x': arm['x'],
+                        'base_y': arm['y'],
+                        'base_z': arm['z'],
+                    }],
+                    output='screen',
+                )
+            ])
+            actions.append(load_attach)
 
     # ── RViz2 (optional, after all controllers are up at T≈64s) ───────────
     rviz_node = TimerAction(period=70.0, actions=[
