@@ -1,0 +1,11 @@
+# Goal
+geometry_msgs/PoseStamped source_pose
+float64 approach_height
+float64 gripper_close_pos
+---
+# Result
+bool success
+string message
+---
+# Feedback
+string phase

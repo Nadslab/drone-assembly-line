@@ -3,10 +3,15 @@ project(drone_assembly_cell)
 
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(action_msgs REQUIRED)
 
 # ── Custom service interfaces ──────────────────────────────────────────────
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/MoveToStation.srv"
+  "action/PickPart.action"
+  "action/PlacePart.action"
+  DEPENDENCIES geometry_msgs action_msgs
 )
 ament_export_dependencies(rosidl_default_runtime)
 
@@ -17,6 +22,7 @@ install(PROGRAMS
   scripts/screw_spawner.py
   scripts/conveyor_node.py
   scripts/gripper_attach_node.py
+  scripts/pick_place_server.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

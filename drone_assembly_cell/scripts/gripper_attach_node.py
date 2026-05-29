@@ -69,10 +69,16 @@ class GripperAttach(Node):
         self._base_y = base_y
         self._base_z = base_z
 
+        attachable_raw = self.declare_parameter(
+            'attachable_prefixes',
+            ['screw_', 'drone_'],
+        ).get_parameter_value().string_array_value
+        self._attachable_prefixes = list(attachable_raw)
+
         # State (protected by _lock)
         self._lock         = threading.Lock()
         self._gripper_pos  = 1.5      # assume open at start
-        self._contact_screw: str | None = None  # screw model name from latest contacts
+        self._contact_screw: str | None = None  # model name from latest contacts
         self._gripping_screw: str | None = None
         self._local_offset = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)  # x,y,z,qx,qy,qz,qw relative to tip
 
@@ -122,17 +128,17 @@ class GripperAttach(Node):
                 self._gripping_screw = None
 
     def _contact_cb(self, msg: Contacts):
-        screw_name = None
+        found = None
         for contact in msg.contacts:
             for coll_name in (contact.collision1.name, contact.collision2.name):
                 model = coll_name.split('::')[0]
-                if model.startswith('screw_'):
-                    screw_name = model
+                if any(model.startswith(p) for p in self._attachable_prefixes):
+                    found = model
                     break
-            if screw_name:
+            if found:
                 break
         with self._lock:
-            self._contact_screw = screw_name
+            self._contact_screw = found
 
     # ------------------------------------------------------------------
     # Tick

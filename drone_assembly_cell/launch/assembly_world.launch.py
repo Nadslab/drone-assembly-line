@@ -2,7 +2,9 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess, TimerAction,
+                            IncludeLaunchDescription)
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -66,8 +68,9 @@ def _write_arm_yaml(ns: str) -> str:
 
 
 def generate_launch_description():
-    pkg_share = get_package_share_directory('drone_assembly_cell')
-    so101_pkg  = get_package_share_directory('so101_description')
+    pkg_share   = get_package_share_directory('drone_assembly_cell')
+    so101_pkg   = get_package_share_directory('so101_description')
+    moveit_pkg  = get_package_share_directory('assembly_line_moveit_config')
     so101_share_parent = os.path.dirname(so101_pkg)
 
     worlds_dir = os.path.join(pkg_share, 'worlds')
@@ -237,6 +240,32 @@ def generate_launch_description():
                 )
             ])
             actions.append(load_attach)
+
+            load_pps = TimerAction(period=arm_ctrl_t + 6.0, actions=[
+                Node(
+                    package='drone_assembly_cell',
+                    executable='pick_place_server.py',
+                    name=f'pick_place_{ns}',
+                    parameters=[{
+                        'namespace': ns,
+                        'base_x': arm['x'],
+                        'base_y': arm['y'],
+                        'base_z': arm['z'],
+                    }],
+                    output='screen',
+                )
+            ])
+            actions.append(load_pps)
+
+    # ── MoveIt2 move_group nodes (all arms, T=70s — after last controller) ─
+    move_groups = TimerAction(period=70.0, actions=[
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(moveit_pkg, 'launch', 'all_move_groups.launch.py')),
+            launch_arguments={'use_sim_time': 'true'}.items(),
+        )
+    ])
+    actions.append(move_groups)
 
     # ── RViz2 (optional, after all controllers are up at T≈64s) ───────────
     rviz_node = TimerAction(period=70.0, actions=[
