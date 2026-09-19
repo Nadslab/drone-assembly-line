@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!--
+  P1 spike: one prismatic axis (a cart on a rail) driven by ros2_control in Gazebo.
+  Mirrors the gz_ros2_control_demos cart-on-rail example (test_cart_position.xacro.urdf):
+  world -> fixed rail -> prismatic cart, GazeboSimSystem hardware, position command interface.
+  The damping/friction/limit values here are the candidates for the gantry-axis defaults in
+  line_spec.yaml once spike.sh passes.
+-->
+<robot name="spike_axis" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="controllers_file" default="$(find drone_line_sim)/config/spike_controllers.yaml"/>
+
+  <!-- Rail: 1.2 m aluminium extrusion, 80x80 mm, ~5 kg -->
+  <xacro:property name="rail_len" value="1.2"/>
+  <xacro:property name="rail_w" value="0.08"/>
+  <xacro:property name="rail_mass" value="5.0"/>
+  <xacro:property name="rail_z" value="0.5"/>
+
+  <!-- Cart: 200x150x50 mm, 2 kg -->
+  <xacro:property name="cart_x" value="0.2"/>
+  <xacro:property name="cart_y" value="0.15"/>
+  <xacro:property name="cart_z" value="0.05"/>
+  <xacro:property name="cart_mass" value="2.0"/>
+
+  <!-- Joint -->
+  <xacro:property name="axis_lower" value="-0.1"/>
+  <xacro:property name="axis_upper" value="1.0"/>
+  <xacro:property name="axis_effort" value="200.0"/>
+  <xacro:property name="axis_velocity" value="1.0"/>
+  <xacro:property name="axis_damping" value="5.0"/>
+  <xacro:property name="axis_friction" value="0.5"/>
+
+  <xacro:macro name="box_inertial" params="m x y z">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${m / 12.0 * (y*y + z*z)}" ixy="0" ixz="0"
+               iyy="${m / 12.0 * (x*x + z*z)}" iyz="0"
+               izz="${m / 12.0 * (x*x + y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <link name="world"/>
+
+  <link name="rail">
+    <visual>
+      <origin xyz="${rail_len / 2 - 0.1} 0 0"/>
+      <geometry><box size="${rail_len} ${rail_w} ${rail_w}"/></geometry>
+    </visual>
+    <xacro:box_inertial m="${rail_mass}" x="${rail_len}" y="${rail_w}" z="${rail_w}"/>
+  </link>
+
+  <joint name="rail_joint" type="fixed">
+    <parent link="world"/>
+    <child link="rail"/>
+    <origin xyz="0 0 ${rail_z}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="cart">
+    <visual>
+      <geometry><box size="${cart_x} ${cart_y} ${cart_z}"/></geometry>
+    </visual>
+    <collision>
+      <geometry><box size="${cart_x} ${cart_y} ${cart_z}"/></geometry>
+    </collision>
+    <xacro:box_inertial m="${cart_mass}" x="${cart_x}" y="${cart_y}" z="${cart_z}"/>
+  </link>
+
+  <joint name="rail_to_cart" type="prismatic">
+    <parent link="rail"/>
+    <child link="cart"/>
+    <origin xyz="0 0 ${rail_w / 2 + cart_z / 2}" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="${axis_lower}" upper="${axis_upper}"
+           effort="${axis_effort}" velocity="${axis_velocity}"/>
+    <dynamics damping="${axis_damping}" friction="${axis_friction}"/>
+  </joint>
+
+  <ros2_control name="GazeboSimSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <joint name="rail_to_cart">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+  <!-- This plugin starts the controller manager. Without it (or with a bad parameters path)
+       the controller manager never appears. -->
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(arg controllers_file)</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>
