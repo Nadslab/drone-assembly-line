@@ -1,0 +1,9 @@
+cad_raw/**/*.SLD*
+cad_raw/**/*.stl
+reports/
+build/
+install/
+log/
+tools/.venv/
+*.blend1
+__pycache__/
