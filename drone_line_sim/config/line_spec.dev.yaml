@@ -1,0 +1,184 @@
+# Dev overlay for line_spec.yaml. Loaded only with --dev (load_spec(dev=True)).
+#
+# Same structure as the base spec, but it holds ONLY placeholders for values that are null (or
+# absent optional fields) there. A value that is not null in line_spec.yaml always wins, so
+# nothing here can override a real number. Every placeholder carries "# PLACEHOLDER"; delete
+# the line once the real value lands in line_spec.yaml. No deliverable number may come from
+# this file (see CLAUDE.md). `null` inside a list means "no opinion for this element".
+#
+# Layout assumptions: stations on a straight line along +x at 0.6 m pitch from station 1 (the
+# origin, y = 0); feeders 0.3 m to +y of their station, buffers 0.3 m to -y; gantry mounted at
+# y = -0.5 so its 0-1 m y axis is centred on the line.
+
+parts:
+  bottom_plate:
+    envelope: [0.18, 0.18, 0.003]        # PLACEHOLDER
+    mass: 0.04                           # PLACEHOLDER
+    datums:
+      diamond: [0.09, 0.0]               # PLACEHOLDER
+    pick: [null, null, 0.003, null]      # PLACEHOLDER
+  mid_plate:
+    envelope: [0.18, 0.18, 0.003]        # PLACEHOLDER
+    mass: 0.04                           # PLACEHOLDER
+    datums:
+      round: [0.0, 0.0]                  # PLACEHOLDER
+      diamond: [0.09, 0.0]               # PLACEHOLDER
+    pick: [null, null, 0.003, null]      # PLACEHOLDER
+  top_plate:
+    envelope: [0.18, 0.18, 0.003]        # PLACEHOLDER
+    mass: 0.04                           # PLACEHOLDER
+    datums:
+      round: [0.0, 0.0]                  # PLACEHOLDER
+      diamond: [0.09, 0.0]               # PLACEHOLDER
+    pick: [null, null, 0.003, null]      # PLACEHOLDER
+  side_plate:
+    envelope: [0.10, 0.05, 0.003]        # PLACEHOLDER
+    mass: 0.02                           # PLACEHOLDER
+    pick: [null, null, 0.003, null]      # PLACEHOLDER
+  standoff:
+    dims: [0.003, 0.012]                 # PLACEHOLDER
+    mass: 0.002                          # PLACEHOLDER
+  spider:
+    dims: [0.18, 0.18, 0.03]             # PLACEHOLDER
+    mass: 0.15                           # PLACEHOLDER
+  pod:
+    dims: [0.10, 0.08, 0.04]             # PLACEHOLDER
+    mass: 0.12                           # PLACEHOLDER
+  carrier_spider:
+    mass: 0.3                            # PLACEHOLDER
+    pick: [null, null, 0.02, null]       # PLACEHOLDER
+  carrier_pod:
+    mass: 0.2                            # PLACEHOLDER
+    pick: [null, null, 0.02, null]       # PLACEHOLDER
+  pallet:
+    mass: 2.0                            # PLACEHOLDER
+
+feeders:
+  fd_mid_plate:
+    pose: [1.2, 0.3, 0.1, null]          # PLACEHOLDER
+    refill_s: 60.0                       # PLACEHOLDER
+  fd_top_plate:
+    pose: [5.4, 0.3, 0.1, null]          # PLACEHOLDER
+    refill_s: 60.0                       # PLACEHOLDER
+  fd_side_plate:
+    pose: [4.2, 0.3, 0.1, null]          # PLACEHOLDER
+    refill_s: 60.0                       # PLACEHOLDER
+  fd_standoff:
+    pose: [2.4, 0.3, 0.1, null]          # PLACEHOLDER
+    refill_s: 300.0                      # PLACEHOLDER
+  fd_screw_m3x8:
+    feed_s: 0.5                          # PLACEHOLDER
+
+sources:
+  src_A:
+    buffer_capacity: 3                   # PLACEHOLDER
+  src_B:
+    buffer_capacity: 3                   # PLACEHOLDER
+  src_C:
+    buffer_capacity: 3                   # PLACEHOLDER
+buffers:
+  buf_spider:
+    pose: [0.6, -0.3, 0.1, null]         # PLACEHOLDER
+  buf_pod:
+    pose: [3.6, -0.3, 0.1, null]         # PLACEHOLDER
+  buf_plate:
+    pose: [0.0, -0.3, 0.1, null]         # PLACEHOLDER
+
+gantry:
+  axes:
+    x:
+      min: 0.0                           # PLACEHOLDER
+      max: 8.0                           # PLACEHOLDER
+      v_max: 1.0                         # PLACEHOLDER
+      a_max: 3.0                         # PLACEHOLDER
+      damping: 5.0                       # PLACEHOLDER (D-002)
+      friction: 0.5                      # PLACEHOLDER (D-002)
+      position_gain: 0.1                 # PLACEHOLDER (D-002)
+    y:
+      min: 0.0                           # PLACEHOLDER
+      max: 1.0                           # PLACEHOLDER
+      v_max: 1.0                         # PLACEHOLDER
+      a_max: 3.0                         # PLACEHOLDER
+      damping: 5.0                       # PLACEHOLDER (D-002)
+      friction: 0.5                      # PLACEHOLDER (D-002)
+      position_gain: 0.1                 # PLACEHOLDER (D-002)
+    z:
+      min: 0.0                           # PLACEHOLDER
+      max: 0.3                           # PLACEHOLDER
+      v_max: 1.0                         # PLACEHOLDER
+      a_max: 3.0                         # PLACEHOLDER
+      damping: 5.0                       # PLACEHOLDER (D-002)
+      friction: 0.5                      # PLACEHOLDER (D-002)
+      position_gain: 0.1                 # PLACEHOLDER (D-002)
+    c:
+      v_max: 3.0                         # PLACEHOLDER (rad/s)
+      a_max: 10.0                        # PLACEHOLDER (rad/s^2)
+  mount: [0.0, -0.5, 0.0]                # PLACEHOLDER
+gang_heads:
+  gh_arm_sandwich:
+    stroke: 0.05                         # PLACEHOLDER
+  gh_side_plates:
+    spindles: 4                          # PLACEHOLDER
+    stroke: 0.05                         # PLACEHOLDER
+
+conveyor:
+  pitch: 0.6                             # PLACEHOLDER
+  index_s: 2.0                           # PLACEHOLDER
+stations:
+  st_load_pallet:
+    pose: [0.0, 0.0, 0.1, null]          # PLACEHOLDER
+  st_place_spider:
+    pose: [0.6, 0.0, 0.1, null]          # PLACEHOLDER
+  st_place_mid_plate:
+    pose: [1.2, 0.0, 0.1, null]          # PLACEHOLDER
+  st_drive_arm_sandwich:
+    pose: [1.8, 0.0, 0.1, null]          # PLACEHOLDER
+  st_install_standoffs:
+    pose: [2.4, 0.0, 0.1, null]          # PLACEHOLDER
+  st_seat_esc:
+    pose: [3.0, 0.0, 0.1, null]          # PLACEHOLDER
+  st_place_pod:
+    pose: [3.6, 0.0, 0.1, null]          # PLACEHOLDER
+  st_fit_side_plates:
+    pose: [4.2, 0.0, 0.1, null]          # PLACEHOLDER
+  st_mount_servo:
+    pose: [4.8, 0.0, 0.1, null]          # PLACEHOLDER
+  st_fit_top_plate:
+    pose: [5.4, 0.0, 0.1, null]          # PLACEHOLDER
+  st_audit_torque:
+    pose: [6.0, 0.0, 0.1, null]          # PLACEHOLDER
+  st_test:
+    pose: [6.6, 0.0, 0.1, null]          # PLACEHOLDER
+    cell_pitch: 0.4                      # PLACEHOLDER
+  st_pack:
+    pose: [7.2, 0.0, 0.1, null]          # PLACEHOLDER
+
+# Entries match the base sequence by position (`id` is checked). Every step is alone at its
+# station, so each duration is also the station's load; all are under the 20.2 s takt.
+sequence:
+  - id: load_pallet
+    duration_s: 6.0                      # PLACEHOLDER
+  - id: place_spider
+    duration_s: 8.0                      # PLACEHOLDER
+  - id: place_mid_plate
+    duration_s: 8.0                      # PLACEHOLDER
+  - id: drive_arm_sandwich
+    duration_s: 15.0                     # PLACEHOLDER
+  - id: install_standoffs
+    duration_s: 12.0                     # PLACEHOLDER
+  - id: seat_esc
+    duration_s: 10.0                     # PLACEHOLDER
+  - id: place_pod
+    duration_s: 9.0                      # PLACEHOLDER
+  - id: fit_side_plates
+    duration_s: 14.0                     # PLACEHOLDER
+    qty: 8                               # PLACEHOLDER
+  - id: mount_servo
+    duration_s: 5.0                      # PLACEHOLDER
+  - id: fit_top_plate
+    duration_s: 14.0                     # PLACEHOLDER
+  - id: audit_torque
+    duration_s: 8.0                      # PLACEHOLDER
+  - id: test
+  - id: pack
+    duration_s: 6.0                      # PLACEHOLDER

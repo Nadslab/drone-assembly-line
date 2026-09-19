@@ -1,0 +1,55 @@
+# Small, fully resolved line: every check returns PASS (no nulls, no warnings).
+schema_version: 1
+line:
+  takt_s: 20.0
+  units: {length: m, mass: kg, time: s, angle: rad}
+  origin: pallet_datum_round
+
+parts:
+  bottom_plate:
+    {source: solidworks, mesh: meshes/drone/bottom_plate.stl, envelope: [0.2, 0.2, 0.003], mass: 0.05,
+     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0]}
+  mid_plate:
+    {source: solidworks, mesh: meshes/drone/mid_plate.stl, envelope: [0.2, 0.2, 0.003], mass: 0.05,
+     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0]}
+  top_plate:
+    {source: solidworks, mesh: meshes/drone/top_plate.stl, envelope: [0.2, 0.2, 0.003], mass: 0.05,
+     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0]}
+  pallet: {source: build123d, generator: tools/cad/pallet.py, mass: 2.0}
+
+fasteners:
+  m3_x8: {length: 0.008, feeder: fd_screw}
+
+feeders:
+  fd_mid_plate: {type: magazine, part: mid_plate, pose: [0.2, 0.3, 0.1, 0.0], capacity: 20, refill_s: 60.0}
+  fd_screw: {type: blow, part: m3_x8, target: gh_top, feed_s: 0.5}
+
+sources:
+  src_plate: {output: bottom_plate, buffer: buf_plate, interval_s: 20.0, buffer_capacity: 3}
+buffers:
+  buf_plate: {pose: [0.5, 0.3, 0.1, 0.0]}
+
+gantry:
+  axes:
+    x: {min: 0.0, max: 3.0, v_max: 1.0, a_max: 2.0}
+    y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
+    z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
+    c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
+  tools: [tool_plate]
+  mount: [0.0, 0.0, 0.0]
+gang_heads:
+  gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.holes, stroke: 0.05}
+scaras: {}
+
+conveyor: {pitch: 0.5, index_s: 2.0}
+stations:
+  st_load:  {index: 1, count: 1, pose: [0.0, 0.0, 0.1, 0.0]}
+  st_place: {index: 2, count: 1, pose: [0.5, 0.0, 0.1, 0.0]}
+  st_drive: {index: 3, count: 1, pose: [1.0, 0.0, 0.1, 0.0]}
+  st_test:  {index: 4, count: 5, pose: [1.5, 0.0, 0.1, 0.0], cell_pitch: 0.4}
+
+sequence:
+  - {id: load,  station: st_load,  capability: load,  part: bottom_plate, from: buf_plate, duration_s: 5.0, requires: []}
+  - {id: place, station: st_place, capability: place, part: mid_plate, from: fd_mid_plate, tool: tool_plate, duration_s: 6.0, requires: [load]}
+  - {id: drive, station: st_drive, capability: drive, head: gh_top, fastener: m3_x8, qty: 8, duration_s: 15.0, requires: [place]}
+  - {id: test,  station: st_test,  capability: test,  duration_s: 90.0, requires: [drive]}

@@ -37,6 +37,7 @@ colcon list
 # Run tools venv scripts (spec validation, checks, generators)
 tools/.venv/bin/python tools/check_line.py
 tools/.venv/bin/python tools/spec.py
+tools/.venv/bin/python tools/check_line.py --dev   # merge line_spec.dev.yaml placeholders
 
 # Run tools tests
 tools/.venv/bin/python -m pytest tools/tests/
@@ -78,5 +79,12 @@ Rules:
   are outputs — edit `config/line_spec.yaml` (or the relevant generator) and re-run the generator.
 - **Every generator/check exits non-zero on failure** and writes its result to
   `reports/<name>.json`.
+- **Dev overlay:** `config/line_spec.dev.yaml` holds `# PLACEHOLDER` values so work can proceed
+  before CAD/AnyLogic numbers exist. The overlay never overrides a real value: a non-null value
+  in `line_spec.yaml` always wins, and the overlay cannot add entities. **No deliverable number
+  may come from it** (SolidWorks params, mesh scaling, reported durations, sizing). Every
+  generator/check takes `--dev` (`spec.add_dev_argument`), loads via `load_spec(dev=True)`, and
+  writes `reports/<name>.dev.json` listing its `placeholders`. Delete an overlay line when the
+  real value lands in the base spec.
 - **Headless only.** No GUI launches during verification.
 - **No STL over 5 MB is ever committed.**
