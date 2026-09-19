@@ -1,0 +1,1 @@
+/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/rosidl_generator_cpp/drone_assembly_cell/srv/detail/move_to_station__struct.hpp

@@ -1,0 +1,31 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from drone_assembly_cell/action/PlacePart.action
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/PoseStamped.idl"
+
+module drone_assembly_cell {
+  module action {
+    @verbatim (language="comment", text=
+      "Goal")
+    struct PlacePart_Goal {
+      geometry_msgs::msg::PoseStamped target_pose;
+
+      double approach_height;
+
+      double gripper_open_pos;
+    };
+    @verbatim (language="comment", text=
+      "Result")
+    struct PlacePart_Result {
+      boolean success;
+
+      string message;
+    };
+    @verbatim (language="comment", text=
+      "Feedback")
+    struct PlacePart_Feedback {
+      string phase;
+    };
+  };
+};

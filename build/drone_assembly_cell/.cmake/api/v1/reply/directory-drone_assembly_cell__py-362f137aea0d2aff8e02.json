@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "drone_assembly_cell__py",
+		"source" : "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/drone_assembly_cell__py"
+	}
+}

@@ -1,0 +1,14 @@
+source;share/drone_assembly_cell/hook/cmake_prefix_path.ps1
+source;share/drone_assembly_cell/hook/cmake_prefix_path.dsv
+source;share/drone_assembly_cell/hook/cmake_prefix_path.sh
+source;share/drone_assembly_cell/hook/ld_library_path_lib.ps1
+source;share/drone_assembly_cell/hook/ld_library_path_lib.dsv
+source;share/drone_assembly_cell/hook/ld_library_path_lib.sh
+source;share/drone_assembly_cell/hook/pythonpath.ps1
+source;share/drone_assembly_cell/hook/pythonpath.dsv
+source;share/drone_assembly_cell/hook/pythonpath.sh
+source;share/drone_assembly_cell/local_setup.bash
+source;share/drone_assembly_cell/local_setup.dsv
+source;share/drone_assembly_cell/local_setup.ps1
+source;share/drone_assembly_cell/local_setup.sh
+source;share/drone_assembly_cell/local_setup.zsh

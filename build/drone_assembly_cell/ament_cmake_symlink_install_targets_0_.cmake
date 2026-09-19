@@ -1,0 +1,1 @@
+ament_cmake_symlink_install_targets("TARGET_FILES" "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/rosidl_generator_py/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.so" "TARGETS" "drone_assembly_cell_s__rosidl_typesupport_fastrtps_c" "DESTINATION" "lib/python3.12/site-packages/drone_assembly_cell")

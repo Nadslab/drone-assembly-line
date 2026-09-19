@@ -1,0 +1,21 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/pick_part__type_support.cpp.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/pick_part__type_support.cpp.o.d"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/place_part__type_support.cpp.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/place_part__type_support.cpp.o.d"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/srv/detail/move_to_station__type_support.cpp.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/srv/detail/move_to_station__type_support.cpp.o.d"
+  "libdrone_assembly_cell__rosidl_typesupport_introspection_cpp.pdb"
+  "libdrone_assembly_cell__rosidl_typesupport_introspection_cpp.so"
+  "rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_introspection_cpp.hpp"
+  "rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/pick_part__type_support.cpp"
+  "rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_introspection_cpp.hpp"
+  "rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/place_part__type_support.cpp"
+  "rosidl_typesupport_introspection_cpp/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_introspection_cpp.hpp"
+  "rosidl_typesupport_introspection_cpp/drone_assembly_cell/srv/detail/move_to_station__type_support.cpp"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

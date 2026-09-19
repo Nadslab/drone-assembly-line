@@ -14,15 +14,16 @@ namespace : str
     ROS / Gazebo model namespace, e.g. "lerobot_1"
 world : str
     Gazebo world name (default "frame_assembly_cell")
-gz_bin : str
-    Path to gz CLI binary
 base_x, base_y, base_z : float
     Arm spawn position in Gazebo world frame (arm base is fixed)
 """
 
-import subprocess
+import math
 import threading
-from math import sqrt
+
+import gz.transport13 as gz_transport
+import gz.msgs10.pose_pb2 as gz_pose_msg
+import gz.msgs10.boolean_pb2 as gz_bool_msg
 
 import rclpy
 from rclpy.node import Node
@@ -42,32 +43,28 @@ _OPEN_THRESH  = 0.8   # above this → gripper is open (release)
 _TICK_HZ = 20         # teleport update rate while gripping
 
 
-def _escape_proto_str(s: str) -> str:
-    return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-
-
 class GripperAttach(Node):
     def __init__(self):
         super().__init__('gripper_attach')
 
-        ns       = self.declare_parameter('namespace', '').get_parameter_value().string_value
-        world    = self.declare_parameter('world', 'frame_assembly_cell').get_parameter_value().string_value
-        gz_bin   = self.declare_parameter(
-            'gz_bin',
-            '/opt/ros/jazzy/opt/gz_tools_vendor/bin/gz'
-        ).get_parameter_value().string_value
-        base_x   = self.declare_parameter('base_x', 0.0).get_parameter_value().double_value
-        base_y   = self.declare_parameter('base_y', 0.0).get_parameter_value().double_value
-        base_z   = self.declare_parameter('base_z', 0.0).get_parameter_value().double_value
+        ns         = self.declare_parameter('namespace', '').get_parameter_value().string_value
+        world      = self.declare_parameter('world', 'frame_assembly_cell').get_parameter_value().string_value
+        base_x     = self.declare_parameter('base_x', 0.0).get_parameter_value().double_value
+        base_y     = self.declare_parameter('base_y', 0.0).get_parameter_value().double_value
+        base_z     = self.declare_parameter('base_z', 0.0).get_parameter_value().double_value
+        spawn_yaw  = self.declare_parameter('spawn_yaw', 0.0).get_parameter_value().double_value
 
         self._ns    = ns
         self._world = world
-        self._gz    = gz_bin
+        self._gz_node = gz_transport.Node()
+        self._set_pose_srv = f'/world/{world}/set_pose'
 
         # Fixed arm base in world frame
-        self._base_x = base_x
-        self._base_y = base_y
-        self._base_z = base_z
+        self._base_x   = base_x
+        self._base_y   = base_y
+        self._base_z   = base_z
+        self._cos_yaw  = math.cos(spawn_yaw)
+        self._sin_yaw  = math.sin(spawn_yaw)
 
         attachable_raw = self.declare_parameter(
             'attachable_prefixes',
@@ -86,7 +83,7 @@ class GripperAttach(Node):
         self._tf_buffer   = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
         self._tip_frame   = f'{ns}/gripper_frame_link'
-        self._base_frame  = f'{ns}/world'
+        self._base_frame  = f'{ns}/base_link'
 
         # Subscriptions
         self.create_subscription(
@@ -194,9 +191,9 @@ class GripperAttach(Node):
         """Convert TF (relative to arm base frame) to world-frame pose."""
         t = tf.transform.translation
         r = tf.transform.rotation
-        # Arm base has no rotation at spawn (R=P=Y=0), so world = base + TF translation
-        wx = self._base_x + t.x
-        wy = self._base_y + t.y
+        # Apply spawn yaw rotation: world = Rz(yaw) @ arm_frame_translation + base_pos
+        wx = self._base_x + self._cos_yaw * t.x - self._sin_yaw * t.y
+        wy = self._base_y + self._sin_yaw * t.x + self._cos_yaw * t.y
         wz = self._base_z + t.z
         return wx, wy, wz, r.x, r.y, r.z, r.w
 
@@ -205,23 +202,19 @@ class GripperAttach(Node):
     # ------------------------------------------------------------------
 
     def _set_pose(self, model: str, x, y, z, qx, qy, qz, qw):
-        req = (
-            f'name: "{model}" '
-            f'position {{x: {x:.6f} y: {y:.6f} z: {z:.6f}}} '
-            f'orientation {{x: {qx:.6f} y: {qy:.6f} z: {qz:.6f} w: {qw:.6f}}}'
-        )
-        cmd = [
-            self._gz, 'service',
-            '-s', f'/world/{self._world}/set_pose',
-            '--reqtype', 'gz.msgs.Pose',
-            '--reptype', 'gz.msgs.Boolean',
-            '--timeout', '200',
-            '--req', req,
-        ]
-        try:
-            subprocess.run(cmd, capture_output=True, timeout=0.4)
-        except Exception:
-            pass
+        req = gz_pose_msg.Pose()
+        req.name = model
+        req.position.x = x
+        req.position.y = y
+        req.position.z = z
+        req.orientation.x = qx
+        req.orientation.y = qy
+        req.orientation.z = qz
+        req.orientation.w = qw
+        rep, ok = self._gz_node.request(
+            self._set_pose_srv, req, gz_bool_msg.Boolean, 200)
+        if not ok:
+            self.get_logger().warn(f'set_pose failed for {model}')
 
 
 def main(args=None):

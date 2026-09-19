@@ -1,0 +1,26 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "drone_assembly_cell/action/PickPart_Feedback",
+      "fields": [
+        {
+          "name": "phase",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "drone_assembly_cell/action/PickPart_Feedback",
+      "hash_string": "RIHS01_af2c15162b2d94a4e3632bfad8287573e94e6773b50e5670947cfb140a87aaa6"
+    }
+  ]
+}

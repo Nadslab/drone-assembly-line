@@ -1,0 +1,582 @@
+[0.000000] (-) TimerEvent: {}
+[0.000737] (-) JobUnselected: {'identifier': 'assembly_line_moveit_config'}
+[0.000818] (-) JobUnselected: {'identifier': 'lerobot_1_moveit_config'}
+[0.000857] (-) JobUnselected: {'identifier': 'so101_description'}
+[0.000872] (drone_assembly_cell) JobQueued: {'identifier': 'drone_assembly_cell', 'dependencies': OrderedDict({'so101_description': '/home/nadslab/ros2_ws/src/drone-assembly-line/install/so101_description'})}
+[0.000888] (drone_assembly_cell) JobStarted: {'identifier': 'drone_assembly_cell'}
+[0.014892] (drone_assembly_cell) JobProgress: {'identifier': 'drone_assembly_cell', 'progress': 'cmake'}
+[0.017439] (drone_assembly_cell) Command: {'cmd': ['/usr/bin/cmake', '/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell', '-DAMENT_CMAKE_SYMLINK_INSTALL=1', '-DCMAKE_INSTALL_PREFIX=/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell'], 'cwd': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'env': OrderedDict({'LESSOPEN': '| /usr/bin/lesspipe %s', 'MESA_D3D12_DEFAULT_ADAPTER_NAME': 'NVIDIA', 'GZ_SIM_RESOURCE_PATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/share/drone_assembly_cell/models', 'USER': 'nadslab', 'GZ_CONFIG_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/share/gz:/opt/ros/jazzy/opt/sdformat_vendor/share/gz:/opt/ros/jazzy/opt/gz_gui_vendor/share/gz:/opt/ros/jazzy/opt/gz_transport_vendor/share/gz:/opt/ros/jazzy/opt/gz_rendering_vendor/share/gz:/opt/ros/jazzy/opt/gz_plugin_vendor/share/gz:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/share/gz:/opt/ros/jazzy/opt/gz_msgs_vendor/share/gz:/opt/ros/jazzy/opt/gz_common_vendor/share/gz', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/lib:/opt/ros/jazzy/opt/gz_sim_vendor/lib:/opt/ros/jazzy/opt/gz_sensors_vendor/lib:/opt/ros/jazzy/opt/gz_physics_vendor/lib:/opt/ros/jazzy/opt/sdformat_vendor/lib:/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/opt/gz_gui_vendor/lib:/opt/ros/jazzy/opt/gz_transport_vendor/lib:/opt/ros/jazzy/opt/gz_rendering_vendor/lib:/opt/ros/jazzy/opt/gz_plugin_vendor/lib:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/lib:/opt/ros/jazzy/opt/gz_msgs_vendor/lib:/opt/ros/jazzy/opt/gz_common_vendor/lib:/opt/ros/jazzy/opt/gz_math_vendor/lib:/opt/ros/jazzy/opt/gz_utils_vendor/lib:/opt/ros/jazzy/opt/gz_tools_vendor/lib:/opt/ros/jazzy/opt/gz_ogre_next_vendor/lib:/opt/ros/jazzy/opt/gz_dartsim_vendor/lib:/opt/ros/jazzy/opt/gz_cmake_vendor/lib:/opt/ros/jazzy/lib', 'HOME': '/home/nadslab', 'ROS_PYTHON_VERSION': '3', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'WSL_DISTRO_NAME': 'Ubuntu-24.04', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/home/nadslab/ros2_ws/install', 'ROS_DISTRO': 'jazzy', 'LOGNAME': 'nadslab', 'NAME': 'DESKTOP-0RNJ632', 'WSL_INTEROP': '/run/WSL/167863_interop', 'PULSE_SERVER': 'unix:/mnt/wslg/PulseServer', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm-256color', 'PATH': '/opt/ros/jazzy/opt/gz_msgs_vendor/bin:/opt/ros/jazzy/opt/gz_tools_vendor/bin:/opt/ros/jazzy/opt/gz_ogre_next_vendor/bin:/opt/ros/jazzy/bin:/home/nadslab/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Users/Admin/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/debugCommand:/mnt/c/Users/Admin/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/copilotCli:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit/:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Users/Admin/AppData/Local/Programs/Python/Launcher/:/mnt/c/Users/Admin/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Admin/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Admin/AppData/Local/Python/bin:/mnt/c/Users/Admin/.local/bin:/snap/bin', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'LANG': 'en_US.UTF-8', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:', 'AMENT_PREFIX_PATH': '/home/nadslab/ros2_ws/install/lerobot_1_moveit_config:/home/nadslab/ros2_ws/install/drone_assembly_cell:/home/nadslab/ros2_ws/install/assembly_line_moveit_config:/home/nadslab/ros2_ws/install/so101_description:/opt/ros/jazzy', 'SHELL': '/bin/bash', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GALLIUM_DRIVER': 'd3d12', 'ROS_AUTOMATIC_DISCOVERY_RANGE': 'SUBNET', 'PWD': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/lib/python3.12/site-packages:/opt/ros/jazzy/lib/python3.12/site-packages', 'COLCON': '1', 'WSL2_GUI_APPS_ENABLED': '1', 'HOSTTYPE': 'x86_64', 'CMAKE_PREFIX_PATH': '/home/nadslab/ros2_ws/install/lerobot_1_moveit_config:/home/nadslab/ros2_ws/install/drone_assembly_cell:/home/nadslab/ros2_ws/install/assembly_line_moveit_config:/home/nadslab/ros2_ws/install/so101_description:/opt/ros/jazzy/opt/gz_sim_vendor:/opt/ros/jazzy/opt/gz_sensors_vendor:/opt/ros/jazzy/opt/gz_physics_vendor:/opt/ros/jazzy/opt/sdformat_vendor:/opt/ros/jazzy/opt/gz_gui_vendor:/opt/ros/jazzy/opt/gz_transport_vendor:/opt/ros/jazzy/opt/gz_rendering_vendor:/opt/ros/jazzy/opt/gz_plugin_vendor:/opt/ros/jazzy/opt/gz_fuel_tools_vendor:/opt/ros/jazzy/opt/gz_msgs_vendor:/opt/ros/jazzy/opt/gz_common_vendor:/opt/ros/jazzy/opt/gz_math_vendor:/opt/ros/jazzy/opt/gz_utils_vendor:/opt/ros/jazzy/opt/gz_tools_vendor:/opt/ros/jazzy/opt/gz_ogre_next_vendor:/opt/ros/jazzy/opt/gz_dartsim_vendor:/opt/ros/jazzy/opt/gz_cmake_vendor:/opt/ros/jazzy', 'WSLENV': ''}), 'shell': False}
+[0.099108] (-) TimerEvent: {}
+[0.199595] (-) TimerEvent: {}
+[0.300072] (-) TimerEvent: {}
+[0.400444] (-) TimerEvent: {}
+[0.428650] (drone_assembly_cell) StdoutLine: {'line': b'-- The C compiler identification is GNU 13.3.0\n'}
+[0.500590] (-) TimerEvent: {}
+[0.600942] (-) TimerEvent: {}
+[0.701268] (-) TimerEvent: {}
+[0.801565] (-) TimerEvent: {}
+[0.901869] (-) TimerEvent: {}
+[1.002191] (-) TimerEvent: {}
+[1.102491] (-) TimerEvent: {}
+[1.138146] (drone_assembly_cell) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 13.3.0\n'}
+[1.202627] (-) TimerEvent: {}
+[1.302928] (-) TimerEvent: {}
+[1.403247] (-) TimerEvent: {}
+[1.503568] (-) TimerEvent: {}
+[1.603888] (-) TimerEvent: {}
+[1.694857] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[1.704008] (-) TimerEvent: {}
+[1.804329] (-) TimerEvent: {}
+[1.904834] (-) TimerEvent: {}
+[2.005580] (-) TimerEvent: {}
+[2.057222] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[2.065531] (drone_assembly_cell) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[2.066406] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[2.067308] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[2.105672] (-) TimerEvent: {}
+[2.206080] (-) TimerEvent: {}
+[2.208443] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[2.306625] (-) TimerEvent: {}
+[2.406993] (-) TimerEvent: {}
+[2.507326] (-) TimerEvent: {}
+[2.575617] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[2.582895] (drone_assembly_cell) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[2.583186] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[2.583424] (drone_assembly_cell) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[2.607438] (-) TimerEvent: {}
+[2.652434] (drone_assembly_cell) StdoutLine: {'line': b'-- Found ament_cmake: 2.5.6 (/opt/ros/jazzy/share/ament_cmake/cmake)\n'}
+[2.707576] (-) TimerEvent: {}
+[2.807966] (-) TimerEvent: {}
+[2.847712] (drone_assembly_cell) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter \n'}
+[2.908111] (-) TimerEvent: {}
+[2.930550] (drone_assembly_cell) StdoutLine: {'line': b'-- Override CMake install command with custom implementation using symlinks instead of copying resources\n'}
+[3.008285] (-) TimerEvent: {}
+[3.009566] (drone_assembly_cell) StdoutLine: {'line': b'-- Found rosidl_default_generators: 1.6.0 (/opt/ros/jazzy/share/rosidl_default_generators/cmake)\n'}
+[3.028417] (drone_assembly_cell) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[3.108434] (-) TimerEvent: {}
+[3.208804] (-) TimerEvent: {}
+[3.251121] (drone_assembly_cell) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[3.308927] (-) TimerEvent: {}
+[3.348728] (drone_assembly_cell) StdoutLine: {'line': b'-- Found rosidl_adapter: 4.6.7 (/opt/ros/jazzy/share/rosidl_adapter/cmake)\n'}
+[3.359901] (drone_assembly_cell) StdoutLine: {'line': b'-- Found geometry_msgs: 5.3.7 (/opt/ros/jazzy/share/geometry_msgs/cmake)\n'}
+[3.409066] (-) TimerEvent: {}
+[3.455385] (drone_assembly_cell) StdoutLine: {'line': b'-- Found action_msgs: 2.0.3 (/opt/ros/jazzy/share/action_msgs/cmake)\n'}
+[3.509276] (-) TimerEvent: {}
+[3.609645] (-) TimerEvent: {}
+[3.710097] (-) TimerEvent: {}
+[3.810465] (-) TimerEvent: {}
+[3.910930] (-) TimerEvent: {}
+[4.011286] (-) TimerEvent: {}
+[4.111857] (-) TimerEvent: {}
+[4.212362] (-) TimerEvent: {}
+[4.299875] (drone_assembly_cell) StdoutLine: {'line': b'-- Found ament_cmake_ros: 0.12.0 (/opt/ros/jazzy/share/ament_cmake_ros/cmake)\n'}
+[4.312513] (-) TimerEvent: {}
+[4.412999] (-) TimerEvent: {}
+[4.513659] (-) TimerEvent: {}
+[4.614486] (-) TimerEvent: {}
+[4.714946] (-) TimerEvent: {}
+[4.815321] (-) TimerEvent: {}
+[4.844133] (drone_assembly_cell) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[4.915481] (-) TimerEvent: {}
+[5.015906] (-) TimerEvent: {}
+[5.116386] (-) TimerEvent: {}
+[5.216835] (-) TimerEvent: {}
+[5.317387] (-) TimerEvent: {}
+[5.417863] (-) TimerEvent: {}
+[5.519080] (-) TimerEvent: {}
+[5.619519] (-) TimerEvent: {}
+[5.685069] (drone_assembly_cell) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[5.692896] (drone_assembly_cell) StdoutLine: {'line': b'-- Found python_cmake_module: 0.11.1 (/opt/ros/jazzy/share/python_cmake_module/cmake)\n'}
+[5.719759] (-) TimerEvent: {}
+[5.813791] (drone_assembly_cell) StdoutLine: {'line': b'-- Found PythonExtra: /usr/bin/python3  \n'}
+[5.819856] (-) TimerEvent: {}
+[5.920245] (-) TimerEvent: {}
+[6.020629] (-) TimerEvent: {}
+[6.120929] (-) TimerEvent: {}
+[6.221276] (-) TimerEvent: {}
+[6.301267] (drone_assembly_cell) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter Development NumPy Development.Module Development.Embed \n'}
+[6.321459] (-) TimerEvent: {}
+[6.421772] (-) TimerEvent: {}
+[6.428098] (drone_assembly_cell) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter \n'}
+[6.457022] (drone_assembly_cell) StdoutLine: {'line': b'-- Configuring done (6.4s)\n'}
+[6.521893] (-) TimerEvent: {}
+[6.549913] (drone_assembly_cell) StdoutLine: {'line': b'-- Generating done (0.1s)\n'}
+[6.566815] (drone_assembly_cell) StdoutLine: {'line': b'-- Build files have been written to: /home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell\n'}
+[6.583060] (drone_assembly_cell) CommandEnded: {'returncode': 0}
+[6.585509] (drone_assembly_cell) JobProgress: {'identifier': 'drone_assembly_cell', 'progress': 'build'}
+[6.585536] (drone_assembly_cell) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', '--', '-j8', '-l8'], 'cwd': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'env': OrderedDict({'LESSOPEN': '| /usr/bin/lesspipe %s', 'MESA_D3D12_DEFAULT_ADAPTER_NAME': 'NVIDIA', 'GZ_SIM_RESOURCE_PATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/share/drone_assembly_cell/models', 'USER': 'nadslab', 'GZ_CONFIG_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/share/gz:/opt/ros/jazzy/opt/sdformat_vendor/share/gz:/opt/ros/jazzy/opt/gz_gui_vendor/share/gz:/opt/ros/jazzy/opt/gz_transport_vendor/share/gz:/opt/ros/jazzy/opt/gz_rendering_vendor/share/gz:/opt/ros/jazzy/opt/gz_plugin_vendor/share/gz:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/share/gz:/opt/ros/jazzy/opt/gz_msgs_vendor/share/gz:/opt/ros/jazzy/opt/gz_common_vendor/share/gz', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/lib:/opt/ros/jazzy/opt/gz_sim_vendor/lib:/opt/ros/jazzy/opt/gz_sensors_vendor/lib:/opt/ros/jazzy/opt/gz_physics_vendor/lib:/opt/ros/jazzy/opt/sdformat_vendor/lib:/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/opt/gz_gui_vendor/lib:/opt/ros/jazzy/opt/gz_transport_vendor/lib:/opt/ros/jazzy/opt/gz_rendering_vendor/lib:/opt/ros/jazzy/opt/gz_plugin_vendor/lib:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/lib:/opt/ros/jazzy/opt/gz_msgs_vendor/lib:/opt/ros/jazzy/opt/gz_common_vendor/lib:/opt/ros/jazzy/opt/gz_math_vendor/lib:/opt/ros/jazzy/opt/gz_utils_vendor/lib:/opt/ros/jazzy/opt/gz_tools_vendor/lib:/opt/ros/jazzy/opt/gz_ogre_next_vendor/lib:/opt/ros/jazzy/opt/gz_dartsim_vendor/lib:/opt/ros/jazzy/opt/gz_cmake_vendor/lib:/opt/ros/jazzy/lib', 'HOME': '/home/nadslab', 'ROS_PYTHON_VERSION': '3', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'WSL_DISTRO_NAME': 'Ubuntu-24.04', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/home/nadslab/ros2_ws/install', 'ROS_DISTRO': 'jazzy', 'LOGNAME': 'nadslab', 'NAME': 'DESKTOP-0RNJ632', 'WSL_INTEROP': '/run/WSL/167863_interop', 'PULSE_SERVER': 'unix:/mnt/wslg/PulseServer', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm-256color', 'PATH': '/opt/ros/jazzy/opt/gz_msgs_vendor/bin:/opt/ros/jazzy/opt/gz_tools_vendor/bin:/opt/ros/jazzy/opt/gz_ogre_next_vendor/bin:/opt/ros/jazzy/bin:/home/nadslab/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Users/Admin/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/debugCommand:/mnt/c/Users/Admin/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/copilotCli:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit/:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Users/Admin/AppData/Local/Programs/Python/Launcher/:/mnt/c/Users/Admin/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Admin/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Admin/AppData/Local/Python/bin:/mnt/c/Users/Admin/.local/bin:/snap/bin', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'LANG': 'en_US.UTF-8', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:', 'AMENT_PREFIX_PATH': '/home/nadslab/ros2_ws/install/lerobot_1_moveit_config:/home/nadslab/ros2_ws/install/drone_assembly_cell:/home/nadslab/ros2_ws/install/assembly_line_moveit_config:/home/nadslab/ros2_ws/install/so101_description:/opt/ros/jazzy', 'SHELL': '/bin/bash', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GALLIUM_DRIVER': 'd3d12', 'ROS_AUTOMATIC_DISCOVERY_RANGE': 'SUBNET', 'PWD': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/lib/python3.12/site-packages:/opt/ros/jazzy/lib/python3.12/site-packages', 'COLCON': '1', 'WSL2_GUI_APPS_ENABLED': '1', 'HOSTTYPE': 'x86_64', 'CMAKE_PREFIX_PATH': '/home/nadslab/ros2_ws/install/lerobot_1_moveit_config:/home/nadslab/ros2_ws/install/drone_assembly_cell:/home/nadslab/ros2_ws/install/assembly_line_moveit_config:/home/nadslab/ros2_ws/install/so101_description:/opt/ros/jazzy/opt/gz_sim_vendor:/opt/ros/jazzy/opt/gz_sensors_vendor:/opt/ros/jazzy/opt/gz_physics_vendor:/opt/ros/jazzy/opt/sdformat_vendor:/opt/ros/jazzy/opt/gz_gui_vendor:/opt/ros/jazzy/opt/gz_transport_vendor:/opt/ros/jazzy/opt/gz_rendering_vendor:/opt/ros/jazzy/opt/gz_plugin_vendor:/opt/ros/jazzy/opt/gz_fuel_tools_vendor:/opt/ros/jazzy/opt/gz_msgs_vendor:/opt/ros/jazzy/opt/gz_common_vendor:/opt/ros/jazzy/opt/gz_math_vendor:/opt/ros/jazzy/opt/gz_utils_vendor:/opt/ros/jazzy/opt/gz_tools_vendor:/opt/ros/jazzy/opt/gz_ogre_next_vendor:/opt/ros/jazzy/opt/gz_dartsim_vendor:/opt/ros/jazzy/opt/gz_cmake_vendor:/opt/ros/jazzy', 'WSLENV': ''}), 'shell': False}
+[6.622088] (-) TimerEvent: {}
+[6.638436] (drone_assembly_cell) StdoutLine: {'line': b'[  1%] \x1b[34m\x1b[1mGenerating type hashes for ROS interfaces\x1b[0m\n'}
+[6.639465] (drone_assembly_cell) StdoutLine: {'line': b'[  3%] \x1b[34m\x1b[1mGenerating Rust code for ROS interfaces\x1b[0m\n'}
+[6.649903] (drone_assembly_cell) StdoutLine: {'line': b'[  3%] Built target ament_cmake_python_symlink_drone_assembly_cell\n'}
+[6.722270] (-) TimerEvent: {}
+[6.822671] (-) TimerEvent: {}
+[6.923039] (-) TimerEvent: {}
+[6.979321] (drone_assembly_cell) StdoutLine: {'line': b'running egg_info\n'}
+[6.980241] (drone_assembly_cell) StdoutLine: {'line': b'creating drone_assembly_cell.egg-info\n'}
+[7.005595] (drone_assembly_cell) StdoutLine: {'line': b'writing drone_assembly_cell.egg-info/PKG-INFO\n'}
+[7.006003] (drone_assembly_cell) StdoutLine: {'line': b'writing dependency_links to drone_assembly_cell.egg-info/dependency_links.txt\n'}
+[7.006362] (drone_assembly_cell) StdoutLine: {'line': b'writing top-level names to drone_assembly_cell.egg-info/top_level.txt\n'}
+[7.006577] (drone_assembly_cell) StdoutLine: {'line': b"writing manifest file 'drone_assembly_cell.egg-info/SOURCES.txt'\n"}
+[7.023181] (-) TimerEvent: {}
+[7.066479] (drone_assembly_cell) StdoutLine: {'line': b'[  3%] Built target drone_assembly_cell__rosidl_generator_type_description\n'}
+[7.082461] (drone_assembly_cell) StdoutLine: {'line': b'[  5%] \x1b[34m\x1b[1mGenerating C code for ROS interfaces\x1b[0m\n'}
+[7.094332] (drone_assembly_cell) StdoutLine: {'line': b"reading manifest file 'drone_assembly_cell.egg-info/SOURCES.txt'\n"}
+[7.095210] (drone_assembly_cell) StdoutLine: {'line': b"writing manifest file 'drone_assembly_cell.egg-info/SOURCES.txt'\n"}
+[7.098460] (drone_assembly_cell) StdoutLine: {'line': b'[  7%] \x1b[34m\x1b[1mGenerating C++ code for ROS interfaces\x1b[0m\n'}
+[7.123348] (-) TimerEvent: {}
+[7.150145] (drone_assembly_cell) StdoutLine: {'line': b'[  7%] Built target ament_cmake_python_build_drone_assembly_cell_egg\n'}
+[7.163005] (drone_assembly_cell) StdoutLine: {'line': b'[  7%] Built target drone_assembly_cell__rs\n'}
+[7.223463] (-) TimerEvent: {}
+[7.323790] (-) TimerEvent: {}
+[7.424256] (-) TimerEvent: {}
+[7.524697] (-) TimerEvent: {}
+[7.625258] (-) TimerEvent: {}
+[7.725545] (-) TimerEvent: {}
+[7.825858] (-) TimerEvent: {}
+[7.926244] (-) TimerEvent: {}
+[8.026556] (-) TimerEvent: {}
+[8.045815] (drone_assembly_cell) StdoutLine: {'line': b'[  7%] Built target drone_assembly_cell__cpp\n'}
+[8.130405] (-) TimerEvent: {}
+[8.196308] (drone_assembly_cell) StdoutLine: {'line': b'[  9%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/action/detail/pick_part__functions.c.o\x1b[0m\n'}
+[8.196612] (drone_assembly_cell) StdoutLine: {'line': b'[ 10%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/srv/detail/move_to_station__type_support.c.o\x1b[0m\n'}
+[8.196780] (drone_assembly_cell) StdoutLine: {'line': b'[ 12%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/srv/detail/move_to_station__functions.c.o\x1b[0m\n'}
+[8.201091] (drone_assembly_cell) StdoutLine: {'line': b'[ 14%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/action/detail/pick_part__type_support.c.o\x1b[0m\n'}
+[8.201309] (drone_assembly_cell) StdoutLine: {'line': b'[ 16%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/action/detail/pick_part__description.c.o\x1b[0m\n'}
+[8.201406] (drone_assembly_cell) StdoutLine: {'line': b'[ 18%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/srv/detail/move_to_station__description.c.o\x1b[0m\n'}
+[8.201637] (drone_assembly_cell) StdoutLine: {'line': b'[ 20%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/action/detail/place_part__description.c.o\x1b[0m\n'}
+[8.201766] (drone_assembly_cell) StdoutLine: {'line': b'[ 21%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/action/detail/place_part__functions.c.o\x1b[0m\n'}
+[8.231096] (-) TimerEvent: {}
+[8.334490] (-) TimerEvent: {}
+[8.354996] (drone_assembly_cell) StdoutLine: {'line': b'[ 23%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_c.dir/rosidl_generator_c/drone_assembly_cell/action/detail/place_part__type_support.c.o\x1b[0m\n'}
+[8.437282] (-) TimerEvent: {}
+[8.534949] (drone_assembly_cell) StdoutLine: {'line': b'[ 25%] \x1b[32m\x1b[1mLinking C shared library libdrone_assembly_cell__rosidl_generator_c.so\x1b[0m\n'}
+[8.537366] (-) TimerEvent: {}
+[8.637670] (-) TimerEvent: {}
+[8.721926] (drone_assembly_cell) StdoutLine: {'line': b'[ 25%] Built target drone_assembly_cell__rosidl_generator_c\n'}
+[8.735074] (drone_assembly_cell) StdoutLine: {'line': b'[ 29%] \x1b[34m\x1b[1mGenerating C type support for eProsima Fast-RTPS\x1b[0m\n'}
+[8.735422] (drone_assembly_cell) StdoutLine: {'line': b'[ 32%] \x1b[34m\x1b[1mGenerating C++ introspection for ROS interfaces\x1b[0m\n'}
+[8.735535] (drone_assembly_cell) StdoutLine: {'line': b'[ 32%] \x1b[34m\x1b[1mGenerating C type support dispatch for ROS interfaces\x1b[0m\n'}
+[8.735650] (drone_assembly_cell) StdoutLine: {'line': b'[ 32%] \x1b[34m\x1b[1mGenerating C introspection for ROS interfaces\x1b[0m\n'}
+[8.744367] (drone_assembly_cell) StdoutLine: {'line': b'[ 34%] \x1b[34m\x1b[1mGenerating C++ type support for eProsima Fast-RTPS\x1b[0m\n'}
+[8.744808] (-) TimerEvent: {}
+[8.745144] (drone_assembly_cell) StdoutLine: {'line': b'[ 36%] \x1b[34m\x1b[1mGenerating C++ type support dispatch for ROS interfaces\x1b[0m\n'}
+[8.845423] (-) TimerEvent: {}
+[8.946872] (-) TimerEvent: {}
+[9.047246] (-) TimerEvent: {}
+[9.147611] (-) TimerEvent: {}
+[9.248138] (-) TimerEvent: {}
+[9.348591] (-) TimerEvent: {}
+[9.449064] (-) TimerEvent: {}
+[9.549461] (-) TimerEvent: {}
+[9.653202] (-) TimerEvent: {}
+[9.653481] (drone_assembly_cell) StdoutLine: {'line': b'[ 38%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_cpp.dir/rosidl_typesupport_cpp/drone_assembly_cell/srv/move_to_station__type_support.cpp.o\x1b[0m\n'}
+[9.657461] (drone_assembly_cell) StdoutLine: {'line': b'[ 40%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_cpp.dir/rosidl_typesupport_cpp/drone_assembly_cell/action/pick_part__type_support.cpp.o\x1b[0m\n'}
+[9.657820] (drone_assembly_cell) StdoutLine: {'line': b'[ 41%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_cpp.dir/rosidl_typesupport_cpp/drone_assembly_cell/action/place_part__type_support.cpp.o\x1b[0m\n'}
+[9.733374] (drone_assembly_cell) StdoutLine: {'line': b'[ 43%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_c.dir/rosidl_typesupport_c/drone_assembly_cell/srv/move_to_station__type_support.cpp.o\x1b[0m\n'}
+[9.753323] (-) TimerEvent: {}
+[9.837320] (drone_assembly_cell) StdoutLine: {'line': b'[ 45%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_c.dir/rosidl_typesupport_c/drone_assembly_cell/action/pick_part__type_support.cpp.o\x1b[0m\n'}
+[9.853464] (-) TimerEvent: {}
+[9.915684] (drone_assembly_cell) StdoutLine: {'line': b'[ 47%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/srv/detail/move_to_station__type_support.cpp.o\x1b[0m\n'}
+[9.957735] (-) TimerEvent: {}
+[9.977514] (drone_assembly_cell) StdoutLine: {'line': b'[ 49%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_c.dir/rosidl_typesupport_c/drone_assembly_cell/action/place_part__type_support.cpp.o\x1b[0m\n'}
+[10.010115] (drone_assembly_cell) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/srv/detail/move_to_station__type_support.c.o\x1b[0m\n'}
+[10.057880] (-) TimerEvent: {}
+[10.102609] (drone_assembly_cell) StdoutLine: {'line': b'[ 52%] \x1b[32m\x1b[1mLinking CXX shared library libdrone_assembly_cell__rosidl_typesupport_c.so\x1b[0m\n'}
+[10.132182] (drone_assembly_cell) StdoutLine: {'line': b'[ 54%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/pick_part__type_support.c.o\x1b[0m\n'}
+[10.158028] (-) TimerEvent: {}
+[10.258399] (-) TimerEvent: {}
+[10.285762] (drone_assembly_cell) StdoutLine: {'line': b'[ 56%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/place_part__type_support.c.o\x1b[0m\n'}
+[10.358545] (-) TimerEvent: {}
+[10.462730] (-) TimerEvent: {}
+[10.504276] (drone_assembly_cell) StdoutLine: {'line': b'[ 58%] \x1b[32m\x1b[1mLinking C shared library libdrone_assembly_cell__rosidl_typesupport_introspection_c.so\x1b[0m\n'}
+[10.529230] (drone_assembly_cell) StdoutLine: {'line': b'[ 58%] Built target drone_assembly_cell__rosidl_typesupport_c\n'}
+[10.562962] (-) TimerEvent: {}
+[10.591040] (drone_assembly_cell) StdoutLine: {'line': b'[ 60%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/pick_part__type_support.cpp.o\x1b[0m\n'}
+[10.621958] (drone_assembly_cell) StdoutLine: {'line': b'[ 61%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/srv/detail/dds_fastrtps/move_to_station__type_support.cpp.o\x1b[0m\n'}
+[10.633820] (drone_assembly_cell) StdoutLine: {'line': b'[ 63%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/drone_assembly_cell/action/detail/place_part__type_support.cpp.o\x1b[0m\n'}
+[10.666667] (-) TimerEvent: {}
+[10.769325] (-) TimerEvent: {}
+[10.856553] (drone_assembly_cell) StdoutLine: {'line': b'[ 65%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/pick_part__type_support.cpp.o\x1b[0m\n'}
+[10.869596] (-) TimerEvent: {}
+[10.874208] (drone_assembly_cell) StdoutLine: {'line': b'[ 67%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/drone_assembly_cell/srv/detail/move_to_station__type_support_c.cpp.o\x1b[0m\n'}
+[10.970317] (-) TimerEvent: {}
+[11.046178] (drone_assembly_cell) StdoutLine: {'line': b'[ 67%] Built target drone_assembly_cell__rosidl_typesupport_introspection_c\n'}
+[11.062980] (drone_assembly_cell) StdoutLine: {'line': b'[ 69%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/drone_assembly_cell/action/detail/pick_part__type_support_c.cpp.o\x1b[0m\n'}
+[11.070456] (-) TimerEvent: {}
+[11.174571] (-) TimerEvent: {}
+[11.175570] (drone_assembly_cell) StdoutLine: {'line': b'[ 70%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/place_part__type_support.cpp.o\x1b[0m\n'}
+[11.274719] (-) TimerEvent: {}
+[11.375792] (-) TimerEvent: {}
+[11.476959] (-) TimerEvent: {}
+[11.578174] (-) TimerEvent: {}
+[11.618641] (drone_assembly_cell) StdoutLine: {'line': b'[ 72%] \x1b[32m\x1b[1mLinking CXX shared library libdrone_assembly_cell__rosidl_typesupport_cpp.so\x1b[0m\n'}
+[11.678313] (-) TimerEvent: {}
+[11.779384] (-) TimerEvent: {}
+[11.992841] (-) TimerEvent: {}
+[12.096610] (-) TimerEvent: {}
+[12.206829] (-) TimerEvent: {}
+[12.310497] (drone_assembly_cell) StdoutLine: {'line': b'[ 74%] \x1b[32mBuilding CXX object CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/drone_assembly_cell/action/detail/place_part__type_support_c.cpp.o\x1b[0m\n'}
+[12.310835] (-) TimerEvent: {}
+[12.411149] (-) TimerEvent: {}
+[12.411475] (drone_assembly_cell) StdoutLine: {'line': b'[ 76%] \x1b[32m\x1b[1mLinking CXX shared library libdrone_assembly_cell__rosidl_typesupport_introspection_cpp.so\x1b[0m\n'}
+[12.513369] (-) TimerEvent: {}
+[12.629196] (-) TimerEvent: {}
+[12.729688] (-) TimerEvent: {}
+[12.830401] (-) TimerEvent: {}
+[12.935963] (-) TimerEvent: {}
+[13.036417] (-) TimerEvent: {}
+[13.040078] (drone_assembly_cell) StdoutLine: {'line': b'[ 76%] Built target drone_assembly_cell__rosidl_typesupport_cpp\n'}
+[13.136600] (-) TimerEvent: {}
+[13.139635] (drone_assembly_cell) StdoutLine: {'line': b'[ 76%] Built target drone_assembly_cell__rosidl_typesupport_introspection_cpp\n'}
+[13.236707] (-) TimerEvent: {}
+[13.337242] (-) TimerEvent: {}
+[13.446437] (-) TimerEvent: {}
+[13.546982] (-) TimerEvent: {}
+[13.647459] (-) TimerEvent: {}
+[13.747877] (-) TimerEvent: {}
+[13.854415] (-) TimerEvent: {}
+[13.928660] (drone_assembly_cell) StdoutLine: {'line': b'[ 78%] \x1b[32m\x1b[1mLinking CXX shared library libdrone_assembly_cell__rosidl_typesupport_fastrtps_c.so\x1b[0m\n'}
+[13.954588] (-) TimerEvent: {}
+[14.054993] (-) TimerEvent: {}
+[14.155462] (-) TimerEvent: {}
+[14.256283] (-) TimerEvent: {}
+[14.356705] (-) TimerEvent: {}
+[14.434532] (drone_assembly_cell) StdoutLine: {'line': b'[ 80%] \x1b[32m\x1b[1mLinking CXX shared library libdrone_assembly_cell__rosidl_typesupport_fastrtps_cpp.so\x1b[0m\n'}
+[14.457627] (-) TimerEvent: {}
+[14.558166] (-) TimerEvent: {}
+[14.658671] (-) TimerEvent: {}
+[14.759712] (-) TimerEvent: {}
+[14.860163] (-) TimerEvent: {}
+[14.878500] (drone_assembly_cell) StdoutLine: {'line': b'[ 80%] Built target drone_assembly_cell__rosidl_typesupport_fastrtps_c\n'}
+[14.960628] (-) TimerEvent: {}
+[15.061901] (-) TimerEvent: {}
+[15.116039] (drone_assembly_cell) StdoutLine: {'line': b'[ 80%] Built target drone_assembly_cell__rosidl_typesupport_fastrtps_cpp\n'}
+[15.149900] (drone_assembly_cell) StdoutLine: {'line': b'[ 80%] Built target drone_assembly_cell\n'}
+[15.162377] (-) TimerEvent: {}
+[15.203262] (drone_assembly_cell) StdoutLine: {'line': b'[ 81%] \x1b[34m\x1b[1mGenerating Python code for ROS interfaces\x1b[0m\n'}
+[15.262579] (-) TimerEvent: {}
+[15.363769] (-) TimerEvent: {}
+[15.464174] (-) TimerEvent: {}
+[15.564552] (-) TimerEvent: {}
+[15.664884] (-) TimerEvent: {}
+[15.765160] (-) TimerEvent: {}
+[15.865438] (-) TimerEvent: {}
+[15.965893] (-) TimerEvent: {}
+[16.066409] (-) TimerEvent: {}
+[16.166724] (-) TimerEvent: {}
+[16.267131] (-) TimerEvent: {}
+[16.367483] (-) TimerEvent: {}
+[16.467851] (-) TimerEvent: {}
+[16.568247] (-) TimerEvent: {}
+[16.668610] (-) TimerEvent: {}
+[16.768973] (-) TimerEvent: {}
+[16.869317] (-) TimerEvent: {}
+[16.969703] (-) TimerEvent: {}
+[17.070063] (-) TimerEvent: {}
+[17.124229] (drone_assembly_cell) StdoutLine: {'line': b'[ 81%] Built target drone_assembly_cell__py\n'}
+[17.143502] (drone_assembly_cell) StdoutLine: {'line': b'[ 83%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_py.dir/rosidl_generator_py/drone_assembly_cell/srv/_move_to_station_s.c.o\x1b[0m\n'}
+[17.144540] (drone_assembly_cell) StdoutLine: {'line': b'[ 87%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_py.dir/rosidl_generator_py/drone_assembly_cell/action/_place_part_s.c.o\x1b[0m\n'}
+[17.144700] (drone_assembly_cell) StdoutLine: {'line': b'[ 87%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell__rosidl_generator_py.dir/rosidl_generator_py/drone_assembly_cell/action/_pick_part_s.c.o\x1b[0m\n'}
+[17.170214] (-) TimerEvent: {}
+[17.270621] (-) TimerEvent: {}
+[17.371036] (-) TimerEvent: {}
+[17.440206] (drone_assembly_cell) StdoutLine: {'line': b'[ 89%] \x1b[32m\x1b[1mLinking C shared library libdrone_assembly_cell__rosidl_generator_py.so\x1b[0m\n'}
+[17.471165] (-) TimerEvent: {}
+[17.571472] (-) TimerEvent: {}
+[17.603915] (drone_assembly_cell) StdoutLine: {'line': b'[ 89%] Built target drone_assembly_cell__rosidl_generator_py\n'}
+[17.625436] (drone_assembly_cell) StdoutLine: {'line': b'[ 90%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell_s__rosidl_typesupport_introspection_c.dir/rosidl_generator_py/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_introspection_c.c.o\x1b[0m\n'}
+[17.627357] (drone_assembly_cell) StdoutLine: {'line': b'[ 94%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.dir/rosidl_generator_py/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_fastrtps_c.c.o\x1b[0m\n'}
+[17.627606] (drone_assembly_cell) StdoutLine: {'line': b'[ 94%] \x1b[32mBuilding C object CMakeFiles/drone_assembly_cell_s__rosidl_typesupport_c.dir/rosidl_generator_py/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_c.c.o\x1b[0m\n'}
+[17.671653] (-) TimerEvent: {}
+[17.772089] (-) TimerEvent: {}
+[17.850849] (drone_assembly_cell) StdoutLine: {'line': b'[ 98%] \x1b[32m\x1b[1mLinking C shared module rosidl_generator_py/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_introspection_c.so\x1b[0m\n'}
+[17.851174] (drone_assembly_cell) StdoutLine: {'line': b'[ 98%] \x1b[32m\x1b[1mLinking C shared module rosidl_generator_py/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_c.so\x1b[0m\n'}
+[17.861860] (drone_assembly_cell) StdoutLine: {'line': b'[100%] \x1b[32m\x1b[1mLinking C shared module rosidl_generator_py/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.so\x1b[0m\n'}
+[17.872218] (-) TimerEvent: {}
+[17.972528] (-) TimerEvent: {}
+[17.987613] (drone_assembly_cell) StdoutLine: {'line': b'[100%] Built target drone_assembly_cell_s__rosidl_typesupport_c\n'}
+[17.995886] (drone_assembly_cell) StdoutLine: {'line': b'[100%] Built target drone_assembly_cell_s__rosidl_typesupport_introspection_c\n'}
+[18.047677] (drone_assembly_cell) StdoutLine: {'line': b'[100%] Built target drone_assembly_cell_s__rosidl_typesupport_fastrtps_c\n'}
+[18.062502] (drone_assembly_cell) CommandEnded: {'returncode': 0}
+[18.063306] (drone_assembly_cell) JobProgress: {'identifier': 'drone_assembly_cell', 'progress': 'install'}
+[18.072993] (drone_assembly_cell) Command: {'cmd': ['/usr/bin/cmake', '--install', '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell'], 'cwd': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'env': OrderedDict({'LESSOPEN': '| /usr/bin/lesspipe %s', 'MESA_D3D12_DEFAULT_ADAPTER_NAME': 'NVIDIA', 'GZ_SIM_RESOURCE_PATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/share/drone_assembly_cell/models', 'USER': 'nadslab', 'GZ_CONFIG_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/share/gz:/opt/ros/jazzy/opt/sdformat_vendor/share/gz:/opt/ros/jazzy/opt/gz_gui_vendor/share/gz:/opt/ros/jazzy/opt/gz_transport_vendor/share/gz:/opt/ros/jazzy/opt/gz_rendering_vendor/share/gz:/opt/ros/jazzy/opt/gz_plugin_vendor/share/gz:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/share/gz:/opt/ros/jazzy/opt/gz_msgs_vendor/share/gz:/opt/ros/jazzy/opt/gz_common_vendor/share/gz', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/lib:/opt/ros/jazzy/opt/gz_sim_vendor/lib:/opt/ros/jazzy/opt/gz_sensors_vendor/lib:/opt/ros/jazzy/opt/gz_physics_vendor/lib:/opt/ros/jazzy/opt/sdformat_vendor/lib:/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/opt/gz_gui_vendor/lib:/opt/ros/jazzy/opt/gz_transport_vendor/lib:/opt/ros/jazzy/opt/gz_rendering_vendor/lib:/opt/ros/jazzy/opt/gz_plugin_vendor/lib:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/lib:/opt/ros/jazzy/opt/gz_msgs_vendor/lib:/opt/ros/jazzy/opt/gz_common_vendor/lib:/opt/ros/jazzy/opt/gz_math_vendor/lib:/opt/ros/jazzy/opt/gz_utils_vendor/lib:/opt/ros/jazzy/opt/gz_tools_vendor/lib:/opt/ros/jazzy/opt/gz_ogre_next_vendor/lib:/opt/ros/jazzy/opt/gz_dartsim_vendor/lib:/opt/ros/jazzy/opt/gz_cmake_vendor/lib:/opt/ros/jazzy/lib', 'HOME': '/home/nadslab', 'ROS_PYTHON_VERSION': '3', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'WSL_DISTRO_NAME': 'Ubuntu-24.04', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/home/nadslab/ros2_ws/install', 'ROS_DISTRO': 'jazzy', 'LOGNAME': 'nadslab', 'NAME': 'DESKTOP-0RNJ632', 'WSL_INTEROP': '/run/WSL/167863_interop', 'PULSE_SERVER': 'unix:/mnt/wslg/PulseServer', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm-256color', 'PATH': '/opt/ros/jazzy/opt/gz_msgs_vendor/bin:/opt/ros/jazzy/opt/gz_tools_vendor/bin:/opt/ros/jazzy/opt/gz_ogre_next_vendor/bin:/opt/ros/jazzy/bin:/home/nadslab/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Users/Admin/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/debugCommand:/mnt/c/Users/Admin/AppData/Roaming/Code/User/globalStorage/github.copilot-chat/copilotCli:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit/:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/java8path:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Users/Admin/AppData/Local/Programs/Python/Launcher/:/mnt/c/Users/Admin/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/Admin/AppData/Local/Programs/Microsoft VS Code/bin:/mnt/c/Users/Admin/AppData/Local/Python/bin:/mnt/c/Users/Admin/.local/bin:/snap/bin', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'LANG': 'en_US.UTF-8', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:', 'AMENT_PREFIX_PATH': '/home/nadslab/ros2_ws/install/lerobot_1_moveit_config:/home/nadslab/ros2_ws/install/drone_assembly_cell:/home/nadslab/ros2_ws/install/assembly_line_moveit_config:/home/nadslab/ros2_ws/install/so101_description:/opt/ros/jazzy', 'SHELL': '/bin/bash', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GALLIUM_DRIVER': 'd3d12', 'ROS_AUTOMATIC_DISCOVERY_RANGE': 'SUBNET', 'PWD': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/nadslab/ros2_ws/install/drone_assembly_cell/lib/python3.12/site-packages:/opt/ros/jazzy/lib/python3.12/site-packages', 'COLCON': '1', 'WSL2_GUI_APPS_ENABLED': '1', 'HOSTTYPE': 'x86_64', 'CMAKE_PREFIX_PATH': '/home/nadslab/ros2_ws/install/lerobot_1_moveit_config:/home/nadslab/ros2_ws/install/drone_assembly_cell:/home/nadslab/ros2_ws/install/assembly_line_moveit_config:/home/nadslab/ros2_ws/install/so101_description:/opt/ros/jazzy/opt/gz_sim_vendor:/opt/ros/jazzy/opt/gz_sensors_vendor:/opt/ros/jazzy/opt/gz_physics_vendor:/opt/ros/jazzy/opt/sdformat_vendor:/opt/ros/jazzy/opt/gz_gui_vendor:/opt/ros/jazzy/opt/gz_transport_vendor:/opt/ros/jazzy/opt/gz_rendering_vendor:/opt/ros/jazzy/opt/gz_plugin_vendor:/opt/ros/jazzy/opt/gz_fuel_tools_vendor:/opt/ros/jazzy/opt/gz_msgs_vendor:/opt/ros/jazzy/opt/gz_common_vendor:/opt/ros/jazzy/opt/gz_math_vendor:/opt/ros/jazzy/opt/gz_utils_vendor:/opt/ros/jazzy/opt/gz_tools_vendor:/opt/ros/jazzy/opt/gz_ogre_next_vendor:/opt/ros/jazzy/opt/gz_dartsim_vendor:/opt/ros/jazzy/opt/gz_cmake_vendor:/opt/ros/jazzy', 'WSLENV': ''}), 'shell': False}
+[18.073473] (-) TimerEvent: {}
+[18.082079] (drone_assembly_cell) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[18.083284] (drone_assembly_cell) StdoutLine: {'line': b'-- Execute custom install script\n'}
+[18.084456] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/rosidl_interfaces/drone_assembly_cell\n'}
+[18.095285] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/srv/MoveToStation.json\n'}
+[18.109663] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PickPart.json\n'}
+[18.119069] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PlacePart.json\n'}
+[18.130107] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__functions.h\n'}
+[18.140322] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__struct.h\n'}
+[18.149774] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__type_support.h\n'}
+[18.160076] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__functions.h\n'}
+[18.173624] (-) TimerEvent: {}
+[18.175048] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__struct.h\n'}
+[18.188312] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__type_support.h\n'}
+[18.203265] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/pick_part.h\n'}
+[18.216345] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/place_part.h\n'}
+[18.228841] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_generator_c__visibility_control.h\n'}
+[18.242043] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__functions.h\n'}
+[18.253668] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__struct.h\n'}
+[18.263685] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__type_support.h\n'}
+[18.273766] (-) TimerEvent: {}
+[18.275374] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/move_to_station.h\n'}
+[18.286417] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/library_path.sh\n'}
+[18.299641] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/library_path.dsv\n'}
+[18.315890] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_fastrtps_c.h\n'}
+[18.327856] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_fastrtps_c.h\n'}
+[18.349671] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_typesupport_fastrtps_c__visibility_control.h\n'}
+[18.373368] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_fastrtps_c.h\n'}
+[18.373871] (-) TimerEvent: {}
+[18.387821] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_introspection_c.h\n'}
+[18.406136] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_introspection_c.h\n'}
+[18.425105] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_typesupport_introspection_c__visibility_control.h\n'}
+[18.439628] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_introspection_c.h\n'}
+[18.454836] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__builder.hpp\n'}
+[18.465767] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__struct.hpp\n'}
+[18.474082] (-) TimerEvent: {}
+[18.481699] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__traits.hpp\n'}
+[18.500859] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__type_support.hpp\n'}
+[18.521007] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__builder.hpp\n'}
+[18.535413] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__struct.hpp\n'}
+[18.545941] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__traits.hpp\n'}
+[18.555208] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__type_support.hpp\n'}
+[18.564387] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/pick_part.hpp\n'}
+[18.572571] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/place_part.hpp\n'}
+[18.574171] (-) TimerEvent: {}
+[18.580612] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_generator_cpp__visibility_control.hpp\n'}
+[18.588930] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__builder.hpp\n'}
+[18.597588] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__struct.hpp\n'}
+[18.607765] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__traits.hpp\n'}
+[18.618395] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__type_support.hpp\n'}
+[18.627417] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/move_to_station.hpp\n'}
+[18.635313] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_fastrtps_cpp.hpp\n'}
+[18.643750] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_fastrtps_cpp.hpp\n'}
+[18.651380] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h\n'}
+[18.659364] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_fastrtps_cpp.hpp\n'}
+[18.667816] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_introspection_cpp.hpp\n'}
+[18.674309] (-) TimerEvent: {}
+[18.677087] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_introspection_cpp.hpp\n'}
+[18.686192] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_introspection_cpp.hpp\n'}
+[18.696131] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/pythonpath.sh\n'}
+[18.710276] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/pythonpath.dsv\n'}
+[18.722010] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/PKG-INFO\n'}
+[18.730453] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/SOURCES.txt\n'}
+[18.738799] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/dependency_links.txt\n'}
+[18.746931] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/top_level.txt\n'}
+[18.756276] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/__init__.py\n'}
+[18.764465] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_c.c\n'}
+[18.772773] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_fastrtps_c.c\n'}
+[18.774438] (-) TimerEvent: {}
+[18.781315] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_introspection_c.c\n'}
+[18.791459] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/__init__.py\n'}
+[18.801526] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_pick_part.py\n'}
+[18.810185] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_pick_part_s.c\n'}
+[18.819248] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_place_part.py\n'}
+[18.827408] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_place_part_s.c\n'}
+[18.835701] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_c.so\n'}
+[18.844179] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.so\n'}
+[18.851626] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_introspection_c.so\n'}
+[18.860329] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/__init__.py\n'}
+[18.869642] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/_move_to_station.py\n'}
+[18.874622] (-) TimerEvent: {}
+[18.878807] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/_move_to_station_s.c\n'}
+[18.886531] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.so\n'}
+[18.886869] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_introspection_c.so\n'}
+[18.886957] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_c.so\n'}
+[18.887331] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/rust_packages/drone_assembly_cell\n'}
+[18.897722] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/Cargo.toml\n'}
+[18.907508] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/build.rs\n'}
+[18.916772] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/action.rs\n'}
+[18.925346] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/action/rmw.rs\n'}
+[18.933731] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/lib.rs\n'}
+[18.942318] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/srv.rs\n'}
+[18.950311] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/srv/rmw.rs\n'}
+[18.958727] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/srv/MoveToStation.idl\n'}
+[18.966724] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PickPart.idl\n'}
+[18.974493] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PlacePart.idl\n'}
+[18.974681] (-) TimerEvent: {}
+[18.982812] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/srv/MoveToStation.srv\n'}
+[18.990222] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PickPart.action\n'}
+[18.999050] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PlacePart.action\n'}
+[19.011869] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/launch/assembly_world.launch.py\n'}
+[19.021788] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/launch/single_arm_dev.launch.py\n'}
+[19.029887] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/launch/single_arm_minimal.launch.py\n'}
+[19.039245] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rviz/cell.rviz\n'}
+[19.049332] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/screw_spawner.py\n'}
+[19.059462] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/conveyor_node.py\n'}
+[19.069030] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/gripper_attach_node.py\n'}
+[19.074820] (-) TimerEvent: {}
+[19.079050] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/pick_place_server.py\n'}
+[19.089395] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/so101_ik.py\n'}
+[19.101382] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/assembly_orchestrator.py\n'}
+[19.114141] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/arm.stl\n'}
+[19.121729] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/model.config\n'}
+[19.129876] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/model.sdf\n'}
+[19.139532] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/assembly_table/model.config\n'}
+[19.147667] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/assembly_table/model.sdf\n'}
+[19.156194] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bin/model.config\n'}
+[19.163726] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bin/model.sdf\n'}
+[19.173477] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/bottom_plate.stl\n'}
+[19.174940] (-) TimerEvent: {}
+[19.182424] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/model.config\n'}
+[19.191831] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/model.sdf\n'}
+[19.200427] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/cell_frame/model.config\n'}
+[19.211266] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/cell_frame/model.sdf\n'}
+[19.220685] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_main/model.config\n'}
+[19.229356] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_main/model.sdf\n'}
+[19.238635] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_return/model.config\n'}
+[19.250203] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_return/model.sdf\n'}
+[19.261028] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_side/model.config\n'}
+[19.269397] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_side/model.sdf\n'}
+[19.275183] (-) TimerEvent: {}
+[19.278477] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/meshes/bottom_plate.stl\n'}
+[19.287607] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/model.config\n'}
+[19.296213] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/model.sdf\n'}
+[19.309134] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/meshes/camera.stl\n'}
+[19.318392] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/model.config\n'}
+[19.327261] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/model.sdf\n'}
+[19.336022] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/meshes/capacitor.stl\n'}
+[19.344181] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/model.config\n'}
+[19.353557] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/model.sdf\n'}
+[19.361547] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/meshes/emax_motor.stl\n'}
+[19.369551] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/model.config\n'}
+[19.375357] (-) TimerEvent: {}
+[19.377272] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/model.sdf\n'}
+[19.388075] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/meshes/rx_antenna.stl\n'}
+[19.397305] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/model.config\n'}
+[19.411822] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/model.sdf\n'}
+[19.420988] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/meshes/single_arm.stl\n'}
+[19.429607] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/model.config\n'}
+[19.439161] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/model.sdf\n'}
+[19.447846] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/meshes/speedybee_stack.stl\n'}
+[19.457048] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/model.config\n'}
+[19.464655] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/model.sdf\n'}
+[19.473601] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/meshes/tbs_antenna.stl\n'}
+[19.475639] (-) TimerEvent: {}
+[19.481066] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/model.config\n'}
+[19.490510] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/model.sdf\n'}
+[19.503314] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/meshes/vtx.stl\n'}
+[19.513591] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/model.config\n'}
+[19.521837] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/model.sdf\n'}
+[19.531360] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/meshes/vtx_antenna.stl\n'}
+[19.540147] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/model.config\n'}
+[19.547792] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/model.sdf\n'}
+[19.555303] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/emax_motor/model.config\n'}
+[19.562900] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/emax_motor/model.sdf\n'}
+[19.570802] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/finished_area/model.config\n'}
+[19.575746] (-) TimerEvent: {}
+[19.578557] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/finished_area/model.sdf\n'}
+[19.586945] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/frame_jig/model.config\n'}
+[19.596091] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/frame_jig/model.sdf\n'}
+[19.609228] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/m3_screw/model.config\n'}
+[19.620959] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/m3_screw/model.sdf\n'}
+[19.629687] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/motor_jig/model.config\n'}
+[19.640616] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/motor_jig/model.sdf\n'}
+[19.650218] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/screw_feeder/model.config\n'}
+[19.659024] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/screw_feeder/model.sdf\n'}
+[19.672571] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/model.config\n'}
+[19.675915] (-) TimerEvent: {}
+[19.683020] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/model.sdf\n'}
+[19.690967] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/top_plate.stl\n'}
+[19.700872] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/workbench/model.config\n'}
+[19.710854] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/workbench/model.sdf\n'}
+[19.721429] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/worlds/frame_assembly.sdf\n'}
+[19.729862] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/arm.stl\n'}
+[19.738334] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/bottom_plate.stl\n'}
+[19.746903] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/camera.stl\n'}
+[19.756131] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/capacitor.stl\n'}
+[19.765723] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/emax_motor.stl\n'}
+[19.774941] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/rx_antenna.stl\n'}
+[19.776063] (-) TimerEvent: {}
+[19.783415] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/single_arm.stl\n'}
+[19.792742] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/speedybee_stack.stl\n'}
+[19.802459] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/tbs_antenna.stl\n'}
+[19.813257] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/top_plate.stl\n'}
+[19.823686] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/vtx.stl\n'}
+[19.834198] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/vtx_antenna.stl\n'}
+[19.844141] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/bottom_plate.stl\n'}
+[19.844533] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/top_plate.stl\n'}
+[19.844612] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/arm.stl\n'}
+[19.844691] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/meshes/single_arm.stl\n'}
+[19.844780] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/meshes/bottom_plate.stl\n'}
+[19.844947] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/meshes/emax_motor.stl\n'}
+[19.845097] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/meshes/speedybee_stack.stl\n'}
+[19.845195] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/meshes/capacitor.stl\n'}
+[19.845376] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/meshes/vtx.stl\n'}
+[19.845442] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/meshes/camera.stl\n'}
+[19.845485] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/meshes/vtx_antenna.stl\n'}
+[19.845626] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/meshes/rx_antenna.stl\n'}
+[19.845756] (drone_assembly_cell) StdoutLine: {'line': b'-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/meshes/tbs_antenna.stl\n'}
+[19.846212] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/package_run_dependencies/drone_assembly_cell\n'}
+[19.854720] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/parent_prefix_path/drone_assembly_cell\n'}
+[19.863044] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/ament_prefix_path.sh\n'}
+[19.871107] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/ament_prefix_path.dsv\n'}
+[19.876334] (-) TimerEvent: {}
+[19.880371] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/path.sh\n'}
+[19.889654] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/path.dsv\n'}
+[19.899964] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.bash\n'}
+[19.911472] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.sh\n'}
+[19.920338] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.zsh\n'}
+[19.929499] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.dsv\n'}
+[19.937575] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.dsv\n'}
+[19.947140] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/packages/drone_assembly_cell\n'}
+[19.955322] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/rosidl_cmake-extras.cmake\n'}
+[19.964045] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_dependencies-extras.cmake\n'}
+[19.972813] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_include_directories-extras.cmake\n'}
+[19.976478] (-) TimerEvent: {}
+[19.983538] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_libraries-extras.cmake\n'}
+[19.993785] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_targets-extras.cmake\n'}
+[20.004411] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake\n'}
+[20.015711] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake\n'}
+[20.028483] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cellConfig.cmake\n'}
+[20.036183] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cellConfig-version.cmake\n'}
+[20.044460] (drone_assembly_cell) StdoutLine: {'line': b'-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.xml\n'}
+[20.052347] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_generator_c.so\n'}
+[20.052861] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_generator_c.so" to ""\n'}
+[20.053289] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_fastrtps_c.so\n'}
+[20.053706] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_fastrtps_c.so" to ""\n'}
+[20.053902] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_introspection_c.so\n'}
+[20.054176] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_introspection_c.so" to ""\n'}
+[20.054259] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_c.so\n'}
+[20.054914] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_c.so" to ""\n'}
+[20.055176] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_fastrtps_cpp.so\n'}
+[20.055981] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_fastrtps_cpp.so" to ""\n'}
+[20.056077] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_introspection_cpp.so\n'}
+[20.056615] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_introspection_cpp.so" to ""\n'}
+[20.056861] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_cpp.so\n'}
+[20.057381] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_cpp.so" to ""\n'}
+[20.076632] (-) TimerEvent: {}
+[20.113226] (drone_assembly_cell) StdoutLine: {'line': b"Listing '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell'...\n"}
+[20.113450] (drone_assembly_cell) StdoutLine: {'line': b"Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/__init__.py'...\n"}
+[20.113524] (drone_assembly_cell) StdoutLine: {'line': b"Listing '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action'...\n"}
+[20.113701] (drone_assembly_cell) StdoutLine: {'line': b"Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/__init__.py'...\n"}
+[20.113781] (drone_assembly_cell) StdoutLine: {'line': b"Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_pick_part.py'...\n"}
+[20.113833] (drone_assembly_cell) StdoutLine: {'line': b"Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_place_part.py'...\n"}
+[20.113878] (drone_assembly_cell) StdoutLine: {'line': b"Listing '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv'...\n"}
+[20.113931] (drone_assembly_cell) StdoutLine: {'line': b"Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/__init__.py'...\n"}
+[20.114000] (drone_assembly_cell) StdoutLine: {'line': b"Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/_move_to_station.py'...\n"}
+[20.119141] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_generator_py.so\n'}
+[20.119532] (drone_assembly_cell) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_generator_py.so" to ""\n'}
+[20.119704] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_cExport.cmake\n'}
+[20.119924] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_cExport-noconfig.cmake\n'}
+[20.120007] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cExport.cmake\n'}
+[20.120830] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cExport-noconfig.cmake\n'}
+[20.121217] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cExport.cmake\n'}
+[20.121294] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cExport-noconfig.cmake\n'}
+[20.121349] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cExport.cmake\n'}
+[20.121465] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cExport-noconfig.cmake\n'}
+[20.121687] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_cppExport.cmake\n'}
+[20.121869] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cppExport.cmake\n'}
+[20.122023] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake\n'}
+[20.122094] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cppExport.cmake\n'}
+[20.122270] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cppExport-noconfig.cmake\n'}
+[20.122543] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cppExport.cmake\n'}
+[20.122765] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cppExport-noconfig.cmake\n'}
+[20.122849] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_pyExport.cmake\n'}
+[20.122964] (drone_assembly_cell) StdoutLine: {'line': b'-- Installing: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_pyExport-noconfig.cmake\n'}
+[20.125238] (drone_assembly_cell) CommandEnded: {'returncode': 0}
+[20.156676] (drone_assembly_cell) JobEnded: {'identifier': 'drone_assembly_cell', 'rc': 0}
+[20.158045] (-) EventReactorShutdown: {}

@@ -8,12 +8,12 @@
 
     <!-- Table top slab: 3.0 x 0.9 x 0.025m, top at z=0.900 -->
     <link name="top">
-      <pose>0 0 0.8875 0 0 0</pose>
+      <pose>0 -0.3 0.8875 0 0 0</pose>
       <collision name="col">
-        <geometry><box><size>3.0 0.9 0.025</size></box></geometry>
+        <geometry><box><size>3.0 1.5 0.025</size></box></geometry>
       </collision>
       <visual name="vis">
-        <geometry><box><size>3.0 0.9 0.025</size></box></geometry>
+        <geometry><box><size>3.0 1.5 0.025</size></box></geometry>
         <material>
           <ambient>0.30 0.20 0.10 1</ambient>
           <diffuse>0.50 0.35 0.18 1</diffuse>
@@ -25,7 +25,7 @@
     <!-- 6 legs in a 3x2 grid: x ∈ {-1.46, 0, +1.46}, y ∈ {-0.41, +0.41}
          Each leg: 0.04x0.04x0.875m, center at z=0.4375 -->
     <link name="leg_fl">
-      <pose>-1.46 -0.41 0.4375 0 0 0</pose>
+      <pose>-1.46 -1.01 0.4375 0 0 0</pose>
       <collision name="col"><geometry><box><size>0.04 0.04 0.875</size></box></geometry></collision>
       <visual name="vis">
         <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
@@ -41,7 +41,7 @@
       </visual>
     </link>
     <link name="leg_ml">
-      <pose>0.00 -0.41 0.4375 0 0 0</pose>
+      <pose>0.00 -1.01 0.4375 0 0 0</pose>
       <collision name="col"><geometry><box><size>0.04 0.04 0.875</size></box></geometry></collision>
       <visual name="vis">
         <geometry><box><size>0.04 0.04 0.875</size></box></geometry>
@@ -57,7 +57,7 @@
       </visual>
     </link>
     <link name="leg_bl">
-      <pose>1.46 -0.41 0.4375 0 0 0</pose>
+      <pose>1.46 -1.01 0.4375 0 0 0</pose>
       <collision name="col"><geometry><box><size>0.04 0.04 0.875</size></box></geometry></collision>
       <visual name="vis">
         <geometry><box><size>0.04 0.04 0.875</size></box></geometry>

@@ -1,0 +1,17 @@
+{
+  "package_name": "drone_assembly_cell",
+  "output_dir": "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/rosidl_generator_type_description/drone_assembly_cell",
+  "idl_tuples": [
+    "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/rosidl_adapter/drone_assembly_cell:srv/MoveToStation.idl",
+    "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/rosidl_adapter/drone_assembly_cell:action/PickPart.idl",
+    "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/rosidl_adapter/drone_assembly_cell:action/PlacePart.idl"
+  ],
+  "include_paths": [
+    "geometry_msgs:/opt/ros/jazzy/share/geometry_msgs",
+    "std_msgs:/opt/ros/jazzy/share/std_msgs",
+    "action_msgs:/opt/ros/jazzy/share/action_msgs",
+    "builtin_interfaces:/opt/ros/jazzy/share/builtin_interfaces",
+    "unique_identifier_msgs:/opt/ros/jazzy/share/unique_identifier_msgs",
+    "service_msgs:/opt/ros/jazzy/share/service_msgs"
+  ]
+}

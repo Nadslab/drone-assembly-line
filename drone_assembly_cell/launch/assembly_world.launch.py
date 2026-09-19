@@ -2,25 +2,25 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import (DeclareLaunchArgument, ExecuteProcess, TimerAction,
-                            IncludeLaunchDescription)
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import xacro
 
 # One entry per robot station.  The namespace also becomes the Gazebo model name.
+# yaw: spawn rotation about Z (radians). lerobot_1 faces +Y (into table) so
+# all 4 of its bins fall in the arm's forward hemisphere.
+import math as _math
 ARMS = [
-    {'ns': 'screw_robot',  'x': -1.2, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_1',    'x': -1.1, 'y': -0.4, 'z': 0.9},
-    {'ns': 'lerobot_2',    'x': -0.6, 'y':  0.1, 'z': 0.9},
-    {'ns': 'solder_robot', 'x':  0.6, 'y': 0.1, 'z': 0.9},
-    {'ns': 'lerobot_3',    'x':  1.2, 'y': 0.1, 'z': 0.9},
+    {'ns': 'screw_robot',  'x': -1.2, 'y':  0.1, 'z': 0.9, 'yaw': 0.0},
+    {'ns': 'lerobot_1',    'x': -1.1, 'y': -0.4, 'z': 0.9, 'yaw': _math.pi / 2},
+    {'ns': 'lerobot_2',    'x': -0.6, 'y':  0.1, 'z': 0.9, 'yaw': 0.0},
+    {'ns': 'solder_robot', 'x':  0.6, 'y':  0.1, 'z': 0.9, 'yaw': 0.0},
+    {'ns': 'lerobot_3',    'x':  1.2, 'y':  0.1, 'z': 0.9, 'yaw': 0.0},
 ]
 
 _JOINTS = ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper']
-_GAINS  = {j: {'p': 20.0, 'i': 1.0, 'd': 5.0, 'i_clamp': 0.5} for j in _JOINTS}
 
 
 def _write_arm_yaml(ns: str) -> str:
@@ -55,9 +55,8 @@ def _write_arm_yaml(ns: str) -> str:
                 'state_publish_rate': 50.0,
                 'action_monitor_rate': 20.0,
                 'allow_partial_joints_goal': False,
-                'open_loop_control': False,
+                'open_loop_control': True,
                 'allow_integration_in_goal_trajectories': False,
-                'gains': _GAINS,
             }
         },
     }
@@ -65,6 +64,14 @@ def _write_arm_yaml(ns: str) -> str:
     with open(path, 'w') as fh:
         yaml.dump(data, fh, default_flow_style=False)
     return path
+
+
+def _load_yaml(path: str) -> dict:
+    with open(path, 'r') as fh:
+        data = yaml.safe_load(fh)
+    if '/**' in data:
+        return data['/**']['ros__parameters']
+    return data
 
 
 def generate_launch_description():
@@ -92,6 +99,18 @@ def generate_launch_description():
     xacro_file        = os.path.join(so101_pkg, 'urdf', 'so101.urdf.xacro')
     xacro_screwdriver = os.path.join(so101_pkg, 'urdf', 'so101_screwdriver.urdf.xacro')
 
+    # ── Physics tuning — read once, applied to every arm ──────────────────
+    _tuning_path = os.path.join(so101_pkg, 'config', 'physics_tuning.yaml')
+    with open(_tuning_path) as _f:
+        _tuning = yaml.safe_load(_f)
+    physics_mappings = {
+        'inertia_scale':      str(_tuning.get('inertia_scale',      1.0)),
+        'mass_scale':         str(_tuning.get('mass_scale',         1.0)),
+        'joint_damping':      str(_tuning.get('joint_damping',      0.1)),
+        'joint_friction':     str(_tuning.get('joint_friction',     0.05)),
+        'position_hold_gain': str(_tuning.get('position_hold_gain', 20.0)),
+    }
+
     # ── Launch arguments ───────────────────────────────────────────────────
     gui_arg  = DeclareLaunchArgument('gui',  default_value='true',
                                      description='Start the Gazebo GUI')
@@ -101,6 +120,11 @@ def generate_launch_description():
     rviz = LaunchConfiguration('rviz')
 
     # ── Gazebo server + GUI ────────────────────────────────────────────────
+    # Start paused (-p) so no physics steps run while robot models are being
+    # spawned.  Adding DART bodies during a live physics step causes ODE to
+    # receive zero-initialised quaternions → "dxNormalize4" assertion crash.
+    # Physics is unpaused explicitly below, after all five arms are in the
+    # world and their controller_managers are ready.
     gz_server = ExecuteProcess(
         cmd=['gz', 'sim', '-s', '-r', world_file],
         additional_env=gz_env, output='screen',
@@ -144,6 +168,11 @@ def generate_launch_description():
     actions = [gui_arg, rviz_arg, gz_server, gz_bridge, gz_gui,
                screw_spawner, conveyor_node]
 
+    # ── MoveIt2 shared config (loaded once, used per-arm below) ───────────
+    kinematics_params   = _load_yaml(os.path.join(moveit_pkg, 'config', 'kinematics.yaml'))
+    joint_limits_params = _load_yaml(os.path.join(moveit_pkg, 'config', 'joint_limits.yaml'))
+    moveit_params       = _load_yaml(os.path.join(moveit_pkg, 'config', 'moveit.yaml'))
+
     # ── Per-arm: RSP + Gazebo spawn + controllers ──────────────────────────
     # Model spawns are staggered 3 s apart so each arm's gz_ros2_control
     # plugin can register before the next model is injected.
@@ -157,6 +186,7 @@ def generate_launch_description():
     #   lerobot_3    jsb=61s arm_ctrl=64s
     for i, arm in enumerate(ARMS):
         ns         = arm['ns']
+        spawn_yaw  = arm.get('yaw', 0.0)
         spawn_t    = 5.0  + i * 3.0   # 5, 8, 11, 14, 17 s
         jsb_t      = 13.0 + i * 12.0  # 13, 25, 37, 49, 61 s
         arm_ctrl_t = 16.0 + i * 12.0  # 16, 28, 40, 52, 64 s
@@ -165,7 +195,7 @@ def generate_launch_description():
 
         # screw_robot uses the screwdriver-variant xacro (adds tip link/joint)
         arm_xacro = xacro_screwdriver if ns == 'screw_robot' else xacro_file
-        xacro_mappings = {'namespace': ns, 'controllers_yaml': yaml_path}
+        xacro_mappings = {'namespace': ns, 'controllers_yaml': yaml_path, **physics_mappings}
         if ns == 'screw_robot':
             xacro_mappings['screwdriver'] = 'true'
         robot_desc = xacro.process_file(arm_xacro, mappings=xacro_mappings).toxml()
@@ -191,7 +221,7 @@ def generate_launch_description():
                     '-x', str(arm['x']),
                     '-y', str(arm['y']),
                     '-z', str(arm['z']),
-                    '-R', '0.0', '-P', '0.0', '-Y', '0.0',
+                    '-R', '0.0', '-P', '0.0', '-Y', str(spawn_yaw),
                 ],
                 output='screen',
             )
@@ -222,6 +252,29 @@ def generate_launch_description():
 
         actions += [rsp, spawn, load_jsb, load_arm_ctrl]
 
+        # move_group at T=70s — after all controllers up; no RSP (already running)
+        srdf_path = os.path.join(moveit_pkg, 'config', f'{ns}.srdf')
+        with open(srdf_path, 'r') as fh:
+            srdf_content = fh.read()
+        load_move_group = TimerAction(period=70.0, actions=[
+            Node(
+                package='moveit_ros_move_group',
+                executable='move_group',
+                namespace=ns,
+                name='move_group',
+                output='screen',
+                parameters=[
+                    {'robot_description': robot_desc},
+                    {'robot_description_semantic': srdf_content},
+                    kinematics_params,
+                    joint_limits_params,
+                    moveit_params,
+                    {'use_sim_time': True},
+                ],
+            )
+        ])
+        actions.append(load_move_group)
+
         if ns != 'screw_robot':
             load_attach = TimerAction(period=arm_ctrl_t + 2.0, actions=[
                 Node(
@@ -231,10 +284,10 @@ def generate_launch_description():
                     parameters=[{
                         'namespace': ns,
                         'world': 'frame_assembly_cell',
-                        'gz_bin': '/opt/ros/jazzy/opt/gz_tools_vendor/bin/gz',
                         'base_x': arm['x'],
                         'base_y': arm['y'],
                         'base_z': arm['z'],
+                        'spawn_yaw': spawn_yaw,
                     }],
                     output='screen',
                 )
@@ -257,15 +310,18 @@ def generate_launch_description():
             ])
             actions.append(load_pps)
 
-    # ── MoveIt2 move_group nodes (all arms, T=70s — after last controller) ─
-    move_groups = TimerAction(period=70.0, actions=[
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(moveit_pkg, 'launch', 'all_move_groups.launch.py')),
-            launch_arguments={'use_sim_time': 'true'}.items(),
-        )
-    ])
-    actions.append(move_groups)
+            # Orchestrator for lerobot_1 only (bin A pick demo)
+            if ns == 'lerobot_1':
+                load_orch = TimerAction(period=arm_ctrl_t + 10.0, actions=[
+                    Node(
+                        package='drone_assembly_cell',
+                        executable='assembly_orchestrator.py',
+                        name='assembly_orchestrator',
+                        parameters=[{'namespace': ns}],
+                        output='screen',
+                    )
+                ])
+                actions.append(load_orch)
 
     # ── RViz2 (optional, after all controllers are up at T≈64s) ───────────
     rviz_node = TimerAction(period=70.0, actions=[

@@ -1,0 +1,4 @@
+source;share/drone_assembly_cell/environment/ament_prefix_path.sh
+source;share/drone_assembly_cell/environment/library_path.sh
+source;share/drone_assembly_cell/environment/path.sh
+source;share/drone_assembly_cell/environment/pythonpath.sh

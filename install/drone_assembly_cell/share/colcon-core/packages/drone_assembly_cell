@@ -1,0 +1,1 @@
+action_msgs:control_msgs:controller_manager:geometry_msgs:moveit_msgs:python3-rclpy:rclpy:robot_state_publisher:ros_gz_bridge:ros_gz_interfaces:ros_gz_sim:rosidl_default_runtime:rviz2:sensor_msgs:so101_description:std_msgs:std_srvs:trajectory_msgs:xacro

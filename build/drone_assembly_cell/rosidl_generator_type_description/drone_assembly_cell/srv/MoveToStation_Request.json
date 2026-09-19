@@ -1,0 +1,36 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "drone_assembly_cell/srv/MoveToStation_Request",
+      "fields": [
+        {
+          "name": "drone_id",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        },
+        {
+          "name": "target_station",
+          "type": {
+            "type_id": 6,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "drone_assembly_cell/srv/MoveToStation_Request",
+      "hash_string": "RIHS01_2c3199dc7313d7306b76ea85d721c2cb81b1334883ef0892921aa3ecac04d45b"
+    }
+  ]
+}

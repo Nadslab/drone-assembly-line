@@ -1,0 +1,21 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/pick_part__type_support.cpp.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/pick_part__type_support.cpp.o.d"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/place_part__type_support.cpp.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/place_part__type_support.cpp.o.d"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/srv/detail/dds_fastrtps/move_to_station__type_support.cpp.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/srv/detail/dds_fastrtps/move_to_station__type_support.cpp.o.d"
+  "libdrone_assembly_cell__rosidl_typesupport_fastrtps_cpp.pdb"
+  "libdrone_assembly_cell__rosidl_typesupport_fastrtps_cpp.so"
+  "rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/pick_part__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/dds_fastrtps/place_part__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_fastrtps_cpp.hpp"
+  "rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_fastrtps_cpp.hpp"
+  "rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/srv/detail/dds_fastrtps/move_to_station__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_fastrtps_cpp.hpp"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/drone_assembly_cell__rosidl_typesupport_fastrtps_cpp.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

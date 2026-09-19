@@ -1,0 +1,267 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-133542dce8394e1006d0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						15,
+						16,
+						17,
+						18,
+						19
+					]
+				},
+				{
+					"build" : "drone_assembly_cell__py",
+					"jsonFile" : "directory-drone_assembly_cell__py-362f137aea0d2aff8e02.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/drone_assembly_cell__py",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "drone_assembly_cell__rs",
+					"jsonFile" : "directory-drone_assembly_cell__rs-87b385ba93b24fe5f1f2.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell/drone_assembly_cell__rs",
+					"targetIndexes" : 
+					[
+						14
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2
+					],
+					"name" : "drone_assembly_cell",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_drone_assembly_cell_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_drone_assembly_cell_egg-fdfed4febc32621e19fc.json",
+					"name" : "ament_cmake_python_build_drone_assembly_cell_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_drone_assembly_cell::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_drone_assembly_cell-3eab9e8b7c14039d2cf9.json",
+					"name" : "ament_cmake_python_symlink_drone_assembly_cell",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell-442801726e89333ca095.json",
+					"name" : "drone_assembly_cell",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__cpp-d3f71a8fe97ad84e4372.json",
+					"name" : "drone_assembly_cell__cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "drone_assembly_cell__py::@395a3c06b1ab344de968",
+					"jsonFile" : "target-drone_assembly_cell__py-a3f305372f8511a99341.json",
+					"name" : "drone_assembly_cell__py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_generator_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_generator_c-c140670579ac61920a1c.json",
+					"name" : "drone_assembly_cell__rosidl_generator_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_generator_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_generator_py-4e8bf9d78efd5f8cb9e2.json",
+					"name" : "drone_assembly_cell__rosidl_generator_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_generator_type_description::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_generator_type_description-81b1640434eb3c9e624f.json",
+					"name" : "drone_assembly_cell__rosidl_generator_type_description",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_typesupport_c-1b3ddfe3fc49fdc1b27b.json",
+					"name" : "drone_assembly_cell__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_typesupport_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_typesupport_cpp-be58534e36fcba8aeac4.json",
+					"name" : "drone_assembly_cell__rosidl_typesupport_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_typesupport_fastrtps_c-dfa5cc32315370bea947.json",
+					"name" : "drone_assembly_cell__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_typesupport_fastrtps_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_typesupport_fastrtps_cpp-95e5e41f80924e2e722e.json",
+					"name" : "drone_assembly_cell__rosidl_typesupport_fastrtps_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_typesupport_introspection_c-06a4811970797e2688f3.json",
+					"name" : "drone_assembly_cell__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell__rosidl_typesupport_introspection_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell__rosidl_typesupport_introspection_cpp-b3c38648916be8955f2c.json",
+					"name" : "drone_assembly_cell__rosidl_typesupport_introspection_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "drone_assembly_cell__rs::@c9e39444352aa62f7b74",
+					"jsonFile" : "target-drone_assembly_cell__rs-29f2523adfda1ed1debc.json",
+					"name" : "drone_assembly_cell__rs",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell_s__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell_s__rosidl_typesupport_c-3b49bb83ada294e098b1.json",
+					"name" : "drone_assembly_cell_s__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell_s__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell_s__rosidl_typesupport_fastrtps_c-35c2c19ef4a0eaebf072.json",
+					"name" : "drone_assembly_cell_s__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell_s__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell_s__rosidl_typesupport_introspection_c-9d03ed70b8a8be1592b0.json",
+					"name" : "drone_assembly_cell_s__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "drone_assembly_cell_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-drone_assembly_cell_uninstall-de6eed72c68fb3867236.json",
+					"name" : "drone_assembly_cell_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-44ec9648044bbe39555f.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell",
+		"source" : "/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

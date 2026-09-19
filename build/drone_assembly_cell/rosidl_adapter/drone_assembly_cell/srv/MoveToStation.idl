@@ -1,0 +1,19 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from drone_assembly_cell/srv/MoveToStation.srv
+// generated code does not contain a copyright notice
+
+
+module drone_assembly_cell {
+  module srv {
+    struct MoveToStation_Request {
+      string drone_id;
+
+      int32 target_station;
+    };
+    struct MoveToStation_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

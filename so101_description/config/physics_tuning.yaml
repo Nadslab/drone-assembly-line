@@ -1,0 +1,65 @@
+# ════════════════════════════════════════════════════════════════════════════
+# SO-101 Physics Tuning Config
+#
+# Edit values here, then rebuild and relaunch to test.
+# Both launch files read this file automatically.
+#
+# JITTER DIAGNOSIS GUIDE
+# ─────────────────────────────────────────────────────────────────────────
+# Symptom: arm vibrates at startup then freezes
+#   → Try: increase position_hold_gain (50 → 100 → 200)
+#   → Try: increase joint_damping (0.1 → 0.5 → 1.0)
+#
+# Symptom: arm slowly drifts / droops
+#   → Try: increase position_hold_gain
+#   → Try: increase inertia_scale (stops physics solver from drifting)
+#
+# Symptom: arm explodes / quaternion overflow in ODE
+#   → Decrease inertia_scale (too-large inertia can overflow ODE)
+#   → Increase inertia_scale if too-small (near-zero inertia is unstable)
+#   → Decrease position_hold_gain
+#
+# Symptom: arm oscillates after reaching a commanded pose
+#   → Decrease position_hold_gain
+#   → Increase joint_damping
+#
+# REFERENCE: lerobot_ws (Pavankv92) has the same mass/inertia values and
+# uses zero damping/friction.  Our baseline has damping=0.1, friction=0.05.
+# ════════════════════════════════════════════════════════════════════════════
+
+# ── Inertia scaling ───────────────────────────────────────────────────────
+# Multiplies every component of every link's inertia tensor (ixx, iyy, izz,
+# ixy, ixz, iyz) by this factor.  Does NOT affect mass.
+# Baseline: 1.0  (values from CAD — same as lerobot_ws reference)
+# Suggested test range: 1.0 → 5.0 → 20.0 → 100.0
+inertia_scale: 1.0
+
+# ── Mass scaling ──────────────────────────────────────────────────────────
+# Multiplies every link's mass by this factor.
+# Baseline: 1.0
+# Increasing mass improves physics stability (heavier = harder to jitter).
+# Suggested test range: 1.0 → 2.0 → 5.0
+mass_scale: 1.0
+
+# ── Joint passive damping ─────────────────────────────────────────────────
+# Applied to all revolute joints (Nm·s/rad).
+# Higher = more viscous / less oscillation.
+# Baseline: 0.1   Reference (lerobot_ws): 0.0
+# Suggested test range: 0.0 → 0.1 → 0.5 → 1.0 → 2.0
+joint_damping: 0
+
+# ── Joint static friction ─────────────────────────────────────────────────
+# Applied to all revolute joints (Nm).
+# Higher = more stiction / joints hold position better when unloaded.
+# Baseline: 0.05   Reference (lerobot_ws): 0.0
+# Suggested test range: 0.0 → 0.05 → 0.1 → 0.5
+joint_friction: 0
+
+# ── Position hold gain (gz_ros2_control Kp) ───────────────────────────────
+# The proportional gain that keeps joints at their commanded position
+# BEFORE the JointTrajectoryController loads (~13 s after launch).
+# Too low  → joints droop/jitter at startup.
+# Too high → joints oscillate (overcorrect).
+# Baseline: 20.0
+# Suggested test range: 10.0 → 20.0 → 50.0 → 100.0 → 200.0
+position_hold_gain: 5

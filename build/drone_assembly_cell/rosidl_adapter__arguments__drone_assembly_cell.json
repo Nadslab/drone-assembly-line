@@ -1,0 +1,8 @@
+{
+  "package_name": "drone_assembly_cell",
+  "non_idl_tuples": [
+    "/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell:srv/MoveToStation.srv",
+    "/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell:action/PickPart.action",
+    "/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell:action/PlacePart.action"
+  ]
+}

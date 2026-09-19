@@ -1,0 +1,732 @@
+[0.255s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build', '--packages-select', 'drone_assembly_cell', '--symlink-install']
+[0.255s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=True, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=8, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=['drone_assembly_cell'], packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0x7d990f167c80>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7d990f167aa0>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7d990f167aa0>>)
+[0.331s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.331s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.331s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.331s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.331s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.332s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.332s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/nadslab/ros2_ws/src/drone-assembly-line'
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.332s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extensions ['ignore', 'ignore_ament_install']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extension 'ignore'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extension 'ignore_ament_install'
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extensions ['colcon_pkg']
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extension 'colcon_pkg'
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extensions ['colcon_meta']
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extension 'colcon_meta'
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extensions ['ros']
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(assembly_line_moveit_config) by extension 'ros'
+[0.371s] DEBUG:colcon.colcon_core.package_identification:Package 'assembly_line_moveit_config' with type 'ros.ament_cmake' and name 'assembly_line_moveit_config'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extensions ['ignore', 'ignore_ament_install']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extension 'ignore'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extension 'ignore_ament_install'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extensions ['colcon_pkg']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extension 'colcon_pkg'
+[0.372s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extensions ['colcon_meta']
+[0.372s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extension 'colcon_meta'
+[0.372s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extensions ['ros']
+[0.372s] Level 1:colcon.colcon_core.package_identification:_identify(drone_assembly_cell) by extension 'ros'
+[0.373s] DEBUG:colcon.colcon_core.package_identification:Package 'drone_assembly_cell' with type 'ros.ament_cmake' and name 'drone_assembly_cell'
+[0.373s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.373s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.373s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.373s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extensions ['ignore', 'ignore_ament_install']
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extension 'ignore'
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extension 'ignore_ament_install'
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extensions ['colcon_pkg']
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extension 'colcon_pkg'
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extensions ['colcon_meta']
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extension 'colcon_meta'
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extensions ['ros']
+[0.374s] Level 1:colcon.colcon_core.package_identification:_identify(lerobot_1_moveit_config) by extension 'ros'
+[0.375s] DEBUG:colcon.colcon_core.package_identification:Package 'lerobot_1_moveit_config' with type 'ros.ament_cmake' and name 'lerobot_1_moveit_config'
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'ignore'
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'ignore_ament_install'
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extensions ['colcon_pkg']
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'colcon_pkg'
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extensions ['colcon_meta']
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'colcon_meta'
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extensions ['ros']
+[0.375s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'ros'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extensions ['cmake', 'python']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'cmake'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'python'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extensions ['python_setup_py']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(meshes) by extension 'python_setup_py'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extensions ['ignore', 'ignore_ament_install']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'ignore'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'ignore_ament_install'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extensions ['colcon_pkg']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'colcon_pkg'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extensions ['colcon_meta']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'colcon_meta'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extensions ['ros']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'ros'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extensions ['cmake', 'python']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'cmake'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'python'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extensions ['python_setup_py']
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models) by extension 'python_setup_py'
+[0.376s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extensions ['ignore', 'ignore_ament_install']
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'ignore'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'ignore_ament_install'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extensions ['colcon_pkg']
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'colcon_pkg'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extensions ['colcon_meta']
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'colcon_meta'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extensions ['ros']
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'ros'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extensions ['cmake', 'python']
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'cmake'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'python'
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extensions ['python_setup_py']
+[0.377s] Level 1:colcon.colcon_core.package_identification:_identify(models/arm) by extension 'python_setup_py'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extensions ['ignore', 'ignore_ament_install']
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'ignore'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'ignore_ament_install'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extensions ['colcon_pkg']
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'colcon_pkg'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extensions ['colcon_meta']
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'colcon_meta'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extensions ['ros']
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'ros'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extensions ['cmake', 'python']
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'cmake'
+[0.378s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'python'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extensions ['python_setup_py']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/assembly_table) by extension 'python_setup_py'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extensions ['ignore', 'ignore_ament_install']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'ignore'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'ignore_ament_install'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extensions ['colcon_pkg']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'colcon_pkg'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extensions ['colcon_meta']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'colcon_meta'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extensions ['ros']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'ros'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extensions ['cmake', 'python']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'cmake'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'python'
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extensions ['python_setup_py']
+[0.379s] Level 1:colcon.colcon_core.package_identification:_identify(models/bin) by extension 'python_setup_py'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extensions ['ignore', 'ignore_ament_install']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'ignore'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'ignore_ament_install'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extensions ['colcon_pkg']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'colcon_pkg'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extensions ['colcon_meta']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'colcon_meta'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extensions ['ros']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'ros'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extensions ['cmake', 'python']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'cmake'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'python'
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extensions ['python_setup_py']
+[0.380s] Level 1:colcon.colcon_core.package_identification:_identify(models/bottom_plate) by extension 'python_setup_py'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extensions ['ignore', 'ignore_ament_install']
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'ignore'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'ignore_ament_install'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extensions ['colcon_pkg']
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'colcon_pkg'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extensions ['colcon_meta']
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'colcon_meta'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extensions ['ros']
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'ros'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extensions ['cmake', 'python']
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'cmake'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'python'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extensions ['python_setup_py']
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/cell_frame) by extension 'python_setup_py'
+[0.381s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extensions ['ignore', 'ignore_ament_install']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'ignore'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'ignore_ament_install'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extensions ['colcon_pkg']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'colcon_pkg'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extensions ['colcon_meta']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'colcon_meta'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extensions ['ros']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'ros'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extensions ['cmake', 'python']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'cmake'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'python'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extensions ['python_setup_py']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_main) by extension 'python_setup_py'
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extensions ['ignore', 'ignore_ament_install']
+[0.382s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'ignore'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'ignore_ament_install'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extensions ['colcon_pkg']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'colcon_pkg'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extensions ['colcon_meta']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'colcon_meta'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extensions ['ros']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'ros'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extensions ['cmake', 'python']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'cmake'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'python'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extensions ['python_setup_py']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_return) by extension 'python_setup_py'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extensions ['ignore', 'ignore_ament_install']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'ignore'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'ignore_ament_install'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extensions ['colcon_pkg']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'colcon_pkg'
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extensions ['colcon_meta']
+[0.383s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'colcon_meta'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extensions ['ros']
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'ros'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extensions ['cmake', 'python']
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'cmake'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'python'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extensions ['python_setup_py']
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/conveyor_side) by extension 'python_setup_py'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extensions ['ignore', 'ignore_ament_install']
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'ignore'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'ignore_ament_install'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extensions ['colcon_pkg']
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'colcon_pkg'
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extensions ['colcon_meta']
+[0.384s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'colcon_meta'
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extensions ['ros']
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'ros'
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extensions ['cmake', 'python']
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'cmake'
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'python'
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extensions ['python_setup_py']
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate) by extension 'python_setup_py'
+[0.385s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'ignore'
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'ignore_ament_install'
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extensions ['colcon_pkg']
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'colcon_pkg'
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extensions ['colcon_meta']
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'colcon_meta'
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extensions ['ros']
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'ros'
+[0.386s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extensions ['cmake', 'python']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'cmake'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'python'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extensions ['python_setup_py']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_bottom_plate/meshes) by extension 'python_setup_py'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extensions ['ignore', 'ignore_ament_install']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'ignore'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'ignore_ament_install'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extensions ['colcon_pkg']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'colcon_pkg'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extensions ['colcon_meta']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'colcon_meta'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extensions ['ros']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'ros'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extensions ['cmake', 'python']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'cmake'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'python'
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extensions ['python_setup_py']
+[0.387s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera) by extension 'python_setup_py'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'ignore'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'ignore_ament_install'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extensions ['colcon_pkg']
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'colcon_pkg'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extensions ['colcon_meta']
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'colcon_meta'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extensions ['ros']
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'ros'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extensions ['cmake', 'python']
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'cmake'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'python'
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extensions ['python_setup_py']
+[0.388s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_camera/meshes) by extension 'python_setup_py'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extensions ['ignore', 'ignore_ament_install']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'ignore'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'ignore_ament_install'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extensions ['colcon_pkg']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'colcon_pkg'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extensions ['colcon_meta']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'colcon_meta'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extensions ['ros']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'ros'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extensions ['cmake', 'python']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'cmake'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'python'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extensions ['python_setup_py']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor) by extension 'python_setup_py'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'ignore'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'ignore_ament_install'
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extensions ['colcon_pkg']
+[0.389s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'colcon_pkg'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extensions ['colcon_meta']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'colcon_meta'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extensions ['ros']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'ros'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extensions ['cmake', 'python']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'cmake'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'python'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extensions ['python_setup_py']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_capacitor/meshes) by extension 'python_setup_py'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extensions ['ignore', 'ignore_ament_install']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'ignore'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'ignore_ament_install'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extensions ['colcon_pkg']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'colcon_pkg'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extensions ['colcon_meta']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'colcon_meta'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extensions ['ros']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'ros'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extensions ['cmake', 'python']
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'cmake'
+[0.390s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'python'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extensions ['python_setup_py']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor) by extension 'python_setup_py'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'ignore'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'ignore_ament_install'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extensions ['colcon_pkg']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'colcon_pkg'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extensions ['colcon_meta']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'colcon_meta'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extensions ['ros']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'ros'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extensions ['cmake', 'python']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'cmake'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'python'
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extensions ['python_setup_py']
+[0.391s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_emax_motor/meshes) by extension 'python_setup_py'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extensions ['ignore', 'ignore_ament_install']
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'ignore'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'ignore_ament_install'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extensions ['colcon_pkg']
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'colcon_pkg'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extensions ['colcon_meta']
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'colcon_meta'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extensions ['ros']
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'ros'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extensions ['cmake', 'python']
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'cmake'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'python'
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extensions ['python_setup_py']
+[0.392s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna) by extension 'python_setup_py'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'ignore'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'ignore_ament_install'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extensions ['colcon_pkg']
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'colcon_pkg'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extensions ['colcon_meta']
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'colcon_meta'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extensions ['ros']
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'ros'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extensions ['cmake', 'python']
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'cmake'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'python'
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extensions ['python_setup_py']
+[0.393s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_rx_antenna/meshes) by extension 'python_setup_py'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extensions ['ignore', 'ignore_ament_install']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'ignore'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'ignore_ament_install'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extensions ['colcon_pkg']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'colcon_pkg'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extensions ['colcon_meta']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'colcon_meta'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extensions ['ros']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'ros'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extensions ['cmake', 'python']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'cmake'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'python'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extensions ['python_setup_py']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm) by extension 'python_setup_py'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'ignore'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'ignore_ament_install'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extensions ['colcon_pkg']
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'colcon_pkg'
+[0.394s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extensions ['colcon_meta']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'colcon_meta'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extensions ['ros']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'ros'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extensions ['cmake', 'python']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'cmake'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'python'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extensions ['python_setup_py']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_single_arm/meshes) by extension 'python_setup_py'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extensions ['ignore', 'ignore_ament_install']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'ignore'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'ignore_ament_install'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extensions ['colcon_pkg']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'colcon_pkg'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extensions ['colcon_meta']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'colcon_meta'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extensions ['ros']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'ros'
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extensions ['cmake', 'python']
+[0.395s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'cmake'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'python'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extensions ['python_setup_py']
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack) by extension 'python_setup_py'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'ignore'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'ignore_ament_install'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extensions ['colcon_pkg']
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'colcon_pkg'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extensions ['colcon_meta']
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'colcon_meta'
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extensions ['ros']
+[0.396s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'ros'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extensions ['cmake', 'python']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'cmake'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'python'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extensions ['python_setup_py']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_speedybee_stack/meshes) by extension 'python_setup_py'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extensions ['ignore', 'ignore_ament_install']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'ignore'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'ignore_ament_install'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extensions ['colcon_pkg']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'colcon_pkg'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extensions ['colcon_meta']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'colcon_meta'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extensions ['ros']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'ros'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extensions ['cmake', 'python']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'cmake'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'python'
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extensions ['python_setup_py']
+[0.397s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna) by extension 'python_setup_py'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'ignore'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'ignore_ament_install'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extensions ['colcon_pkg']
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'colcon_pkg'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extensions ['colcon_meta']
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'colcon_meta'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extensions ['ros']
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'ros'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extensions ['cmake', 'python']
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'cmake'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'python'
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extensions ['python_setup_py']
+[0.398s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_tbs_antenna/meshes) by extension 'python_setup_py'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extensions ['ignore', 'ignore_ament_install']
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'ignore'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'ignore_ament_install'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extensions ['colcon_pkg']
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'colcon_pkg'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extensions ['colcon_meta']
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'colcon_meta'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extensions ['ros']
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'ros'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extensions ['cmake', 'python']
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'cmake'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'python'
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extensions ['python_setup_py']
+[0.399s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx) by extension 'python_setup_py'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'ignore'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'ignore_ament_install'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extensions ['colcon_pkg']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'colcon_pkg'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extensions ['colcon_meta']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'colcon_meta'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extensions ['ros']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'ros'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extensions ['cmake', 'python']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'cmake'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'python'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extensions ['python_setup_py']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx/meshes) by extension 'python_setup_py'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extensions ['ignore', 'ignore_ament_install']
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'ignore'
+[0.400s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'ignore_ament_install'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extensions ['colcon_pkg']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'colcon_pkg'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extensions ['colcon_meta']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'colcon_meta'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extensions ['ros']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'ros'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extensions ['cmake', 'python']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'cmake'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'python'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extensions ['python_setup_py']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna) by extension 'python_setup_py'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extensions ['ignore', 'ignore_ament_install']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'ignore'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'ignore_ament_install'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extensions ['colcon_pkg']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'colcon_pkg'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extensions ['colcon_meta']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'colcon_meta'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extensions ['ros']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'ros'
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extensions ['cmake', 'python']
+[0.401s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'cmake'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'python'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extensions ['python_setup_py']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/drone_vtx_antenna/meshes) by extension 'python_setup_py'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extensions ['ignore', 'ignore_ament_install']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'ignore'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'ignore_ament_install'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extensions ['colcon_pkg']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'colcon_pkg'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extensions ['colcon_meta']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'colcon_meta'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extensions ['ros']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'ros'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extensions ['cmake', 'python']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'cmake'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'python'
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extensions ['python_setup_py']
+[0.402s] Level 1:colcon.colcon_core.package_identification:_identify(models/emax_motor) by extension 'python_setup_py'
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extensions ['ignore', 'ignore_ament_install']
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'ignore'
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'ignore_ament_install'
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extensions ['colcon_pkg']
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'colcon_pkg'
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extensions ['colcon_meta']
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'colcon_meta'
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extensions ['ros']
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'ros'
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extensions ['cmake', 'python']
+[0.403s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'cmake'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'python'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extensions ['python_setup_py']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/finished_area) by extension 'python_setup_py'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extensions ['ignore', 'ignore_ament_install']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'ignore'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'ignore_ament_install'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extensions ['colcon_pkg']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'colcon_pkg'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extensions ['colcon_meta']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'colcon_meta'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extensions ['ros']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'ros'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extensions ['cmake', 'python']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'cmake'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'python'
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extensions ['python_setup_py']
+[0.404s] Level 1:colcon.colcon_core.package_identification:_identify(models/frame_jig) by extension 'python_setup_py'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extensions ['ignore', 'ignore_ament_install']
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'ignore'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'ignore_ament_install'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extensions ['colcon_pkg']
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'colcon_pkg'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extensions ['colcon_meta']
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'colcon_meta'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extensions ['ros']
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'ros'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extensions ['cmake', 'python']
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'cmake'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'python'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extensions ['python_setup_py']
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/m3_screw) by extension 'python_setup_py'
+[0.405s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extensions ['ignore', 'ignore_ament_install']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'ignore'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'ignore_ament_install'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extensions ['colcon_pkg']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'colcon_pkg'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extensions ['colcon_meta']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'colcon_meta'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extensions ['ros']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'ros'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extensions ['cmake', 'python']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'cmake'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'python'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extensions ['python_setup_py']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/motor_jig) by extension 'python_setup_py'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extensions ['ignore', 'ignore_ament_install']
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'ignore'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'ignore_ament_install'
+[0.406s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extensions ['colcon_pkg']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'colcon_pkg'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extensions ['colcon_meta']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'colcon_meta'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extensions ['ros']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'ros'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extensions ['cmake', 'python']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'cmake'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'python'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extensions ['python_setup_py']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/screw_feeder) by extension 'python_setup_py'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extensions ['ignore', 'ignore_ament_install']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'ignore'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'ignore_ament_install'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extensions ['colcon_pkg']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'colcon_pkg'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extensions ['colcon_meta']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'colcon_meta'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extensions ['ros']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'ros'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extensions ['cmake', 'python']
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'cmake'
+[0.407s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'python'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extensions ['python_setup_py']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/top_plate) by extension 'python_setup_py'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extensions ['ignore', 'ignore_ament_install']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'ignore'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'ignore_ament_install'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extensions ['colcon_pkg']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'colcon_pkg'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extensions ['colcon_meta']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'colcon_meta'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extensions ['ros']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'ros'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extensions ['cmake', 'python']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'cmake'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'python'
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extensions ['python_setup_py']
+[0.408s] Level 1:colcon.colcon_core.package_identification:_identify(models/workbench) by extension 'python_setup_py'
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extensions ['ignore', 'ignore_ament_install']
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extension 'ignore'
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extension 'ignore_ament_install'
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extensions ['colcon_pkg']
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extension 'colcon_pkg'
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extensions ['colcon_meta']
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extension 'colcon_meta'
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extensions ['ros']
+[0.409s] Level 1:colcon.colcon_core.package_identification:_identify(so101_description) by extension 'ros'
+[0.410s] DEBUG:colcon.colcon_core.package_identification:Package 'so101_description' with type 'ros.ament_cmake' and name 'so101_description'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extensions ['ignore', 'ignore_ament_install']
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'ignore'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'ignore_ament_install'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extensions ['colcon_pkg']
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'colcon_pkg'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extensions ['colcon_meta']
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'colcon_meta'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extensions ['ros']
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'ros'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extensions ['cmake', 'python']
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'cmake'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'python'
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extensions ['python_setup_py']
+[0.410s] Level 1:colcon.colcon_core.package_identification:_identify(worlds) by extension 'python_setup_py'
+[0.410s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.410s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.410s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.410s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.410s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'so101_description' in 'so101_description'
+[0.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'assembly_line_moveit_config' in 'assembly_line_moveit_config'
+[0.437s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'lerobot_1_moveit_config' in 'lerobot_1_moveit_config'
+[0.438s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.438s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.445s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 4 installed packages in /home/nadslab/ros2_ws/install
+[0.448s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 385 installed packages in /opt/ros/jazzy
+[0.449s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'cmake_args' from command line to 'None'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'cmake_target' from command line to 'None'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'cmake_clean_cache' from command line to 'False'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'cmake_clean_first' from command line to 'False'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'cmake_force_configure' from command line to 'False'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'ament_cmake_args' from command line to 'None'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'catkin_cmake_args' from command line to 'None'
+[0.606s] Level 5:colcon.colcon_core.verb:set package 'drone_assembly_cell' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.606s] DEBUG:colcon.colcon_core.verb:Building package 'drone_assembly_cell' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell', 'merge_install': False, 'path': '/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell', 'symlink_install': True, 'test_result_base': None}
+[0.606s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.607s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.607s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell' with build type 'ament_cmake'
+[0.608s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell'
+[0.615s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.615s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.615s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.617s] WARNING:colcon.colcon_core.shell:The following packages are in the workspace but haven't been built:
+- so101_description
+They are being used from the following locations instead:
+- /home/nadslab/ros2_ws/install/so101_description
+To suppress this warning ignore these packages in the workspace:
+--packages-ignore so101_description
+[0.632s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake /home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell
+[7.192s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake /home/nadslab/ros2_ws/src/drone-assembly-line/drone_assembly_cell -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell
+[7.194s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell -- -j8 -l8
+[18.671s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell -- -j8 -l8
+[18.681s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --install /home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell
+[20.733s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(drone_assembly_cell)
+[20.733s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --install /home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell
+[20.742s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell' for CMake module files
+[20.743s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell' for CMake config files
+[20.745s] Level 1:colcon.colcon_core.shell:create_environment_hook('drone_assembly_cell', 'cmake_prefix_path')
+[20.745s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/cmake_prefix_path.ps1'
+[20.747s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/cmake_prefix_path.dsv'
+[20.747s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/cmake_prefix_path.sh'
+[20.748s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib'
+[20.748s] Level 1:colcon.colcon_core.shell:create_environment_hook('drone_assembly_cell', 'ld_library_path_lib')
+[20.749s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/ld_library_path_lib.ps1'
+[20.749s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/ld_library_path_lib.dsv'
+[20.749s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/ld_library_path_lib.sh'
+[20.749s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/bin'
+[20.749s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/pkgconfig/drone_assembly_cell.pc'
+[20.750s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages'
+[20.750s] Level 1:colcon.colcon_core.shell:create_environment_hook('drone_assembly_cell', 'pythonpath')
+[20.750s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/pythonpath.ps1'
+[20.750s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/pythonpath.dsv'
+[20.750s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/pythonpath.sh'
+[20.751s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/bin'
+[20.751s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.ps1'
+[20.752s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.dsv'
+[20.753s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.sh'
+[20.754s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.bash'
+[20.755s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.zsh'
+[20.755s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/colcon-core/packages/drone_assembly_cell)
+[20.756s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(drone_assembly_cell)
+[20.756s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell' for CMake module files
+[20.757s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell' for CMake config files
+[20.758s] Level 1:colcon.colcon_core.shell:create_environment_hook('drone_assembly_cell', 'cmake_prefix_path')
+[20.758s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/cmake_prefix_path.ps1'
+[20.759s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/cmake_prefix_path.dsv'
+[20.759s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/cmake_prefix_path.sh'
+[20.760s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib'
+[20.760s] Level 1:colcon.colcon_core.shell:create_environment_hook('drone_assembly_cell', 'ld_library_path_lib')
+[20.760s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/ld_library_path_lib.ps1'
+[20.760s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/ld_library_path_lib.dsv'
+[20.761s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/ld_library_path_lib.sh'
+[20.761s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/bin'
+[20.761s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/pkgconfig/drone_assembly_cell.pc'
+[20.761s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages'
+[20.761s] Level 1:colcon.colcon_core.shell:create_environment_hook('drone_assembly_cell', 'pythonpath')
+[20.761s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/pythonpath.ps1'
+[20.762s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/pythonpath.dsv'
+[20.762s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/hook/pythonpath.sh'
+[20.762s] Level 1:colcon.colcon_core.environment:checking '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/bin'
+[20.763s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.ps1'
+[20.763s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.dsv'
+[20.763s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.sh'
+[20.764s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.bash'
+[20.764s] INFO:colcon.colcon_core.shell:Creating package script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.zsh'
+[20.764s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/colcon-core/packages/drone_assembly_cell)
+[20.764s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[20.765s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[20.766s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[20.766s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[20.815s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[20.815s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[20.815s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[20.816s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[20.820s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.Notifications was not provided by any .service files
+[20.820s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[20.821s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/local_setup.ps1'
+[20.822s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/nadslab/ros2_ws/src/drone-assembly-line/install/_local_setup_util_ps1.py'
+[20.823s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/setup.ps1'
+[20.824s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/local_setup.sh'
+[20.825s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/nadslab/ros2_ws/src/drone-assembly-line/install/_local_setup_util_sh.py'
+[20.826s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/setup.sh'
+[20.828s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/local_setup.bash'
+[20.828s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/setup.bash'
+[20.829s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/local_setup.zsh'
+[20.830s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/nadslab/ros2_ws/src/drone-assembly-line/install/setup.zsh'

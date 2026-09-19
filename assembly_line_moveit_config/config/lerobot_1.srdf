@@ -1,17 +1,20 @@
 <?xml version="1.0"?>
 <!--
-  lerobot_1  station: world X=-0.60, Y=+0.10
-  Bin layout (world coords → delta from arm base):
-    bin_A  (-0.75, +0.20)  →  (-0.15, +0.10)  left-back
-    bin_B  (-0.75, +0.05)  →  (-0.15, -0.05)  left-front
-    bin_C  (-0.40, +0.20)  →  (+0.20, +0.10)  right-back
-    bin_D  (-0.40, +0.05)  →  (+0.20, -0.05)  right-front
-  Conveyor main  (X=-0.60, Y=-0.15)  →  (0.00, -0.25)  forward
+  lerobot_1  station: world X=-1.10, Y=-0.40, spawn_yaw=+pi/2 (facing +Y)
+  Arm +X = world +Y, arm +Y = world -X.
+
+  Bin layout (world coords → arm-frame coords → geometric IK joint angles):
+    bin_A  world(-1.25, -0.35)  arm(+0.05, +0.15)  shoulder_pan≈-1.52
+    bin_B  world(-1.25, -0.50)  arm(+0.10, +0.15)  shoulder_pan≈-1.52
+    bin_C  world(-0.90, -0.35)  arm(+0.05, -0.20)  shoulder_pan≈+1.50
+    bin_D  world(-0.90, -0.50)  arm(+0.10, -0.20)  shoulder_pan≈+1.50
+  Joint angles below are estimates from geometric IK — used by MoveIt only.
+  The assembly_orchestrator uses so101_ik.py at runtime for precise values.
 -->
 <robot name="so101">
 
   <group name="arm">
-    <chain base_link="base_link" tip_link="gripper_link"/>
+    <chain base_link="base_link" tip_link="gripper_frame_link"/>
   </group>
   <group name="gripper">
     <joint name="gripper"/>
@@ -36,53 +39,97 @@
     <joint name="wrist_roll"    value="0.0"/>
   </group_state>
 
-  <!-- bin_A: delta (-0.15, +0.10) — left, slightly back -->
+  <!-- bin_A: arm-frame (+0.05, +0.15, z=0.10) — IK from so101_ik.py -->
   <group_state name="bin_A_approach" group="arm">
-    <joint name="shoulder_pan"  value="-0.5"/>
-    <joint name="shoulder_lift" value="0.3"/>
-    <joint name="elbow_flex"    value="0.3"/>
-    <joint name="wrist_flex"    value="-0.3"/>
-    <joint name="wrist_roll"    value="0.0"/>
+    <joint name="shoulder_pan"  value="-1.524"/>
+    <joint name="shoulder_lift" value="-0.445"/>
+    <joint name="elbow_flex"    value="0.343"/>
+    <joint name="wrist_flex"    value="1.656"/>
+    <joint name="wrist_roll"    value="2.646"/>
   </group_state>
 
-  <!-- bin_B: delta (-0.15, -0.05) — left, slightly forward -->
+  <!-- bin_B: arm-frame (+0.10, +0.15, z=0.10) — similar to bin_A, slightly forward -->
   <group_state name="bin_B_approach" group="arm">
-    <joint name="shoulder_pan"  value="-0.5"/>
-    <joint name="shoulder_lift" value="0.5"/>
-    <joint name="elbow_flex"    value="0.3"/>
-    <joint name="wrist_flex"    value="-0.3"/>
-    <joint name="wrist_roll"    value="0.0"/>
+    <joint name="shoulder_pan"  value="-1.524"/>
+    <joint name="shoulder_lift" value="-0.300"/>
+    <joint name="elbow_flex"    value="0.250"/>
+    <joint name="wrist_flex"    value="1.500"/>
+    <joint name="wrist_roll"    value="2.646"/>
   </group_state>
 
-  <!-- bin_C: delta (+0.20, +0.10) — right, slightly back -->
+  <!-- bin_C: arm-frame (+0.05, -0.20, z=0.10) — IK from so101_ik.py -->
   <group_state name="bin_C_approach" group="arm">
-    <joint name="shoulder_pan"  value="0.5"/>
-    <joint name="shoulder_lift" value="0.3"/>
-    <joint name="elbow_flex"    value="0.3"/>
-    <joint name="wrist_flex"    value="-0.3"/>
-    <joint name="wrist_roll"    value="0.0"/>
+    <joint name="shoulder_pan"  value="1.499"/>
+    <joint name="shoulder_lift" value="0.082"/>
+    <joint name="elbow_flex"    value="-0.213"/>
+    <joint name="wrist_flex"    value="1.658"/>
+    <joint name="wrist_roll"    value="0.402"/>
   </group_state>
 
-  <!-- bin_D: delta (+0.20, -0.05) — right, slightly forward -->
+  <!-- bin_D: arm-frame (+0.10, -0.20, z=0.10) — similar to bin_C -->
   <group_state name="bin_D_approach" group="arm">
-    <joint name="shoulder_pan"  value="0.5"/>
-    <joint name="shoulder_lift" value="0.5"/>
-    <joint name="elbow_flex"    value="0.3"/>
-    <joint name="wrist_flex"    value="-0.3"/>
-    <joint name="wrist_roll"    value="0.0"/>
+    <joint name="shoulder_pan"  value="1.499"/>
+    <joint name="shoulder_lift" value="0.200"/>
+    <joint name="elbow_flex"    value="-0.100"/>
+    <joint name="wrist_flex"    value="1.500"/>
+    <joint name="wrist_roll"    value="0.402"/>
   </group_state>
 
-  <!-- conveyor: delta (0.00, -0.25) — directly forward (-Y) -->
+  <!-- bin_A: grasp — arm-frame (+0.05, +0.15, z=0.018) -->
+  <group_state name="bin_A_grasp" group="arm">
+    <joint name="shoulder_pan"  value="-1.479"/>
+    <joint name="shoulder_lift" value="-0.210"/>
+    <joint name="elbow_flex"    value="0.616"/>
+    <joint name="wrist_flex"    value="1.181"/>
+    <joint name="wrist_roll"    value="-0.337"/>
+  </group_state>
+
+  <!-- bin_B: grasp — arm-frame (+0.10, +0.15, z=0.018) -->
+  <group_state name="bin_B_grasp" group="arm">
+    <joint name="shoulder_pan"  value="-1.479"/>
+    <joint name="shoulder_lift" value="-0.100"/>
+    <joint name="elbow_flex"    value="0.500"/>
+    <joint name="wrist_flex"    value="1.000"/>
+    <joint name="wrist_roll"    value="-0.337"/>
+  </group_state>
+
+  <!-- bin_C: grasp — arm-frame (+0.05, -0.20, z=0.018) -->
+  <group_state name="bin_C_grasp" group="arm">
+    <joint name="shoulder_pan"  value="1.501"/>
+    <joint name="shoulder_lift" value="0.163"/>
+    <joint name="elbow_flex"    value="0.167"/>
+    <joint name="wrist_flex"    value="1.227"/>
+    <joint name="wrist_roll"    value="0.350"/>
+  </group_state>
+
+  <!-- bin_D: grasp — arm-frame (+0.10, -0.20, z=0.018) -->
+  <group_state name="bin_D_grasp" group="arm">
+    <joint name="shoulder_pan"  value="1.501"/>
+    <joint name="shoulder_lift" value="0.250"/>
+    <joint name="elbow_flex"    value="0.050"/>
+    <joint name="wrist_flex"    value="1.100"/>
+    <joint name="wrist_roll"    value="0.350"/>
+  </group_state>
+
+  <!-- conveyor: world(-1.10, -0.15), arm-frame (0.25, 0.0, 0.06) with yaw=pi/2 -->
   <group_state name="conveyor_place" group="arm">
     <joint name="shoulder_pan"  value="0.0"/>
-    <joint name="shoulder_lift" value="0.5"/>
+    <joint name="shoulder_lift" value="-0.5"/>
     <joint name="elbow_flex"    value="0.5"/>
-    <joint name="wrist_flex"    value="-0.7"/>
+    <joint name="wrist_flex"    value="1.3"/>
+    <joint name="wrist_roll"    value="0.0"/>
+  </group_state>
+
+  <!-- conveyor: grasp (lowered) -->
+  <group_state name="conveyor_place_grasp" group="arm">
+    <joint name="shoulder_pan"  value="0.0"/>
+    <joint name="shoulder_lift" value="-0.3"/>
+    <joint name="elbow_flex"    value="0.7"/>
+    <joint name="wrist_flex"    value="1.1"/>
     <joint name="wrist_roll"    value="0.0"/>
   </group_state>
 
   <!-- ── Collision exclusions ────────────────────────────────────────── -->
-  <disable_collisions link1="world"                   link2="base_link"               reason="Adjacent"/>
   <disable_collisions link1="base_link"               link2="shoulder_link"            reason="Adjacent"/>
   <disable_collisions link1="shoulder_link"           link2="upper_arm_link"           reason="Adjacent"/>
   <disable_collisions link1="upper_arm_link"          link2="lower_arm_link"           reason="Adjacent"/>

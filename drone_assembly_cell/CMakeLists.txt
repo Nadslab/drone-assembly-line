@@ -23,6 +23,8 @@ install(PROGRAMS
   scripts/conveyor_node.py
   scripts/gripper_attach_node.py
   scripts/pick_place_server.py
+  scripts/so101_ik.py
+  scripts/assembly_orchestrator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

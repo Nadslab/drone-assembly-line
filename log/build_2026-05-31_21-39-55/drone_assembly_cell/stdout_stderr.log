@@ -1,0 +1,283 @@
+-- Found ament_cmake: 2.5.6 (/opt/ros/jazzy/share/ament_cmake/cmake)
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Found rosidl_default_generators: 1.6.0 (/opt/ros/jazzy/share/rosidl_default_generators/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found rosidl_adapter: 4.6.7 (/opt/ros/jazzy/share/rosidl_adapter/cmake)
+-- Found geometry_msgs: 5.3.7 (/opt/ros/jazzy/share/geometry_msgs/cmake)
+-- Found action_msgs: 2.0.3 (/opt/ros/jazzy/share/action_msgs/cmake)
+-- Found ament_cmake_ros: 0.12.0 (/opt/ros/jazzy/share/ament_cmake_ros/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found python_cmake_module: 0.11.1 (/opt/ros/jazzy/share/python_cmake_module/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter Development NumPy Development.Module Development.Embed 
+-- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+-- Configuring done (1.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/nadslab/ros2_ws/src/drone-assembly-line/build/drone_assembly_cell
+[  3%] Built target drone_assembly_cell__rs
+[  3%] Built target drone_assembly_cell__rosidl_generator_type_description
+[  3%] Built target ament_cmake_python_symlink_drone_assembly_cell
+[  5%] Built target drone_assembly_cell__cpp
+[ 25%] Built target drone_assembly_cell__rosidl_generator_c
+[ 34%] Built target drone_assembly_cell__rosidl_typesupport_c
+[ 43%] Built target drone_assembly_cell__rosidl_typesupport_introspection_c
+[ 58%] Built target drone_assembly_cell__rosidl_typesupport_fastrtps_c
+[ 67%] Built target drone_assembly_cell__rosidl_typesupport_cpp
+[ 70%] Built target drone_assembly_cell__rosidl_typesupport_introspection_cpp
+[ 80%] Built target drone_assembly_cell__rosidl_typesupport_fastrtps_cpp
+[ 80%] Built target drone_assembly_cell
+[ 81%] Built target drone_assembly_cell__py
+[ 89%] Built target drone_assembly_cell__rosidl_generator_py
+[ 92%] Built target drone_assembly_cell_s__rosidl_typesupport_c
+[ 96%] Built target drone_assembly_cell_s__rosidl_typesupport_introspection_c
+[100%] Built target drone_assembly_cell_s__rosidl_typesupport_fastrtps_c
+running egg_info
+writing drone_assembly_cell.egg-info/PKG-INFO
+writing dependency_links to drone_assembly_cell.egg-info/dependency_links.txt
+writing top-level names to drone_assembly_cell.egg-info/top_level.txt
+reading manifest file 'drone_assembly_cell.egg-info/SOURCES.txt'
+writing manifest file 'drone_assembly_cell.egg-info/SOURCES.txt'
+[100%] Built target ament_cmake_python_build_drone_assembly_cell_egg
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/rosidl_interfaces/drone_assembly_cell
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/srv/MoveToStation.json
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PickPart.json
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PlacePart.json
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__functions.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__struct.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__type_support.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__functions.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__struct.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__type_support.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/pick_part.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/place_part.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_generator_c__visibility_control.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__functions.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__struct.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__type_support.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/move_to_station.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/library_path.sh
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/library_path.dsv
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_typesupport_introspection_c__visibility_control.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__builder.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__struct.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__traits.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__type_support.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__builder.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__struct.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__traits.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__type_support.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/pick_part.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/place_part.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_generator_cpp__visibility_control.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__builder.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__struct.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__traits.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__type_support.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/move_to_station.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/include/drone_assembly_cell/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/pythonpath.sh
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/pythonpath.dsv
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/PKG-INFO
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/SOURCES.txt
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/dependency_links.txt
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell-0.1.0-py3.12.egg-info/top_level.txt
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/__init__.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_c.c
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_fastrtps_c.c
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/_drone_assembly_cell_s.ep.rosidl_typesupport_introspection_c.c
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/__init__.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_pick_part.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_pick_part_s.c
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_place_part.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action/_place_part_s.c
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_c.so
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_introspection_c.so
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/__init__.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/_move_to_station.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv/_move_to_station_s.c
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_introspection_c.so
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/drone_assembly_cell_s__rosidl_typesupport_c.so
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/rust_packages/drone_assembly_cell
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/Cargo.toml
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/build.rs
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/action.rs
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/action/rmw.rs
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/lib.rs
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/srv.rs
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rust/src/srv/rmw.rs
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/srv/MoveToStation.idl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PickPart.idl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PlacePart.idl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/srv/MoveToStation.srv
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PickPart.action
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/action/PlacePart.action
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/launch/assembly_world.launch.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/launch/single_arm_dev.launch.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/launch/single_arm_minimal.launch.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/rviz/cell.rviz
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/screw_spawner.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/conveyor_node.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/gripper_attach_node.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/pick_place_server.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/so101_ik.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/drone_assembly_cell/assembly_orchestrator.py
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/arm.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/assembly_table/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/assembly_table/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bin/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bin/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/bottom_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/cell_frame/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/cell_frame/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_main/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_main/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_return/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_return/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_side/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/conveyor_side/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/meshes/bottom_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/meshes/camera.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/meshes/capacitor.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/meshes/emax_motor.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/meshes/rx_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/meshes/single_arm.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/meshes/speedybee_stack.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/meshes/tbs_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/meshes/vtx.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/meshes/vtx_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/emax_motor/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/emax_motor/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/finished_area/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/finished_area/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/frame_jig/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/frame_jig/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/m3_screw/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/m3_screw/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/motor_jig/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/motor_jig/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/screw_feeder/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/screw_feeder/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/top_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/workbench/model.config
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/workbench/model.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/worlds/frame_assembly.sdf
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/arm.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/bottom_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/camera.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/capacitor.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/emax_motor.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/rx_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/single_arm.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/speedybee_stack.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/tbs_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/top_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/vtx.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/meshes/vtx_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/bottom_plate/bottom_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/top_plate/top_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/arm/arm.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_single_arm/meshes/single_arm.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_bottom_plate/meshes/bottom_plate.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_emax_motor/meshes/emax_motor.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_speedybee_stack/meshes/speedybee_stack.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_capacitor/meshes/capacitor.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx/meshes/vtx.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_camera/meshes/camera.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_vtx_antenna/meshes/vtx_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_rx_antenna/meshes/rx_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/models/drone_tbs_antenna/meshes/tbs_antenna.stl
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/package_run_dependencies/drone_assembly_cell
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/parent_prefix_path/drone_assembly_cell
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/path.sh
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/environment/path.dsv
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.bash
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.sh
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.zsh
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/local_setup.dsv
+-- Symlinking: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.dsv
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/ament_index/resource_index/packages/drone_assembly_cell
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/rosidl_cmake-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_dependencies-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_include_directories-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_libraries-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/ament_cmake_export_targets-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cellConfig.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cellConfig-version.cmake
+-- Up-to-date symlink: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/package.xml
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_generator_c.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_introspection_c.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_c.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_fastrtps_cpp.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_introspection_cpp.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_typesupport_cpp.so
+Listing '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell'...
+Compiling '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/__init__.py'...
+Listing '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/action'...
+Listing '/home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/python3.12/site-packages/drone_assembly_cell/srv'...
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/lib/libdrone_assembly_cell__rosidl_generator_py.so
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_cExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_cExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_cppExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cppExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cppExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cppExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/drone_assembly_cell__rosidl_typesupport_cppExport-noconfig.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_pyExport.cmake
+-- Up-to-date: /home/nadslab/ros2_ws/src/drone-assembly-line/install/drone_assembly_cell/share/drone_assembly_cell/cmake/export_drone_assembly_cell__rosidl_generator_pyExport-noconfig.cmake

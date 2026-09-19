@@ -1,0 +1,26 @@
+{
+  "type_description_msg": {
+    "type_description": {
+      "type_name": "drone_assembly_cell/action/PlacePart_Feedback",
+      "fields": [
+        {
+          "name": "phase",
+          "type": {
+            "type_id": 17,
+            "capacity": 0,
+            "string_capacity": 0,
+            "nested_type_name": ""
+          },
+          "default_value": ""
+        }
+      ]
+    },
+    "referenced_type_descriptions": []
+  },
+  "type_hashes": [
+    {
+      "type_name": "drone_assembly_cell/action/PlacePart_Feedback",
+      "hash_string": "RIHS01_b5289bd98e6b7eaa0a07e011ffd03c95f688a09dcbf3309b8115b8791f646abc"
+    }
+  ]
+}

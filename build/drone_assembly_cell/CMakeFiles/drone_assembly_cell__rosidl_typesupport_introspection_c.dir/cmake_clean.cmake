@@ -1,0 +1,21 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/pick_part__type_support.c.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/pick_part__type_support.c.o.d"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/place_part__type_support.c.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/place_part__type_support.c.o.d"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/srv/detail/move_to_station__type_support.c.o"
+  "CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/drone_assembly_cell/srv/detail/move_to_station__type_support.c.o.d"
+  "libdrone_assembly_cell__rosidl_typesupport_introspection_c.pdb"
+  "libdrone_assembly_cell__rosidl_typesupport_introspection_c.so"
+  "rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/pick_part__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/pick_part__type_support.c"
+  "rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/place_part__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/drone_assembly_cell/action/detail/place_part__type_support.c"
+  "rosidl_typesupport_introspection_c/drone_assembly_cell/srv/detail/move_to_station__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/drone_assembly_cell/srv/detail/move_to_station__type_support.c"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/drone_assembly_cell__rosidl_typesupport_introspection_c.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

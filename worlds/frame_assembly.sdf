@@ -10,22 +10,25 @@
          Side conveyor:   X=−1.40, Y=+0.10, connects return→main (left end)
          Finished area:   standalone platform at (X=−1.10, Y=+0.825)
 
-         5 robot stations at 0.6m spacing, markers at Y=+0.10:
+         5 robot stations:
            St.1 X=−1.2  Screw Robot  — bin_screw at (−1.00, +0.10)
-           St.2 X=−0.6  LeRobot #1   — A(−0.75,+0.20) B(−0.75,0.00)
-                                             C(−0.40,+0.20) D(−0.40,0.00)
-           St.3 X= 0.0  LeRobot #2   — E(−0.15,+0.20) F(−0.15,0.00)
-                                             G(+0.20,+0.20) H(+0.20,0.00)
+           St.2 X=−1.1  LeRobot #1   — A(−1.25,−0.35) B(−1.25,−0.50)
+             (front side)                  C(−0.90,−0.35) D(−0.90,−0.50)
+           St.3 X=−0.6  LeRobot #2   — E(−0.75,+0.20) F(−0.75,+0.05)
+             (marker Y=+0.1)               G(−0.40,+0.20) H(−0.40,+0.05)
            St.4 X=+0.6  Solder Robot — no bins
            St.5 X=+1.2  LeRobot #3   — I(+1.05,−0.50) J(+1.30,−0.50)
 
-         Bins A–H: Y=+0.20 (back row) or Y=0.00 (front row); I/J: Y=−0.50
-         Station markers: Y=+0.10, bright yellow discs on table surface.
+         Bins E–H: Y=+0.20 (back row) or Y=+0.05 (front row); I/J: Y=−0.50
+         Bins A–D: front side of table, Y=−0.35 (back) or Y=−0.50 (front)
+         Station markers: bright yellow discs on table surface.
     ──────────────────────────────────────────────────────────────────────── -->
 
-    <!-- Physics: 0.5ms step for numerical stability with 5 active arms -->
-    <physics name="0.5ms" type="ignored">
-      <max_step_size>0.0005</max_step_size>
+    <!-- Physics: 2ms step — 500 Hz physics, 5× faster than the 100 Hz controller.
+         0.5ms was too small: very large constraint forces in the LCP solver caused
+         ODE quaternion overflow after ~10s with 5 active arms. -->
+    <physics name="2ms" type="ignored">
+      <max_step_size>0.002</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
@@ -131,7 +134,7 @@
 
     <model name="station_marker_2">
       <static>true</static>
-      <pose>-0.6 0.1 0.900 0 0 0</pose>
+      <pose>-1.1 -0.4 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -146,7 +149,7 @@
 
     <model name="station_marker_3">
       <static>true</static>
-      <pose>0.0 0.1 0.900 0 0 0</pose>
+      <pose>-0.6 0.1 0.900 0 0 0</pose>
       <link name="disc">
         <pose>0 0 0.010 0 0 0</pose>
         <collision name="col">
@@ -203,230 +206,230 @@
          LeRobot #3:    I(+1.05,−0.50) J(+1.30,−0.50)
     ═══════════════════════════════════════════════════════════════════════ -->
 
-    <!-- ── Bin A (red) — LeRobot #1, pair-1 back  (−0.75, +0.20) ──────────── -->
+    <!-- ── Bin A (red) — LeRobot #1, pair-1 back  (−1.25, −0.30) ──────────── -->
     <model name="bin_A">
+      <static>true</static>
+      <pose>-1.25 -0.35 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin B (blue) — LeRobot #1, pair-1 front (−1.25, −0.45) ──────────── -->
+    <model name="bin_B">
+      <static>true</static>
+      <pose>-1.25 -0.5 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin C (green) — LeRobot #1, pair-2 back  (−0.90, −0.30) ──────────── -->
+    <model name="bin_C">
+      <static>true</static>
+      <pose>-0.9 -0.35 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin D (yellow) — LeRobot #1, pair-2 front (−0.90, −0.45) ──────────── -->
+    <model name="bin_D">
+      <static>true</static>
+      <pose>-0.9 -0.5 0.900 0 0 0</pose>
+      <link name="floor">
+        <pose>0 0 0.005 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_front">
+        <pose>0 -0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_back">
+        <pose>0 0.070 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_left">
+        <pose>-0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+      <link name="wall_right">
+        <pose>0.070 0 0.0325 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
+          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- ── Bin E (orange) — LeRobot #2, pair-1 back  (−0.75, +0.20) ──────────── -->
+    <model name="bin_E">
       <static>true</static>
       <pose>-0.75 0.2 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
       </link>
       <link name="wall_front">
         <pose>0 -0.070 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
       </link>
       <link name="wall_back">
         <pose>0 0.070 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
       </link>
       <link name="wall_left">
         <pose>-0.070 0 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
       </link>
       <link name="wall_right">
         <pose>0.070 0 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.80 0.10 0.10 1</ambient><diffuse>1.00 0.20 0.20 1</diffuse></material></visual>
+          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
       </link>
     </model>
 
-    <!-- ── Bin B (blue) — LeRobot #1, pair-1 front (−0.75,  0.05) ──────────── -->
-    <model name="bin_B">
+    <!-- ── Bin F (purple) — LeRobot #2, pair-1 front (−0.75, +0.05) ──────────── -->
+    <model name="bin_F">
       <static>true</static>
       <pose>-0.75 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
       </link>
       <link name="wall_front">
         <pose>0 -0.070 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
       </link>
       <link name="wall_back">
         <pose>0 0.070 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
       </link>
       <link name="wall_left">
         <pose>-0.070 0 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
       </link>
       <link name="wall_right">
         <pose>0.070 0 0.0325 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.10 0.10 0.80 1</ambient><diffuse>0.20 0.20 1.00 1</diffuse></material></visual>
+          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
       </link>
     </model>
 
-    <!-- ── Bin C (green) — LeRobot #1, pair-2 back  (−0.40, +0.20) ──────────── -->
-    <model name="bin_C">
+    <!-- ── Bin G (cyan) — LeRobot #2, pair-2 back  (−0.40, +0.20) ──────────── -->
+    <model name="bin_G">
       <static>true</static>
       <pose>-0.4 0.2 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
         <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
-      </link>
-      <link name="wall_front">
-        <pose>0 -0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
-      </link>
-      <link name="wall_back">
-        <pose>0 0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
-      </link>
-      <link name="wall_left">
-        <pose>-0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
-      </link>
-      <link name="wall_right">
-        <pose>0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.10 0.55 0.10 1</ambient><diffuse>0.15 0.75 0.15 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <!-- ── Bin D (yellow) — LeRobot #1, pair-2 front (−0.40,  0.00) ──────────── -->
-    <model name="bin_D">
-      <static>true</static>
-      <pose>-0.4 0.05 0.900 0 0 0</pose>
-      <link name="floor">
-        <pose>0 0 0.005 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_front">
-        <pose>0 -0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_back">
-        <pose>0 0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_left">
-        <pose>-0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_right">
-        <pose>0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.75 0.75 0.05 1</ambient><diffuse>0.95 0.95 0.10 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <!-- ── Bin E (orange) — LeRobot #2, pair-1 back  (−0.15, +0.20) ──────────── -->
-    <model name="bin_E">
-      <static>true</static>
-      <pose>-0.15 0.2 0.900 0 0 0</pose>
-      <link name="floor">
-        <pose>0 0 0.005 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_front">
-        <pose>0 -0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_back">
-        <pose>0 0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_left">
-        <pose>-0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
-      </link>
-      <link name="wall_right">
-        <pose>0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.80 0.42 0.05 1</ambient><diffuse>1.00 0.55 0.10 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <!-- ── Bin F (purple) — LeRobot #2, pair-1 front (−0.15,  0.00) ──────────── -->
-    <model name="bin_F">
-      <static>true</static>
-      <pose>-0.15 0.05 0.900 0 0 0</pose>
-      <link name="floor">
-        <pose>0 0 0.005 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
-          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
-      </link>
-      <link name="wall_front">
-        <pose>0 -0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
-      </link>
-      <link name="wall_back">
-        <pose>0 0.070 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.010 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.010 0.045</size></box></geometry>
-          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
-      </link>
-      <link name="wall_left">
-        <pose>-0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
-      </link>
-      <link name="wall_right">
-        <pose>0.070 0 0.0325 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.010 0.130 0.045</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.010 0.130 0.045</size></box></geometry>
-          <material><ambient>0.50 0.10 0.70 1</ambient><diffuse>0.65 0.15 0.90 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <!-- ── Bin G (cyan) — LeRobot #2, pair-2 back  (+0.20, +0.20) ──────────── -->
-    <model name="bin_G">
-      <static>true</static>
-      <pose>0.2 0.2 0.900 0 0 0</pose>
-      <link name="floor">
-        <pose>0 0 0.005 0 0 0</pose>
-        <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
-        <visual name="vis"><geometry><box><size>0.15 0.15 0.010</size></box></geometry>
           <material><ambient>0.10 0.60 0.70 1</ambient><diffuse>0.15 0.80 0.90 1</diffuse></material></visual>
       </link>
       <link name="wall_front">
@@ -455,10 +458,10 @@
       </link>
     </model>
 
-    <!-- ── Bin H (magenta) — LeRobot #2, pair-2 front (+0.20,  0.00) ──────────── -->
+    <!-- ── Bin H (magenta) — LeRobot #2, pair-2 front (−0.40, +0.05) ──────────── -->
     <model name="bin_H">
       <static>true</static>
-      <pose>0.2 0.05 0.900 0 0 0</pose>
+      <pose>-0.4 0.05 0.900 0 0 0</pose>
       <link name="floor">
         <pose>0 0 0.005 0 0 0</pose>
         <collision name="col"><geometry><box><size>0.15 0.15 0.010</size></box></geometry></collision>
@@ -609,86 +612,86 @@
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_1</name>
-      <pose>-0.75 0.20 0.913 0 0 0</pose>
+      <pose>-1.25 -0.35 0.913 0 0 0</pose>
     </include>
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_2</name>
-      <pose>-0.75 0.20 0.918 0 0 0.5</pose>
+      <pose>-1.25 -0.35 0.918 0 0 0.5</pose>
     </include>
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_3</name>
-      <pose>-0.74 0.21 0.923 0.2 0 0</pose>
+      <pose>-1.24 -0.34 0.923 0.2 0 0</pose>
     </include>
     <include>
       <uri>model://drone_single_arm</uri>
       <name>arm_4</name>
-      <pose>-0.76 0.19 0.928 0 0 -0.4</pose>
+      <pose>-1.26 -0.36 0.928 0 0 -0.4</pose>
     </include>
 
     <!-- Bin B — bottom_plate leaning (bin shifted +0.05 in Y; Z raised, pitch=0.35, roll=0.15) -->
     <include>
       <uri>model://drone_bottom_plate</uri>
       <name>part_bottom_plate</name>
-      <pose>-0.75 0.05 0.962 0.15 0.35 0</pose>
+      <pose>-1.25 -0.50 0.962 0.15 0.35 0</pose>
     </include>
 
     <!-- Bin C — 4× emax_motor upright, ±30 mm from bin centre -->
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_1</name>
-      <pose>-0.43 0.17 0.928 1.5708 0 0</pose>
+      <pose>-0.93 -0.38 0.928 1.5708 0 0</pose>
     </include>
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_2</name>
-      <pose>-0.37 0.17 0.928 1.5708 0 0</pose>
+      <pose>-0.87 -0.38 0.928 1.5708 0 0</pose>
     </include>
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_3</name>
-      <pose>-0.43 0.23 0.928 1.5708 0 0</pose>
+      <pose>-0.93 -0.32 0.928 1.5708 0 0</pose>
     </include>
     <include>
       <uri>model://drone_emax_motor</uri>
       <name>motor_4</name>
-      <pose>-0.37 0.23 0.928 1.5708 0 0</pose>
+      <pose>-0.87 -0.32 0.928 1.5708 0 0</pose>
     </include>
 
     <!-- Bin D — speedybee_stack, flat (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_speedybee_stack</uri>
       <name>part_speedybee_stack</name>
-      <pose>-0.4 0.05 0.929 0 0 0</pose>
+      <pose>-0.90 -0.50 0.929 0 0 0</pose>
     </include>
 
     <!-- Bin E — capacitor, upright (local Y → world Z) -->
     <include>
       <uri>model://drone_capacitor</uri>
       <name>part_capacitor</name>
-      <pose>-0.15 0.2 0.934 1.5708 0 0</pose>
+      <pose>-0.75 0.2 0.934 1.5708 0 0</pose>
     </include>
 
     <!-- Bin F — vtx, flat (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_vtx</uri>
       <name>part_vtx</name>
-      <pose>-0.15 0.05 0.915 0 0 0</pose>
+      <pose>-0.75 0.05 0.915 0 0 0</pose>
     </include>
 
     <!-- Bin G — camera, flat -->
     <include>
       <uri>model://drone_camera</uri>
       <name>part_camera</name>
-      <pose>0.2 0.2 0.917 0 0 0</pose>
+      <pose>-0.4 0.2 0.917 0 0 0</pose>
     </include>
 
     <!-- Bin H — vtx_antenna, upright (bin shifted +0.05 in Y) -->
     <include>
       <uri>model://drone_vtx_antenna</uri>
       <name>part_vtx_antenna</name>
-      <pose>0.2 0.05 0.935 1.5708 0 0</pose>
+      <pose>-0.4 0.05 0.935 1.5708 0 0</pose>
     </include>
 
     <!-- Bin I — rx_antenna, upright (local Y → world Z) -->

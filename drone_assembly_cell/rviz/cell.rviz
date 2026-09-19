@@ -5,7 +5,7 @@ Panels:
       Expanded:
         - /Grid1
         - /RobotModel1
-        - /TF1
+        - /MotionPlanning1
       Splitter Ratio: 0.5
     Tree Height: 500
   - Class: rviz_common/Views
@@ -48,7 +48,7 @@ Visualization Manager:
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_description
+        Value: /lerobot_1/robot_description
       Enabled: true
       Links:
         All Links Enabled: true
@@ -57,7 +57,7 @@ Visualization Manager:
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
       Name: RobotModel
-      TF Prefix: ""
+      TF Prefix: lerobot_1
       Update Interval: 0
       Value: true
       Visual Enabled: true
@@ -74,6 +74,59 @@ Visualization Manager:
       Tree:
         {}
       Update Interval: 0
+      Value: true
+    - Class: moveit_rviz_plugin/MotionPlanning
+      Enabled: true
+      Move Group Namespace: /lerobot_1
+      Name: MotionPlanning
+      Planned Path:
+        Color Enabled: false
+        Ending Color: 255; 128; 0
+        Loop Animation: false
+        Max FPS: 2
+        Show Robot Visual: true
+        Show Trail: false
+        Starting Color: 0; 128; 255
+        State Display Time: 0.05 s
+        Trajectory Topic:
+          Depth: 5
+          Durability Policy: Volatile
+          History Policy: Keep Last
+          Reliability Policy: Reliable
+          Value: /lerobot_1/display_planned_path
+      Planning Metrics:
+        Pad for Workspace Bounds: 0.1
+        Show Joint Torques: false
+        Show Manipulability: false
+        Show Manipulability Region: false
+        Show Weight Limit Violations: false
+      Planning Request:
+        Goal State Alpha: 1
+        Interactive Marker Size: 0.2
+        Planning Group: arm
+        Query Goal State: true
+        Query Start State: false
+        Show Workspace: false
+        Start State Alpha: 1
+      Planning Scene Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /lerobot_1/monitored_planning_scene
+      Robot Description: robot_description
+      Scene Geometry:
+        Scene Alpha: 1
+        Scene Color: 50; 230; 50
+        Show Scene Geometry: true
+        Voxel Coloring: Z-Axis
+        Voxel Rendering: Occupied Voxels
+      Scene Robot:
+        Attached Body Color: 150; 50; 150
+        Links Shown: Planning Links Only
+        Robot Alpha: 0.5
+        Show Robot Collision: false
+        Show Robot Visual: true
       Value: true
   Enabled: true
   Global Options:
@@ -103,8 +156,8 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
+        X: -1.1
+        Y: -0.4
         Z: 0.9
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
@@ -116,3 +169,6 @@ Visualization Manager:
       Value: Orbit (rviz)
       Yaw: 0.7853981852531433
     Saved: ~
+Window Geometry:
+  Height: 900
+  Width: 1400
