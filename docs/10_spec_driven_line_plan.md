@@ -672,14 +672,19 @@ so `$(find drone_line_sim)` resolves the spec.)
 
 ## Appendix B — Claude Code prompts (run from `~/ros2_ws/src/drone-line/`)
 
-**P0 — CLAUDE.md**
+Model per prompt in brackets. Rule: **Sonnet** when the prompt fully specifies the output; **Opus**
+when it has to diagnose, design state/concurrency, or reason about geometry. Run `/clear` between
+prompts. Switch to Opus as soon as a failing check survives one fix attempt (see B-DEBUG).
+Commit after every prompt whose check passes.
+
+**P0 — CLAUDE.md** [Sonnet]
 ```
 Read docs/10_spec_driven_line_plan.md §1–§2 and P0. Write CLAUDE.md: env (WSL2, Ubuntu 24.04,
 ROS 2 Jazzy, standalone gz-harmonic, tools venv at tools/.venv), build/test commands, the naming
 table, and the P0 rules. Add .gitignore per P0.4 and docs/decisions.md with D-0XX. No other files.
 ```
 
-**P1 — spike**
+**P1 — spike** [Opus]
 ```
 Implement P1 from docs/10_spec_driven_line_plan.md in drone_line_sim: spike_axis.urdf.xacro,
 controllers yaml, launch/spike.launch.py (headless, gui:=false). Mirror the gz_ros2_control
@@ -687,8 +692,10 @@ cart-on-rail demo structure. Add tools/checks/spike.sh that launches, waits ≤3
 controllers, sends a 0.5 m trajectory, measures overshoot/settling from /joint_states, writes
 reports/spike.json, exits non-zero on failure, and kills gz on exit.
 ```
+After it passes: write the working mass, damping, friction and gains into docs/decisions.md as a
+D-entry, so P2 can use them as gantry-axis defaults.
 
-**P2 — spec + static checks**
+**P2 — spec + static checks** [Sonnet]
 ```
 Implement P2: create drone_line_sim/config/line_spec.yaml from the §3 example exactly (keep nulls).
 Write tools/spec.py (pydantic, forbid extra keys) and tools/check_line.py with every check in the
@@ -697,15 +704,37 @@ non-zero on FAIL. Add pytest fixtures: one passing spec, one failing spec per ch
 tools/.venv/bin/python. < 5 s. No ROS imports.
 ```
 
-**P3.3 — mesh pipeline**
+**P2b — dev overlay (so P5–P9 can run before CAD and AnyLogic numbers exist)** [Sonnet]
+```
+Add drone_line_sim/config/line_spec.dev.yaml: same structure as line_spec.yaml, filling only the
+nulls with plausible placeholder values (poses on a straight line at 0.6 m station pitch, 20-part
+magazines, gantry axes x 0–8 m, y 0–1 m, z 0–0.3 m, v_max 1 m/s, a_max 3 m/s², durations that sum
+under takt per station, P1 damping/gains from docs/decisions.md). Every placeholder carries the
+comment "# PLACEHOLDER". Extend tools/spec.py: load_spec(dev=True) deep-merges the overlay over the
+base, base values always win. check_line.py gets --dev; its report lists every value that came
+from the overlay under "placeholders". All generators take --dev. Update CLAUDE.md with the rule:
+the overlay never overrides a real value, and no deliverable number may come from it.
+```
+
+**P3.2 — SolidWorks parameter bridge** [Sonnet]
+```
+Add tools/gen_sw_params.py: read line_spec.yaml (plate datums, press_nut_hole_d, lead slot size,
+stack z heights) and write cad_params.txt in SolidWorks global-variable format, one line per
+variable: "datum_dx" = 62.5 (mm, 4 decimals). Output path from --out (default
+/mnt/c/Users/Admin/Documents/drone-line-cad/10_skeleton/cad_params.txt). Skip nulls with a WARN
+naming the key. Write reports/sw_params.json. Test: round-trip parse of the written file.
+```
+
+**P3.3 — mesh pipeline** [Sonnet]
 ```
 Implement tools/mesh_pipeline.py per P3.3: cad_raw/*.stl (mm) → drone_line_sim/meshes/<group>/,
 trimesh + pymeshlab decimation to < 5 MB, origin check at the round datum, bbox in metres
 compared with / written into line_spec.yaml envelopes (only fill nulls; FAIL on mismatch),
 reports/meshes.json. Preserve yaml comments (use ruamel.yaml for the write-back).
+Accept --src (default cad_raw/) so it can read /mnt/c/Users/Admin/Documents/drone-line-cad/40_exports/stl.
 ```
 
-**P4 — first tooling generator**
+**P4a — pins + pallet** [Opus]
 ```
 Implement tools/cad/pallet.py and tools/cad/pins.py with build123d per P4 B1–B2, reading all
 dimensions from line_spec.yaml via tools/spec.py. Export STEP and STL (mm) to cad_out/, run STL
@@ -714,7 +743,26 @@ Add a pytest asserting derived pin XY equals spec datums to 0.01 mm. If a needed
 null, exit with a message naming the key.
 ```
 
-**P5 — world generator**
+**P4b — spider carrier + pod tray** [Opus]
+```
+Implement tools/cad/spider_carrier.py and tools/cad/pod_tray.py per P4 B3–B4, following the
+pattern of tools/cad/pallet.py. Arm pockets and bolt-pattern features are computed from
+parts.bottom_plate.arm_holes and the arm geometry in the spec — never literal coordinates in the
+generator. Leave gripper clearance around the pick features defined by the tool dims. Export
+STEP+STL, reports/cad_<part>.json (bbox, mass, derived pocket centres). pytest: every pocket centre
+equals its spec source to 0.01 mm; the carrier bbox fits inside gantry z travel.
+```
+
+**P4c — magazines, presenter, tools, build_all** [Sonnet]
+```
+Implement tools/cad/magazine.py (one parameterized generator: part envelope, capacity, key
+geometry → one magazine per feeders entry of type magazine), tools/cad/screw_presenter.py and
+tools/cad/tools.py (gantry plate tool + carrier tool) per P4 B5–B7, same pattern as pallet.py.
+Add tools/cad/build_all.py that runs every generator, then mesh_pipeline, and writes
+reports/cad_all.json. ≤ 30 s. Non-zero exit if any generator fails.
+```
+
+**P5 — world + model generators** [Sonnet]
 ```
 Implement P5.1–P5.2: templates/main_line.sdf.j2, tools/gen_world.py, tools/gen_models.py.
 Primitives for static geometry, includes at spec poses, one test enclosure per st_test cell,
@@ -722,6 +770,130 @@ Physics/SceneBroadcaster/UserCommands/Contact plugins, "GENERATED — do not edi
 get STL visual (scale 0.001), primitive collision, inertia from mass+envelope, named pick/datum
 frames. Add tools/checks/world_smoke.sh (headless, ≤30 s) comparing model poses to spec ≤1 mm →
 reports/world.json.
+```
+
+**P5.3 — gantry + gang-head descriptions** [Sonnet]
+```
+Implement P5.3 following the working spike_axis.urdf.xacro from P1. urdf/gantry.urdf.xacro loads
+line_spec.yaml with xacro.load_yaml and takes every limit (min/max/v_max/a_max) from
+spec['gantry']['axes']; prismatic x,y,z, revolute c only if present in the spec; primitive links
+with real mass/inertia; damping/friction from the P1 values; TCP frame. urdf/gang_head.urdf.xacro
+is a macro: one prismatic stroke joint + N spindle frames laid out from the pattern the spec
+names, instantiated once per gang_heads entry. tools/gen_controllers.py writes
+config/controllers.yaml (one joint_trajectory_controller for the gantry, one per head, plus
+joint_state_broadcaster). Check: tools/checks/descriptions.sh expands every xacro (dev spec),
+runs check_urdf, asserts joint limits equal the spec → reports/descriptions.json.
+```
+
+**P5.4 — unified launch** [Sonnet]
+```
+Write drone_line_sim/launch/line.launch.py: standalone gz-harmonic server with the generated
+world (gui:=false default, headless -s -r), ros_gz bridge (clock + joint states), one
+robot_state_publisher and spawn per robot, controller spawners from config/controllers.yaml,
+use_sim_time everywhere, dev:=true|false arg selecting the spec. Reuse the WSL2 GPU env settings
+from ~/ros2_ws/src/drone-assembly-line (read only, do not modify that repo). Check:
+tools/checks/line_smoke.sh — launch, all controllers active ≤30 s, gantry moves to 3 station
+poses with TCP error < 1 mm, kill gz → reports/line_smoke.json.
+```
+
+**P6 — feeders + sources** [Sonnet]
+```
+Implement P6 in drone_line_control: feeders.py (one node, one instance per spec feeders entry;
+topics /<id>/available, /<id>/count; service /<id>/take; respawn next part at the same pose after
+refill_s via gz spawn), blow feeders spawning the screw at the head after feed_s, sources.py (spawn
+subassemblies at buffer poses every interval_s, same available/take interface). Port the spawner
+and set_pose logic from ~/ros2_ws/src/drone-assembly-line (copy, don't modify). Append events to
+reports/events_<run>.csv (sim_time, feeder, event, count). Check: tools/checks/feeders.sh drains a
+20-part magazine headless and verifies refill time appears as wait time → reports/feeders.json.
+```
+
+**P7 — grasp, place, drive, ownership** [Opus]
+```
+Implement P7. Add DetachableJoint instances to gantry.urdf.xacro (one per carried part type from
+the spec, gantry parent, own attach/detach/output topics, suppress_child_warning, setup detach at
+startup). In drone_line_control/actions/: grasp (set_pose part to TCP, then attach), release
+(detach), place (release + set_pose to the pallet datum pose), drive (gang head stroke, dwell,
+mark screws driven, consume from the blow feeder). monitors.py keeps an ownership table: every
+part instance has exactly one owner (feeder|buffer|tool|pallet|carrier|packed) at every event;
+publish and log violations. Check: tools/checks/grasp.sh — take plate from feeder, grasp, move X
+0.3 m, plate tracks TCP ≤1 mm, place, plate stays; ownership log shows feeder→tool→pallet with no
+gaps or doubles → reports/grasp.json.
+```
+
+**P8a — gantry motion + move-time table** [Sonnet]
+```
+Implement P8.1: drone_line_control/motion.py — waypoint moves with trapezoidal profiles from the
+spec's v_max/a_max, safe-Z travel between poses, sent to the gantry joint_trajectory_controller.
+Check: tools/checks/gantry_moves.sh drives to every pose in the spec (feeders, buffers, stations),
+records TCP error and move time per pose pair → reports/gantry_moves.csv + gantry_moves.json
+(max error, FAIL if > 1 mm).
+```
+
+**P8b — capability action servers** [Opus]
+```
+Implement P8.2: one ROS 2 action per capability verb used in spec.sequence (load, place, drive,
+advance, inspect, test, pack), built on the P7 actions and P8a motion. Each has a yaml beside it
+declaring inputs, timeout_s, retry_safe (bool) and the resource it locks (gantry, a gang head, a
+test cell). A resource manager grants locks; a capability never runs without its lock. Every start,
+end, timeout and lock wait is appended to the event log. Custom action/interface types go in a new
+ament_cmake package drone_line_interfaces. Check: unit test per action with a mocked resource
+manager, plus a headless test running place then drive on one pallet.
+```
+
+**P8c — sequencer** [Opus]
+```
+Implement P8.3–P8.5: drone_line_control/sequencer.py runs spec.sequence as a per-pallet state
+machine: respects requires, calls capabilities only through the P8b actions, pools st_test as
+`count` parallel servers, waits (and logs wait_starved / wait_blocked) instead of failing when a
+feeder or resource is unavailable. use_sim_time. Output reports/events_<run>.csv (sim_time,
+pallet, step, station, event, detail) and reports/run_summary.json (cycle time per station,
+bottleneck, takt pass/fail). Launch arg pallets:=N. Check: tools/checks/one_drone.sh (1 pallet,
+headless) and tools/checks/steady_state.sh (10 pallets). No CODESYS-specific code; the sequencer
+boundary stays actions/topics only.
+```
+
+**P9 — runtime checks** [Sonnet]
+```
+Implement P9: tools/check_run.py <events.csv> runs every check in the P9 table (ownership,
+carry_rigidity, contacts vs spec allowed_contacts, precedence_runtime, takt_runtime, starvation,
+drift vs spec duration_s, throughput extrapolated to drones/shift vs 1,000). Add allowed_contacts
+to the spec schema (pair + step window). Output reports/run_check.json, PASS/FAIL table on stdout,
+non-zero exit on any FAIL. pytest with a synthetic passing log and one failing log per check.
+```
+
+**P10a — CI** [Sonnet]
+```
+Write .github/workflows/ci.yml per P10: job tools (ubuntu, tools/.venv deps, pytest tools/tests,
+check_line.py --dev, run every generator then git diff --exit-code for drift); job ros (container
+ros:jazzy, colcon build, expand xacros + check_urdf); job sim (workflow_dispatch + weekly only:
+Gazebo headless line_smoke.sh and one_drone.sh + check_run.py). Upload reports/ as artifacts.
+Pin action versions. Keep the tools job under 3 min.
+```
+
+**P10b — Claude Code skills** [Sonnet]
+```
+Create .claude/skills/{add-station,rebalance,add-variant-part,debug-run}/SKILL.md per the P10
+table. Each skill: when to use, exact steps (edit spec → run generators → run check_line.py
+[and check_run.py if a run log exists]), and ends by pasting the JSON summary. debug-run reads the
+newest reports/events_*.csv and run_check.json and names the first failing invariant, the pallet
+and the step. Keep each SKILL.md under 60 lines.
+```
+
+**P11 — Blender replay (optional)** [Sonnet]
+```
+Implement P11: tools/gen_world.py --export-json build/line_spec.json; tools/render/build_scene.py
+(run with blender -b -P) builds the line from the JSON (primitives + processed STLs), keyframes
+every part and robot from a reports/events_*.csv run log (carried parts follow the TCP), and
+writes build/line.blend, build/line.glb, build/still.png, and with --animation an MP4 via ffmpeg.
+Three fixed camera poses, no cut logic. Reuse helper patterns from OpenSDL
+examples/digital-twin-surrogate/scene/build_scene.py (Apache-2.0, credit it in a header comment).
+```
+
+**B-DEBUG — when a check fails** [Opus]
+```
+tools/checks/<name>.sh fails. Read reports/<name>.json and the last run's logs. State the root
+cause with evidence before changing anything, then make the smallest fix, rerun the check, and
+report pass/fail. Do not weaken the check or its thresholds to make it pass.
 ```
 
 ---
