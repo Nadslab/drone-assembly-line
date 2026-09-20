@@ -7,3 +7,5 @@ log/
 tools/.venv/
 *.blend1
 __pycache__/
+cad_out/
+

@@ -38,6 +38,10 @@ colcon list
 tools/.venv/bin/python tools/check_line.py
 tools/.venv/bin/python tools/spec.py
 tools/.venv/bin/python tools/check_line.py --dev   # merge line_spec.dev.yaml placeholders
+tools/.venv/bin/python tools/gen_sw_params.py      # spec -> cad_params.txt (SolidWorks variables)
+tools/.venv/bin/python tools/mesh_pipeline.py      # raw SolidWorks STL -> checked Gazebo meshes
+tools/.venv/bin/python tools/cad/pallet.py --dev   # build123d pallet + pins -> cad_out/
+tools/.venv/bin/python tools/cad/build_all.py --dev  # every generator + mesh_pipeline, < 30 s
 
 # Run tools tests
 tools/.venv/bin/python -m pytest tools/tests/

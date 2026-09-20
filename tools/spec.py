@@ -62,6 +62,25 @@ class Datums(Model):
     diamond: Vec2 | None = None
 
 
+class ArmHoles(Model):
+    """The arm-sandwich screw pattern on a plate, in that plate's frame (summary §7.1).
+
+    One list of every hole, plus how many of them hold one arm down: the holes group into
+    `len(positions) / per_arm` arms by their angle about the plate centre. The spider carrier's
+    arm pockets are computed from this pattern, so the carrier can never drift from the plate.
+    """
+
+    per_arm: PosInt
+    positions: list[Vec2]
+
+    @model_validator(mode="after")
+    def _groups(self):
+        if not self.positions or len(self.positions) % self.per_arm:
+            raise ValueError(f"{len(self.positions)} positions do not divide into groups of "
+                             f"per_arm={self.per_arm}")
+        return self
+
+
 class Part(Model):
     source: Literal["solidworks", "build123d", "primitive"]
     mesh: str | None = None
@@ -73,6 +92,13 @@ class Part(Model):
     datums: Datums | None = None
     pick: Pose | None = None
     carried_by: str | None = None
+    z_in_stack: Pos | None = None  # bottom face above the bottom plate (CAD stack height)
+    lead_slot: tuple[float | None, float | None] | None = None  # [width, length], mid plate
+    arm_holes: ArmHoles | None = None  # plates: the arm-sandwich screw pattern
+    hole_inset: Pos | None = None  # arm: inboard end -> centroid of its own mount holes
+    # Poka-yoke key (summary 7.5, 16): the corner cut [x, y] at the part's +x,+y corner in its own
+    # frame. The magazine grows a matching rib there, so a mirrored part cannot seat (P4 B5).
+    key: tuple[float | None, float | None] | None = None
 
     @model_validator(mode="after")
     def _source_fields(self):
@@ -86,6 +112,13 @@ class Part(Model):
         if self.shape == "cylinder" and self.dims is not None and len(self.dims) != 2:
             raise ValueError("cylinder dims must be [radius, height]")
         return self
+
+
+class Cad(Model):
+    """Shared SolidWorks dimensions written to cad_params.txt by gen_sw_params.py."""
+
+    datum_d: Pos
+    press_nut_hole_d: Pos | None = None
 
 
 class Fastener(Model):
@@ -138,9 +171,18 @@ class GantryAxes(Model):
     c: Axis | None = None  # absent = no yaw axis
 
 
+class Tool(Model):
+    """A gantry end-effector. `dims` is the envelope it needs at the pick feature, in metres:
+    [x, y, reach] — x,y across the pick point and reach = how far it comes down over it. The
+    fixture generators (P4 B3-B4) size their pick features from this."""
+
+    grip: Literal["vacuum", "finger"]
+    dims: Vec3
+
+
 class Gantry(Model):
     axes: GantryAxes
-    tools: list[str]
+    tools: dict[str, Tool]
     mount: Vec3
 
 
@@ -189,6 +231,7 @@ class LineSpec(Model):
     schema_version: Literal[1]
     line: Line
     parts: dict[str, Part]
+    cad: Cad | None = None
     fasteners: dict[str, Fastener]
     feeders: dict[str, Feeder]
     sources: dict[str, Source]
@@ -233,7 +276,7 @@ def add_dev_argument(parser: argparse.ArgumentParser) -> None:
 
 # Collections whose keys are entities: the overlay may fill their fields but not add members.
 ENTITY_COLLECTIONS = {"parts", "fasteners", "feeders", "sources", "buffers", "gang_heads",
-                      "scaras", "stations"}
+                      "scaras", "stations", "gantry.tools"}
 
 
 @dataclass

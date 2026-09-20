@@ -15,15 +15,34 @@ parts:
       round:   [0.0, 0.0]
       diamond: [null, null]
     pick: [0.0, 0.0, null, 0.0]   # x,y,z,yaw in part frame
-  mid_plate:     {source: solidworks, mesh: meshes/drone/mid_plate.stl, envelope: [null,null,null], mass: null, pick: [0,0,null,0]}
-  top_plate:     {source: solidworks, mesh: meshes/drone/top_plate.stl, envelope: [null,null,null], mass: null, pick: [0,0,null,0]}
-  side_plate:    {source: solidworks, mesh: meshes/drone/side_plate.stl, envelope: [null,null,null], mass: null, pick: [0,0,null,0]}
+    arm_holes:                    # arm-sandwich screws (§7.1); gh_arm_sandwich drives all 8
+      per_arm: 2                  # -> 8/2 = 4 arms, grouped by angle about the plate centre
+      positions: [[null, null], [null, null], [null, null], [null, null],
+                  [null, null], [null, null], [null, null], [null, null]]
+  mid_plate:     {source: solidworks, mesh: meshes/drone/mid_plate.stl, envelope: [null,null,null], mass: null, datums: {round: [0.0, 0.0], diamond: [null, null]}, pick: [0,0,null,0], z_in_stack: null, lead_slot: [null, null]}
+  top_plate:     {source: solidworks, mesh: meshes/drone/top_plate.stl, envelope: [null,null,null], mass: null, datums: {round: [0.0, 0.0], diamond: [null, null]}, pick: [0,0,null,0], z_in_stack: null}
+  # key = poka-yoke corner cut [x,y] at the +x,+y corner (§7.5): inside and outside are not
+  # interchangeable, so the magazine gets a matching rib and a flipped plate cannot seat (§16).
+  side_plate:    {source: solidworks, mesh: meshes/drone/side_plate.stl, envelope: [null,null,null], mass: null, pick: [0,0,null,0], key: [null, null]}
   standoff:      {source: primitive, shape: cylinder, dims: [null, null], mass: null}
+  # arm/esc are the spider broken down far enough for the carrier to hold them (§7.10); `spider`
+  # stays the lumped box the sim carries. dims = [length, width, thickness] along the arm axis.
+  arm:           {source: primitive, shape: box, dims: [null,null,null], mass: null, hole_inset: null}
+  esc:           {source: primitive, shape: box, dims: [null,null,null], mass: null, z_in_stack: null}
   spider:        {source: primitive, shape: box, dims: [null,null,null], mass: null, carried_by: carrier_spider}
   pod:           {source: primitive, shape: box, dims: [null,null,null], mass: null, carried_by: carrier_pod}
-  carrier_spider: {source: build123d, generator: tools/cad/spider_carrier.py, mass: null, pick: [0,0,null,0]}
-  carrier_pod:    {source: build123d, generator: tools/cad/pod_tray.py, mass: null, pick: [0,0,null,0]}
+  # No `pick`: on a build123d fixture the pick pose is an output — the generator derives it from
+  # the pick boss it builds and reports it, the way it reports mass.
+  carrier_spider: {source: build123d, generator: tools/cad/spider_carrier.py, mass: null}
+  carrier_pod:    {source: build123d, generator: tools/cad/pod_tray.py, mass: null}
   pallet:         {source: build123d, generator: tools/cad/pallet.py, mass: null}
+
+# ---------- cad: shared SolidWorks dimensions (gen_sw_params.py -> cad_params.txt) ----------
+# z_in_stack (parts.*) = height of the plate's bottom face above the bottom plate (bottom = 0).
+# lead_slot (parts.mid_plate) = [width, length] of the motor lead exit slot.
+cad:
+  datum_d: 0.003                # round/diamond tooling hole, Ø3.0 H7 (plan P3.1)
+  press_nut_hole_d: null        # from the press-nut datasheet (CAD guide keeps 4 mm as a variable)
 
 # ---------- fasteners: one feeder per length (§7.9) ----------
 fasteners:
@@ -55,7 +74,9 @@ gantry:
     y: {min: null, max: null, v_max: null, a_max: null}
     z: {min: null, max: null, v_max: null, a_max: null}
     c: {min: -3.1416, max: 3.1416, v_max: null, a_max: null}   # delete if no yaw needed
-  tools: [tool_plate, tool_carrier]
+  tools:                                    # dims = [x, y, reach] the tool needs at a pick feature
+    tool_plate:   {grip: vacuum, dims: [null, null, null]}
+    tool_carrier: {grip: finger, dims: [null, null, null]}
   mount: [null, null, null]                 # gantry base in line frame
 gang_heads:
   gh_arm_sandwich: {direction: down,       spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: null}
@@ -89,7 +110,7 @@ sequence:
   - {id: drive_arm_sandwich, station: st_drive_arm_sandwich, capability: drive,  head: gh_arm_sandwich, fastener: m3_x8, qty: 8, duration_s: null, requires: [place_mid_plate]}
   - {id: install_standoffs, station: st_install_standoffs,  capability: place,   part: standoff, from: fd_standoff, qty: 4, duration_s: null, requires: [drive_arm_sandwich]}
   - {id: seat_esc,          station: st_seat_esc,           capability: drive,   qty: 4, duration_s: null, requires: [install_standoffs], note: "releases carrier_spider"}
-  - {id: place_pod,         station: st_place_pod,          capability: place,   part: carrier_pod, from: buf_pod, duration_s: null, requires: [seat_esc]}
+  - {id: place_pod,         station: st_place_pod,          capability: place,   part: carrier_pod, from: buf_pod, tool: tool_carrier, duration_s: null, requires: [seat_esc]}
   - {id: fit_side_plates,   station: st_fit_side_plates,    capability: drive,   head: gh_side_plates, qty: null, duration_s: null, requires: [place_pod]}
   - {id: mount_servo,       station: st_mount_servo,        capability: drive,   qty: 2, duration_s: null, requires: [fit_side_plates], status: parked}
   - {id: fit_top_plate,     station: st_fit_top_plate,      capability: drive,   part: top_plate, from: fd_top_plate, qty: 5, duration_s: null, requires: [fit_side_plates]}

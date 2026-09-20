@@ -8,20 +8,36 @@ line:
 parts:
   bottom_plate:
     {source: solidworks, mesh: meshes/drone/bottom_plate.stl, envelope: [0.2, 0.2, 0.003], mass: 0.05,
-     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0]}
+     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0],
+     # Four arms on the plate diagonals about the plate centre (0.05, 0), two screws each at
+     # r = 60 and 80 mm. Deliberately not in arm order: the carrier groups them by angle.
+     arm_holes: {per_arm: 2, positions: [[0.092426, 0.042426], [0.007574, 0.042426],
+                                         [0.007574, -0.042426], [0.092426, -0.042426],
+                                         [0.106569, 0.056569], [-0.006569, 0.056569],
+                                         [-0.006569, -0.056569], [0.106569, -0.056569]]}}
   mid_plate:
     {source: solidworks, mesh: meshes/drone/mid_plate.stl, envelope: [0.2, 0.2, 0.003], mass: 0.05,
-     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0]}
+     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0],
+     z_in_stack: 0.03, lead_slot: [0.006, 0.012]}
   top_plate:
     {source: solidworks, mesh: meshes/drone/top_plate.stl, envelope: [0.2, 0.2, 0.003], mass: 0.05,
-     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0]}
+     datums: {round: [0.0, 0.0], diamond: [0.1, 0.0]}, pick: [0.0, 0.0, 0.003, 0.0],
+     z_in_stack: 0.06}
+  arm: {source: primitive, shape: box, dims: [0.16, 0.02, 0.008], mass: 0.09, hole_inset: 0.02}
+  esc: {source: primitive, shape: box, dims: [0.04, 0.04, 0.012], mass: 0.03, z_in_stack: 0.045}
+  pod: {source: primitive, shape: box, dims: [0.1, 0.08, 0.04], mass: 0.12, carried_by: carrier_pod}
   pallet: {source: build123d, generator: tools/cad/pallet.py, mass: 2.0}
+  # No `pick`: on a build123d fixture the pick pose is an output the generator derives.
+  carrier_spider: {source: build123d, generator: tools/cad/spider_carrier.py, mass: 0.6}
+  carrier_pod: {source: build123d, generator: tools/cad/pod_tray.py, mass: 0.3}
+
+cad: {datum_d: 0.003, press_nut_hole_d: 0.004}
 
 fasteners:
   m3_x8: {length: 0.008, feeder: fd_screw}
 
 feeders:
-  fd_mid_plate: {type: magazine, part: mid_plate, pose: [0.2, 0.3, 0.1, 0.0], capacity: 20, refill_s: 60.0}
+  fd_mid_plate: {type: magazine, part: mid_plate, pose: [0.2, 0.3, 0.15, 0.0], capacity: 20, refill_s: 60.0}
   fd_screw: {type: blow, part: m3_x8, target: gh_top, feed_s: 0.5}
 
 sources:
@@ -35,10 +51,12 @@ gantry:
     y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
     z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
     c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
-  tools: [tool_plate]
+  tools:
+    tool_plate:   {grip: vacuum, dims: [0.12, 0.12, 0.02]}
+    tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}
   mount: [0.0, 0.0, 0.0]
 gang_heads:
-  gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.holes, stroke: 0.05}
+  gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05}
 scaras: {}
 
 conveyor: {pitch: 0.5, index_s: 2.0}
@@ -47,9 +65,17 @@ stations:
   st_place: {index: 2, count: 1, pose: [0.5, 0.0, 0.1, 0.0]}
   st_drive: {index: 3, count: 1, pose: [1.0, 0.0, 0.1, 0.0]}
   st_test:  {index: 4, count: 5, pose: [1.5, 0.0, 0.1, 0.0], cell_pitch: 0.4}
+  # The two fixture-placing stations. Appended last so the indices of the four steps above,
+  # which the failing-case fixtures address by position, do not move.
+  st_spider: {index: 5, count: 1, pose: [2.0, 0.0, 0.1, 0.0]}
+  st_pod:    {index: 6, count: 1, pose: [2.5, 0.0, 0.1, 0.0]}
 
 sequence:
   - {id: load,  station: st_load,  capability: load,  part: bottom_plate, from: buf_plate, duration_s: 5.0, requires: []}
   - {id: place, station: st_place, capability: place, part: mid_plate, from: fd_mid_plate, tool: tool_plate, duration_s: 6.0, requires: [load]}
   - {id: drive, station: st_drive, capability: drive, head: gh_top, fastener: m3_x8, qty: 8, duration_s: 15.0, requires: [place]}
   - {id: test,  station: st_test,  capability: test,  duration_s: 90.0, requires: [drive]}
+  - {id: place_spider, station: st_spider, capability: place, part: carrier_spider, from: buf_plate,
+     tool: tool_carrier, duration_s: 6.0, requires: [load]}
+  - {id: place_pod, station: st_pod, capability: place, part: carrier_pod, from: buf_plate,
+     tool: tool_carrier, duration_s: 6.0, requires: [load]}

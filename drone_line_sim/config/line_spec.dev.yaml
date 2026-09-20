@@ -17,6 +17,19 @@ parts:
     datums:
       diamond: [0.09, 0.0]               # PLACEHOLDER
     pick: [null, null, 0.003, null]      # PLACEHOLDER
+    # Four arms on the plate diagonals, two screws each at r = 55 and 75 mm from the plate
+    # centre (the datum midpoint, 45 mm out on +x). Listed arm by arm, but the generator
+    # groups them by angle and never relies on the order.
+    arm_holes:
+      positions:
+        - [0.083891, 0.038891]           # PLACEHOLDER
+        - [0.098033, 0.053033]           # PLACEHOLDER
+        - [0.006109, 0.038891]           # PLACEHOLDER
+        - [-0.008033, 0.053033]          # PLACEHOLDER
+        - [0.006109, -0.038891]          # PLACEHOLDER
+        - [-0.008033, -0.053033]         # PLACEHOLDER
+        - [0.083891, -0.038891]          # PLACEHOLDER
+        - [0.098033, -0.053033]          # PLACEHOLDER
   mid_plate:
     envelope: [0.18, 0.18, 0.003]        # PLACEHOLDER
     mass: 0.04                           # PLACEHOLDER
@@ -24,6 +37,8 @@ parts:
       round: [0.0, 0.0]                  # PLACEHOLDER
       diamond: [0.09, 0.0]               # PLACEHOLDER
     pick: [null, null, 0.003, null]      # PLACEHOLDER
+    z_in_stack: 0.03                     # PLACEHOLDER
+    lead_slot: [0.006, 0.012]            # PLACEHOLDER
   top_plate:
     envelope: [0.18, 0.18, 0.003]        # PLACEHOLDER
     mass: 0.04                           # PLACEHOLDER
@@ -31,13 +46,23 @@ parts:
       round: [0.0, 0.0]                  # PLACEHOLDER
       diamond: [0.09, 0.0]               # PLACEHOLDER
     pick: [null, null, 0.003, null]      # PLACEHOLDER
+    z_in_stack: 0.06                     # PLACEHOLDER
   side_plate:
     envelope: [0.10, 0.05, 0.003]        # PLACEHOLDER
     mass: 0.02                           # PLACEHOLDER
     pick: [null, null, 0.003, null]      # PLACEHOLDER
+    key: [0.008, 0.008]                  # PLACEHOLDER
   standoff:
     dims: [0.003, 0.012]                 # PLACEHOLDER
     mass: 0.002                          # PLACEHOLDER
+  arm:
+    dims: [0.16, 0.02, 0.008]            # PLACEHOLDER
+    mass: 0.09                           # PLACEHOLDER
+    hole_inset: 0.02                     # PLACEHOLDER
+  esc:
+    dims: [0.04, 0.04, 0.012]            # PLACEHOLDER
+    mass: 0.03                           # PLACEHOLDER
+    z_in_stack: 0.045                    # PLACEHOLDER (standoff height above the mid plate)
   spider:
     dims: [0.18, 0.18, 0.03]             # PLACEHOLDER
     mass: 0.15                           # PLACEHOLDER
@@ -46,12 +71,13 @@ parts:
     mass: 0.12                           # PLACEHOLDER
   carrier_spider:
     mass: 0.3                            # PLACEHOLDER
-    pick: [null, null, 0.02, null]       # PLACEHOLDER
   carrier_pod:
     mass: 0.2                            # PLACEHOLDER
-    pick: [null, null, 0.02, null]       # PLACEHOLDER
   pallet:
     mass: 2.0                            # PLACEHOLDER
+
+cad:
+  press_nut_hole_d: 0.004                # PLACEHOLDER
 
 feeders:
   fd_mid_plate:
@@ -113,6 +139,11 @@ gantry:
     c:
       v_max: 3.0                         # PLACEHOLDER (rad/s)
       a_max: 10.0                        # PLACEHOLDER (rad/s^2)
+  tools:
+    tool_plate:
+      dims: [0.12, 0.12, 0.02]           # PLACEHOLDER
+    tool_carrier:
+      dims: [0.06, 0.06, 0.03]           # PLACEHOLDER
   mount: [0.0, -0.5, 0.0]                # PLACEHOLDER
 gang_heads:
   gh_arm_sandwich:
