@@ -122,3 +122,48 @@ plan's 30 s budget — the whole build is ~1.7 s under `--dev`). A missing raw-S
 not a failure, so the build123d half stays runnable before any SolidWorks export exists;
 `--require-meshes` insists on it.
 
+## D-005 — P5.1/P5.2: what the generated world and models are made of
+
+**Date:** 2026-09-19
+
+**Context:** the world and the models are generated from `line_spec.yaml` (plan P5). Three things
+had to be settled before the first world could load at all.
+
+**Decision — a model's frame is the frame the part is already described in**, so an `<include>`
+at a spec pose needs no offset anywhere:
+
+| Model | Origin | z = 0 |
+|---|---|---|
+| plate (SolidWorks) | the plate frame, `CS_DATUM` | the plate's underside; the box is centred on the **datum midpoint**, not on the round datum |
+| pallet / carrier (build123d) | the generator's own frame | its rest plane; the collision box is the **measured** bbox from `reports/cad_<part>.json`, which is why it is not centred on the origin |
+| magazine | `feeders.<id>.pose` | the pick plane (the rim) |
+
+**Decision — a missing mesh is never named.** gz resolves `<uri>` and `<include>` when it *parses*
+a world: a model that names a mesh which is not there does not fail to render, it fails to load
+the world. So `gen_models.py` falls back to the collision primitive as the visual (with a WARN)
+when a part's STL has not been built yet, and `gen_world.py` refuses to write a world whose
+include has no model directory. A magazine feeder with no model is a FAIL, not a box: a magazine
+*is* a model, so a missing one means gen_models never ran.
+
+**Decision — a generated mesh is copied into the package.** `cad_out/` is not installed with
+`drone_line_sim`, so anything built there is copied to `meshes/tooling/<id>.stl` (where
+mesh_pipeline.py already puts the SolidWorks meshes) and referenced by a path relative to the
+model file. The rule is "the package is self-contained", so any mesh from outside it is copied.
+
+**Decision — link names are `<Model>_link`.** The naming table's link form is the model's own
+name, but `/world/<w>/pose/info` keys poses by entity *name*: a link named exactly like its model
+makes every pose query ambiguous. The suffix is mechanical and keeps the tooling honest.
+
+**Decision — static geometry sits below the pose it marks.** A station pose is where the
+*workpiece* stands, so the station pad and the conveyor bed end at the pallet's underside — the
+pallet's own measured bbox says how far below that is. A pad drawn *at* the pose is inside the
+pallet standing there, and physics throws it out; that is how this was found.
+
+**Consequence — `tools/checks/world_smoke.sh`** regenerates the models and the world, loads it
+headless on a private `GZ_PARTITION`, waits for the world to reach N iterations, and compares
+every model in `reports/gen_world.json` against **the spec** (a test cell against its station's
+pose plus `k x cell_pitch`) to 1 mm, writing `reports/world.json`. It reads every pose from one
+`gz topic -e -t /world/<w>/pose/info` message: a `gz model -p` per model took half the 30 s
+budget, and past a handful in parallel the service starts refusing. The whole check runs in
+~13 s. It defaults to `--dev` because the base spec's poses are still null; `--real` runs it
+against `line_spec.yaml` alone.

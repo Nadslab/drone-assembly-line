@@ -1,0 +1,73 @@
+{#- One Gazebo model per part / magazine (plan P5.2). Rendered by tools/gen_models.py. -#}
+<?xml version="1.0"?>
+<!-- {{ header }} -->
+<sdf version="{{ sdf_version }}">
+  <model name="{{ m.name }}">
+    <static>{{ 'true' if m.static else 'false' }}</static>
+    <link name="{{ m.name }}_link">
+      <inertial>
+        <pose>{{ m.centre }} 0 0 0</pose>
+        <mass>{{ m.mass }}</mass>
+        <inertia>
+          <ixx>{{ m.inertia[0] }}</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>{{ m.inertia[1] }}</iyy>
+          <iyz>0</iyz>
+          <izz>{{ m.inertia[2] }}</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <pose>{{ m.centre }} 0 0 0</pose>
+        <geometry>
+{%- if m.shape == 'cylinder' %}
+          <cylinder>
+            <radius>{{ m.size[0] }}</radius>
+            <length>{{ m.size[1] }}</length>
+          </cylinder>
+{%- else %}
+          <box>
+            <size>{{ m.size|join(' ') }}</size>
+          </box>
+{%- endif %}
+        </geometry>
+      </collision>
+      <visual name="visual">
+{%- if m.mesh_uri %}
+        {#- the STL is millimetres in this same frame, so it needs scale only, never a pose #}
+        <geometry>
+          <mesh>
+            <uri>{{ m.mesh_uri }}</uri>
+            <scale>{{ mesh_scale }} {{ mesh_scale }} {{ mesh_scale }}</scale>
+          </mesh>
+        </geometry>
+{%- else %}
+        {#- no mesh built yet: the collision primitive is the visual too #}
+        <pose>{{ m.centre }} 0 0 0</pose>
+        <geometry>
+{%- if m.shape == 'cylinder' %}
+          <cylinder>
+            <radius>{{ m.size[0] }}</radius>
+            <length>{{ m.size[1] }}</length>
+          </cylinder>
+{%- else %}
+          <box>
+            <size>{{ m.size|join(' ') }}</size>
+          </box>
+{%- endif %}
+        </geometry>
+{%- endif %}
+        <material>
+          <ambient>{{ m.colour }}</ambient>
+          <diffuse>{{ m.colour }}</diffuse>
+        </material>
+      </visual>
+    </link>
+{%- for frame in m.frames %}
+    {#- {{ frame.source }} #}
+    <frame name="{{ frame.name }}">
+      <pose>{{ frame.pose }}</pose>
+    </frame>
+{%- endfor %}
+  </model>
+</sdf>

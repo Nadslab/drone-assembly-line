@@ -9,3 +9,7 @@ tools/.venv/
 __pycache__/
 cad_out/
 
+# Dev-overlay Gazebo output: generated from line_spec.dev.yaml placeholders, never a deliverable
+drone_line_sim/models/dev/
+drone_line_sim/meshes/tooling/dev/
+drone_line_sim/worlds/*.dev.sdf

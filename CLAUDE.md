@@ -42,6 +42,8 @@ tools/.venv/bin/python tools/gen_sw_params.py      # spec -> cad_params.txt (Sol
 tools/.venv/bin/python tools/mesh_pipeline.py      # raw SolidWorks STL -> checked Gazebo meshes
 tools/.venv/bin/python tools/cad/pallet.py --dev   # build123d pallet + pins -> cad_out/
 tools/.venv/bin/python tools/cad/build_all.py --dev  # every generator + mesh_pipeline, < 30 s
+tools/.venv/bin/python tools/gen_models.py --dev   # spec + cad reports -> models/<id>/model.sdf
+tools/.venv/bin/python tools/gen_world.py --dev    # spec -> worlds/main_line.sdf
 
 # Run tools tests
 tools/.venv/bin/python -m pytest tools/tests/
