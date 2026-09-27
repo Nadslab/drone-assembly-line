@@ -324,3 +324,62 @@ their zone gantry's reach and none moved. `safe_z` is 0.15 m; `fd_standoff` stan
 
 **Not verified:** `tools/checks/line_smoke.sh` (Gazebo) was not run for this change;
 `line_measure.py` now drives the zone gantry per station but has only been compiled.
+
+## D-009 — Gantry frame, step split, gang pick, speed scale, takt budget, safe_z
+
+**Date:** 2026-09-27
+
+**Context:** the first layout STEP (tools/cad/layout.py) found gantry_3's posts standing in the
+conveyor: D-008 sized each gantry's y travel to its zone's items only, and gantry_3's items are all
+on one side of the belt. The move estimate had four more gaps: `fit_top_plate` counted 5
+top-plate picks because its qty was the screw count; the 4 standoffs were 4 separate picks; it
+planned at full `v_max`/`a_max` although D-007 found the sequencer must plan at half; and it
+compared with the whole takt although the pallet spends part of every takt moving.
+
+**Decision — frame rule.** A gantry's y travel is the union of its zone items' y (plus 0.1 m) and
+the whole conveyor (±`layout.conveyor.width`/2 plus 0.1 m); its x travel stays zone items plus
+0.1 m. Posts, `post_size` square, stand just outside the travel corners and must clear the belt
+edge by `layout.gantry_frame.conveyor_clearance`. Check `gantry_straddle` FAILs a post in the belt
+or inside that clearance, on every gantry. Dev: gantry_3's y min 0.4 → 0.25 (its posts now clear
+the belt by exactly 0.1 m); gantry_1/2 already spanned ±0.4.
+
+**Decision — step semantics.** A step either moves a part with a gantry or drives fasteners, never
+both (schema rule: a gantry-served step — `tool`, or `part` + `from` — may not be `drive` or name
+a `fastener`). `fit_top_plate` became `place_top_plate` (place, qty 1, `tool_plate` on gantry_3)
+and `drive_top_plate` (drive, qty 5, driver not yet chosen). No other step mixed the two;
+`fit_side_plates` drives with no part at all, and nothing in the sequence draws from
+`fd_side_plate` yet — side-plate placement is still missing from the sequence. estimate_moves.py
+counts only capabilities `place`, `load` and `pick` (`pick` is new in the schema).
+
+**Decision — gang pick.** `install_standoffs` is one pick of all 4 standoffs with a new gang
+gripper `standoff_gang` on gantry_2, from `fd_standoff`, now a `nest` feeder with `per_pick: 4`.
+`feeder_rate` counts parts, so its demand is qty × `per_pick`. tools/cad/tools.py builds
+`standoff_gang` as its generic two-jaw finger tool for now; the 4-finger gang is not modelled.
+
+**Decision — speed scale.** `gantry_defaults.plan_speed_scale` (dev 0.5, D-007) scales every
+axis's `v_max` and `a_max` in the estimate; the table also shows scale 1.0.
+
+**Decision — takt budget.** Each gantry's load is compared with `takt_s − transfer_s`,
+`transfer_s = conveyor.pitch / layout.conveyor.belt_speed + layout.stop_unit_cycle_s`
+(dev: 0.6 / 0.3 + 1.0 = 3.0 s, budget 17.2 s). `conveyor.index_s` (dev 2.0 s) is the same
+quantity as pitch / belt_speed and is not read; one of the two should go.
+
+**Decision — safe_z per gantry** (tools/gantry_geometry.py, replacing the fixed
+`gantry_defaults.safe_z`): the tallest item under the gantry's XY travel — a station at its pose z
+plus the tallest part standing on the pallet there (the pallet and every part placed at that
+station or an earlier one; nothing is ever taken off), a feeder or buffer at its pick plane — plus
+the tallest part the gantry carries, plus `gantry_defaults.z_margin` (dev 0.03 m). A build123d
+part's height is its generator's output (D-003), read from `reports/cad_<part>.json`; a missing
+report is UNRESOLVED, never a guess. Check `safe_z` FAILs an item above `safe_z − z_margin` (true
+by construction today, so it guards the derivation) and a safe_z outside the gantry's own z
+travel, which is the constraint that can actually bite. Dev: gantry_1 0.240 m (spider carrier
+standing 104.4 mm + hanging 105.4 mm), gantry_2 0.260 m (standoff nest at 0.15 + pod tray 79.5 mm),
+gantry_3 0.170 m (pod tray at st_fit_top_plate 136.5 mm + top plate 3 mm).
+
+**Result — gantry_1 is over budget at scale 0.5:** 19.54 s against 17.2 s (113.6%); 13.68 s
+(79.5%) at scale 1.0. gantry_2 14.73 s (85.6%), gantry_3 4.87 s (28.3%). Per gantry_1 cycle, the
+four Z moves (0.24 m down to a station, 0.14 m to a buffer) take 3.25 s and the tour's return from
+the mid-plate feeder at x = 1.2 to `buf_plate` at x = 0 takes 2.73 s. Candidate fixes, none
+applied: let sub-line C load the bottom plate onto the pallet itself, so `load_pallet` leaves
+gantry_1 (~12.2 s, 71%); move `buf_plate` next to `buf_spider` to shorten the tour; or plan
+gantry_1 above 0.5 once its X axis is shown to track at that speed (D-007).

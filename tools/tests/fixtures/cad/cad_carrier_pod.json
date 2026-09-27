@@ -1,0 +1,22 @@
+{
+  "_note": "fixture: bbox of the dev build of this part (tools/cad), for safe_z tests",
+  "passed": true,
+  "part": "carrier_pod",
+  "bbox_mm": {
+    "min": [
+      -9.5,
+      -44.5,
+      57.0
+    ],
+    "max": [
+      99.5,
+      44.5,
+      136.5
+    ],
+    "size": [
+      109.0,
+      89.0,
+      79.5
+    ]
+  }
+}

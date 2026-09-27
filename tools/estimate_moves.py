@@ -1,29 +1,35 @@
-"""Static move-time estimate: how long each gantry's pick-and-places take per drone, against takt.
+"""Static move-time estimate: each gantry's pick-and-places per drone, against the takt budget.
 
-    tools/.venv/bin/python tools/estimate_moves.py [--spec PATH] [--dev]
+    tools/.venv/bin/python tools/estimate_moves.py [--spec PATH] [--dev] [--cad-reports DIR]
 
 No ROS, no Gazebo: arithmetic on the spec. One pick-and-place is
 
     XY to the pick at safe_z, Z down, grip, Z up, XY to the place, Z down, release, Z up
 
 with `gantry_defaults.settle_s` after each of the four Z moves. Each axis follows a trapezoidal
-profile from its own `v_max`/`a_max`:
+profile from its own limits, scaled by `gantry_defaults.plan_speed_scale` (D-007: moves are
+planned below v_max/a_max, which are ceilings):
 
-    t = d/v + v/a     if d >= v^2/a      (reaches v_max)
+    t = d/v + v/a     if d >= v^2/a      (reaches v)
     t = 2 sqrt(d/a)   otherwise          (triangular)
 
-and an XY move takes the slower of X and Y. Distances come from the step's `from` pose (feeder or
-buffer) and its station pose; Z runs between `safe_z` and the pose's z.
+and an XY move takes the slower of X and Y. Every time is also given at scale 1.0 for comparison.
 
-A gantry's steps are the active sequence steps it serves (a `tool`, or a `part` drawn `from`
-somewhere) at a station in its zone, in sequence order. The gantry works them as a tour, once per
-drone: each cycle starts where the previous one placed, and the first cycle of the first step
-starts at the last step's station (the previous drone). A step with `qty: n` is n cycles, so
-cycles 2..n start at the step's own station. The sum per gantry is compared with `line.takt_s`.
+Which steps: the active steps with capability place, load or pick at a station in the gantry's
+zone. A drive step is the driver's, never the gantry's (D-009). Distances come from the step's
+`from` pose and its station pose; Z runs between the gantry's own safe_z
+(tools/gantry_geometry.py: tallest item under it + tallest part it carries + z_margin) and the
+pose's z. The gantry works its steps as a tour, once per drone: each cycle starts where the
+previous one placed, the first at the last step's station (the previous drone); a `qty: n` step
+is n cycles, cycles 2..n starting at its own station.
 
-Writes reports/move_estimate.json (`--dev`: move_estimate.dev.json) with per-step times,
-per-gantry load %, and `passed`. A null the estimate needs is UNRESOLVED, not a failure — the
-check_line.py convention — and leaves that gantry's total out. Exits non-zero on a failure.
+Budget: the pallet is only at a station between transfers, so each gantry's load is compared
+with takt_s - transfer_s, transfer_s = conveyor.pitch / layout.conveyor.belt_speed +
+layout.stop_unit_cycle_s.
+
+Writes reports/move_estimate.json (`--dev`: move_estimate.dev.json) with per-step phase times,
+per-gantry load at both scales, the budget, and `passed`. A null the estimate needs is
+UNRESOLVED, not a failure (the check_line.py convention). Exits non-zero on a failure.
 """
 
 from __future__ import annotations
@@ -36,10 +42,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import gantry_geometry as gg  # noqa: E402
 from spec import (DEFAULT_SPEC, LineSpec, SpecError, add_dev_argument, gantry_ids,  # noqa: E402
-                  gantry_served, load_merged, parse_spec, report_path, zone_owner)
+                  load_merged, parse_spec, report_path, zone_owner)
 
-Z_MOVES = ("z_down_pick", "z_up_pick", "z_down_place", "z_up_place")
+GANTRY_CAPABILITIES = ("place", "load", "pick")
 
 
 def axis_time(d: float, v: float, a: float) -> float:
@@ -50,22 +57,24 @@ def axis_time(d: float, v: float, a: float) -> float:
     return d / v + v / a if d >= v * v / a else 2.0 * math.sqrt(d / a)
 
 
-def xy_time(frm, to, axes) -> float:
-    return max(axis_time(to[0] - frm[0], axes.x.v_max, axes.x.a_max),
-               axis_time(to[1] - frm[1], axes.y.v_max, axes.y.a_max))
+def _t(axis, d: float, scale: float) -> float:
+    return axis_time(d, axis.v_max * scale, axis.a_max * scale)
 
 
-def cycle(frm, pick, place, axes, d) -> dict:
+def xy_time(frm, to, axes, scale: float = 1.0) -> float:
+    return max(_t(axes.x, to[0] - frm[0], scale), _t(axes.y, to[1] - frm[1], scale))
+
+
+def cycle(frm, pick, place, axes, d, safe_z: float, scale: float = 1.0) -> dict:
     """One pick-and-place, split into its phases (seconds). `frm` is where the TCP starts."""
-    z = axes.z
-    down_pick = axis_time(d.safe_z - pick[2], z.v_max, z.a_max)
-    down_place = axis_time(d.safe_z - place[2], z.v_max, z.a_max)
+    down_pick = _t(axes.z, safe_z - pick[2], scale)
+    down_place = _t(axes.z, safe_z - place[2], scale)
     out = {
-        "xy_to_pick": xy_time(frm, pick, axes),
+        "xy_to_pick": xy_time(frm, pick, axes, scale),
         "z_down_pick": down_pick + d.settle_s,
         "grip": d.grip_s,
         "z_up_pick": down_pick + d.settle_s,
-        "xy_to_place": xy_time(pick, place, axes),
+        "xy_to_place": xy_time(pick, place, axes, scale),
         "z_down_place": down_place + d.settle_s,
         "release": d.release_s,
         "z_up_place": down_place + d.settle_s,
@@ -87,24 +96,47 @@ def _nulls(label: str, values: dict) -> list[str]:
     return [f"{label}: {k} is null" for k, v in values.items() if v is None]
 
 
-def estimate(spec: LineSpec) -> dict:
+def transfer(spec: LineSpec) -> tuple[float | None, list[str]]:
+    """Seconds per drone the pallet spends moving between stations: pitch / belt + stop unit."""
+    lay = spec.layout
+    missing = _nulls("conveyor", {"pitch": spec.conveyor.pitch})
+    if lay is None:
+        return None, missing + ["layout section is absent (belt_speed, stop_unit_cycle_s)"]
+    missing += _nulls("layout", {"conveyor.belt_speed": lay.conveyor.belt_speed,
+                                 "stop_unit_cycle_s": lay.stop_unit_cycle_s})
+    if missing:
+        return None, missing
+    return spec.conveyor.pitch / lay.conveyor.belt_speed + lay.stop_unit_cycle_s, []
+
+
+def estimate(spec: LineSpec, cad: gg.CadHeights | None = None) -> dict:
     """Per-gantry move time per drone. Never raises on a null: it lands in `unresolved`."""
+    cad = cad or gg.CadHeights()
     takt = spec.line.takt_s
     d = spec.gantry_defaults
+    scale = d.plan_speed_scale
     owner = zone_owner(spec)
-    doc: dict = {"takt_s": takt, "passed": True, "complete": True, "gantries": {},
-                 "unresolved": [], "errors": [],
+    transfer_s, transfer_missing = transfer(spec)
+    budget = None if transfer_s is None else takt - transfer_s
+    doc: dict = {"takt_s": takt, "transfer_s": transfer_s and round(transfer_s, 3),
+                 "budget_s": budget and round(budget, 3), "plan_speed_scale": scale,
+                 "passed": True, "complete": True, "gantries": {}, "unresolved": [], "errors": [],
                  "model": {"grip_s": d.grip_s, "release_s": d.release_s,
-                           "settle_s": d.settle_s, "safe_z": d.safe_z,
-                           "profile": "trapezoidal per axis; XY = max(X, Y)"}}
-    missing_defaults = _nulls("gantry_defaults", {"grip_s": d.grip_s, "release_s": d.release_s,
-                                                  "settle_s": d.settle_s, "safe_z": d.safe_z})
-    raw_ids = gantry_ids({"gantries": spec.gantries})
+                           "settle_s": d.settle_s, "z_margin": d.z_margin,
+                           "capabilities": list(GANTRY_CAPABILITIES),
+                           "profile": "trapezoidal per axis at plan_speed_scale x v_max/a_max; "
+                                      "XY = max(X, Y)"}}
+    common_missing = _nulls("gantry_defaults", {
+        "grip_s": d.grip_s, "release_s": d.release_s, "settle_s": d.settle_s,
+        "plan_speed_scale": scale}) + transfer_missing
 
-    for gid in raw_ids:
+    for gid in gantry_ids({"gantries": spec.gantries}):
         g = spec.gantries[gid]
-        row: dict = {"zone": g.zone, "steps": [], "total_s": None, "load_pct": None,
-                     "status": "UNRESOLVED", "unresolved": list(missing_defaults), "errors": []}
+        sz = gg.safe_z(spec, gid, cad)
+        row: dict = {"zone": g.zone, "safe_z": sz.doc(), "budget_s": doc["budget_s"],
+                     "steps": [], "total_s": None, "total_s_at_1": None, "load_pct": None,
+                     "status": "UNRESOLVED",
+                     "unresolved": list(common_missing) + sz.unresolved, "errors": []}
         doc["gantries"][gid] = row
         if g.zone is None:
             row["unresolved"].append(f"gantries.{gid}.zone is null")
@@ -112,16 +144,15 @@ def estimate(spec: LineSpec) -> dict:
             a = getattr(g.axes, ax)
             row["unresolved"] += _nulls(f"gantries.{gid}.axes.{ax}",
                                         {"v_max": a.v_max, "a_max": a.a_max})
-        if d.safe_z is not None and g.mount[2] is not None \
+        if sz.value is not None and g.mount[2] is not None \
                 and None not in (g.axes.z.min, g.axes.z.max):
-            rel = d.safe_z - g.mount[2]
-            if not g.axes.z.min <= rel <= g.axes.z.max:
-                row["errors"].append(f"gantry_defaults.safe_z={d.safe_z:g} is z={rel:.3f} in "
-                                     f"{gid}'s frame, outside [{g.axes.z.min:g}, "
-                                     f"{g.axes.z.max:g}]")
+            rel = sz.value - g.mount[2]
+            if not g.axes.z.min - gg.EPS <= rel <= g.axes.z.max + gg.EPS:
+                row["errors"].append(f"safe_z={sz.value:.3f} is z={rel:.3f} in {gid}'s frame, "
+                                     f"outside its travel [{g.axes.z.min:g}, {g.axes.z.max:g}]")
 
-        steps = [s for s in spec.sequence
-                 if s.status == "active" and gantry_served(s) and owner.get(s.station) == gid]
+        steps = [s for s in spec.sequence if s.status == "active"
+                 and s.capability in GANTRY_CAPABILITIES and owner.get(s.station) == gid]
         legs = []
         for s in steps:
             pick, place = _source_pose(spec, s.from_), spec.stations[s.station].pose
@@ -132,10 +163,6 @@ def estimate(spec: LineSpec) -> dict:
             if None in pick[:3] or None in place[:3]:
                 row["unresolved"].append(f"sequence.{s.id}: pick or place pose has a null")
                 continue
-            for what, pose in (("pick", pick), ("place", place)):
-                if d.safe_z is not None and pose[2] > d.safe_z:
-                    row["errors"].append(f"sequence.{s.id}: {what} z={pose[2]:g} is above "
-                                         f"safe_z={d.safe_z:g}")
             legs.append((s, pick[:3], place[:3]))
 
         if row["unresolved"] or row["errors"]:
@@ -144,26 +171,35 @@ def estimate(spec: LineSpec) -> dict:
             row["status"] = "FAIL" if row["errors"] else "UNRESOLVED"
             continue
 
-        pos = legs[-1][2] if legs else None       # the tour closes: the previous drone's last place
-        total = 0.0
-        for s, pick, place in legs:
-            qty = s.qty or 1
-            first = cycle(pos, pick, place, g.axes, d)
-            repeat = cycle(place, pick, place, g.axes, d) if qty > 1 else None
-            step_s = first["total"] + (qty - 1) * (repeat["total"] if repeat else 0.0)
-            row["steps"].append({"id": s.id, "station": s.station, "from": s.from_,
-                                 "tool": s.tool, "qty": qty, "pick": list(pick),
-                                 "place": list(place), "first_cycle": first,
-                                 "repeat_cycle": repeat, "time_s": round(step_s, 3)})
-            total += step_s
-            pos = place
-        row["total_s"] = round(total, 3)
-        row["load_pct"] = round(100.0 * total / takt, 1)
-        row["status"] = "PASS" if total <= takt else "FAIL"
-        if total > takt:
-            row["errors"].append(f"{total:.2f} s of moves per drone > takt {takt:g} s "
-                                 f"({row['load_pct']}%)")
-            doc["errors"] += [f"{gid}: {row['errors'][-1]}"]
+        totals = {}
+        for key, sc in (("plan", scale), ("at_1", 1.0)):
+            pos = legs[-1][2] if legs else None      # the tour closes: previous drone's last place
+            total = 0.0
+            for i, (s, pick, place) in enumerate(legs):
+                qty = s.qty or 1
+                first = cycle(pos, pick, place, g.axes, d, sz.value, sc)
+                repeat = cycle(place, pick, place, g.axes, d, sz.value, sc) if qty > 1 else None
+                step_s = first["total"] + (qty - 1) * (repeat["total"] if repeat else 0.0)
+                if key == "plan":
+                    row["steps"].append({"id": s.id, "station": s.station, "from": s.from_,
+                                         "tool": s.tool, "qty": qty, "pick": list(pick),
+                                         "place": list(place), "first_cycle": first,
+                                         "repeat_cycle": repeat, "time_s": round(step_s, 3)})
+                else:
+                    row["steps"][i]["time_s_at_1"] = round(step_s, 3)
+                total += step_s
+                pos = place
+            totals[key] = total
+        row["total_s"] = round(totals["plan"], 3)
+        row["total_s_at_1"] = round(totals["at_1"], 3)
+        row["load_pct"] = round(100.0 * totals["plan"] / budget, 1)
+        row["load_pct_at_1"] = round(100.0 * totals["at_1"] / budget, 1)
+        row["status"] = "PASS" if totals["plan"] <= budget else "FAIL"
+        if row["status"] == "FAIL":
+            row["errors"].append(f"{totals['plan']:.2f} s of moves per drone at scale {scale:g} "
+                                 f"> budget {budget:.2f} s (takt {takt:g} - transfer "
+                                 f"{transfer_s:.2f})")
+            doc["errors"].append(f"{gid}: {row['errors'][-1]}")
 
     doc["complete"] = not doc["unresolved"]
     doc["passed"] = not doc["errors"]
@@ -171,20 +207,28 @@ def estimate(spec: LineSpec) -> dict:
 
 
 def print_table(doc: dict) -> None:
-    print(f"{'gantry':<10}{'step':<20}{'from':<14}{'qty':>4}{'first_s':>9}{'cycle_s':>9}"
-          f"{'step_s':>9}")
-    print("-" * 75)
+    scale = doc["plan_speed_scale"]
+    head = f"@{scale:g}" if scale is not None else "@plan"
+    print(f"{'gantry':<10}{'step':<19}{'from':<14}{'qty':>4}{'safe_z':>8}"
+          f"{'step_s ' + head:>14}{'step_s @1':>11}")
+    print("-" * 80)
     for gid, g in doc["gantries"].items():
+        sz = g["safe_z"]["safe_z"]
         for s in g["steps"]:
-            rep = f"{s['repeat_cycle']['total']:.3f}" if s["repeat_cycle"] else "-"
-            print(f"{gid:<10}{s['id']:<20}{s['from'] or '-':<14}{s['qty']:>4}"
-                  f"{s['first_cycle']['total']:>9.3f}{rep:>9}{s['time_s']:>9.3f}")
+            print(f"{gid:<10}{s['id']:<19}{s['from'] or '-':<14}{s['qty']:>4}"
+                  f"{sz:>8.3f}{s['time_s']:>14.3f}{s['time_s_at_1']:>11.3f}")
         if g["total_s"] is not None:
-            print(f"{gid:<10}{'total':<20}{'':<14}{'':>4}{'':>9}{'':>9}{g['total_s']:>9.3f}"
-                  f"   {g['load_pct']:5.1f}% of takt {doc['takt_s']:g} s  {g['status']}")
+            print(f"{gid:<10}{'total':<19}{'':<14}{'':>4}{'':>8}{g['total_s']:>14.3f}"
+                  f"{g['total_s_at_1']:>11.3f}")
+            print(f"{'':<10}{'budget':<19}{'':<14}{'':>4}{'':>8}{g['budget_s']:>14.3f}"
+                  f"{g['budget_s']:>11.3f}   {g['load_pct']:.1f}% / {g['load_pct_at_1']:.1f}%"
+                  f"  {g['status']}")
         else:
-            print(f"{gid:<10}{'total':<20}{'':<14}{'':>4}{'':>9}{'':>9}{'-':>9}   {g['status']}")
-        print("-" * 75)
+            print(f"{gid:<10}{'total':<19}{'-':>54}   {g['status']}")
+        print("-" * 80)
+    if doc["transfer_s"] is not None:
+        print(f"budget = takt {doc['takt_s']:g} s - transfer {doc['transfer_s']:g} s "
+              f"= {doc['budget_s']:g} s per gantry")
     for e in doc["errors"]:
         print(f"  [FAIL] {e}")
     if doc["unresolved"]:
@@ -198,6 +242,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--spec", type=Path, default=DEFAULT_SPEC)
     ap.add_argument("--report", type=Path, default=None,
                     help="default: reports/move_estimate.json (move_estimate.dev.json with --dev)")
+    ap.add_argument("--cad-reports", type=Path, default=None,
+                    help=f"where cad_<part>.json live (default {gg.CAD_REPORTS})")
     add_dev_argument(ap)
     args = ap.parse_args(argv)
 
@@ -211,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
         report.write_text(json.dumps(doc, indent=2) + "\n")
         print(f"move_estimate: FAIL — invalid spec: {exc}", file=sys.stderr)
         return 1
-    doc = {"dev": args.dev, **estimate(spec),
+    doc = {"dev": args.dev, **estimate(spec, gg.CadHeights(args.cad_reports, args.dev)),
            "placeholders": [p["path"] for p in merged.placeholders]}
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps(doc, indent=2) + "\n")

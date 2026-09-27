@@ -45,9 +45,9 @@ sources:
   src_plate: {output: bottom_plate, buffer: buf_plate, interval_s: 20.0, buffer_capacity: 3}
 buffers:
   buf_plate: {pose: [0.5, 0.3, 0.1, 0.0]}
+  buf_fixture: {pose: [2.25, 0.3, 0.1, 0.0]}   # carriers for gantry_2's zone
 
-# Two zones. gantry_2's travel (line x 0.4-3.0) overlaps gantry_1's (0-0.6) because both draw
-# from buf_plate; travel may overlap, zones may not.
+# Two zones, apart: gantry_1 over x 0-0.6, gantry_2 over x 1.9-2.6 (line frame).
 gantries:
   gantry_1:
     zone: [st_load, st_place]
@@ -62,15 +62,15 @@ gantries:
   gantry_2:
     zone: [st_spider, st_pod]
     axes:
-      x: {min: 0.0, max: 2.6, v_max: 1.0, a_max: 2.0}
+      x: {min: 0.0, max: 0.7, v_max: 1.0, a_max: 2.0}
       y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
       z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
       c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
     tools:
       tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}
-    mount: [0.4, 0.0, 0.0]
-gantry_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, safe_z: 0.3, damping: 5.0,
-                  friction: 0.5}
+    mount: [1.9, 0.0, 0.0]
+gantry_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03,
+                  plan_speed_scale: 0.5, damping: 5.0, friction: 0.5}
 gang_heads:
   gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05,
            v_max: 0.1, a_max: 0.5}
@@ -92,7 +92,23 @@ sequence:
   - {id: place, station: st_place, capability: place, part: mid_plate, from: fd_mid_plate, tool: tool_plate, duration_s: 6.0, requires: [load]}
   - {id: drive, station: st_drive, capability: drive, head: gh_top, fastener: m3_x8, qty: 8, duration_s: 15.0, requires: [place]}
   - {id: test,  station: st_test,  capability: test,  duration_s: 90.0, requires: [drive]}
-  - {id: place_spider, station: st_spider, capability: place, part: carrier_spider, from: buf_plate,
+  - {id: place_spider, station: st_spider, capability: place, part: carrier_spider, from: buf_fixture,
      tool: tool_carrier, duration_s: 6.0, requires: [load]}
-  - {id: place_pod, station: st_pod, capability: place, part: carrier_pod, from: buf_plate,
+  - {id: place_pod, station: st_pod, capability: place, part: carrier_pod, from: buf_fixture,
      tool: tool_carrier, duration_s: 6.0, requires: [load]}
+
+# Floor plan (tools/cad/layout.py) and the conveyor timing the takt budget needs.
+layout:
+  conveyor: {width: 0.30, top_height: 0.88, belt_speed: 0.3}
+  pallet_block: {length: 0.20, width: 0.20, thickness: 0.02}
+  stop_unit_length: 0.20
+  stop_unit_cycle_s: 0.5
+  buffer_slots_between_stations: 1
+  gantry_frame: {post_size: 0.10, beam_height: 0.12, beam_depth: 0.10, conveyor_clearance: 0.10}
+  feeder_footprints:
+    fd_mid_plate: [0.15, 0.15, 1.05]
+    buf_plate: [0.15, 0.15, 1.0]
+    buf_fixture: [0.15, 0.15, 1.0]
+  test_branch: {offset_y: -1.0, cell_w: 0.30, cell_d: 0.30}
+  operator_aisle: {side: "+y", width: 1.0}
+  guard_offset: 0.3

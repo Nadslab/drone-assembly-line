@@ -70,6 +70,7 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | A work location on the main line | **station** | `st_place_spider` | `Station_PlaceSpider` |
 | Parallel copies of a station | **cell** | `st_test.cell_3` | `Station_Test_Cell3` |
 | Carrier riding the conveyor | **pallet** | `pallet` | `Pallet_<n>` |
+| Queued pallet position between two stations | **queue slot** | count in `layout.buffer_slots_between_stations` | `Pallet_Slot_<n>_<k>` (after station index n, k-th) |
 | Returnable fixture carrying a subassembly | **carrier** | `carrier_spider`, `carrier_pod` | `Carrier_Spider` |
 | Part source at a fixed pick pose | **feeder** | `fd_mid_plate` | `Feeder_MidPlate` |
 | WIP between a sub-line and the main line | **buffer** | `buf_spider` | `Buffer_Spider` |
@@ -78,6 +79,7 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich` |
 | Screwdriving unit (variable position) | **scara** | `scara_1` | `Scara_1` |
 | Interchangeable gantry tooling | **tool** | `tool_plate` | `Tool_Plate` |
+| Gantry tool taking a whole set in one pick | **gang gripper** | `<part>_gang` (`standoff_gang`) | `Tool_StandoffGang` |
 | Named frame on a part used for grasp | **pick frame** | `pick` | `<Part>_pick` |
 | Named datum on a plate/pallet | **datum** | `datum_round`, `datum_diamond` | `<Part>_datum_round` |
 | An operation the sequencer can request | **capability** | `place`, `drive`, `advance`, `test` | — |

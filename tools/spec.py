@@ -130,8 +130,10 @@ class Fastener(Model):
 
 
 class Feeder(Model):
-    type: Literal["magazine", "step", "blow"]
+    type: Literal["magazine", "step", "blow", "nest"]
     part: str
+    # Parts presented per pick: a fixtured nest hands over a whole set (D-009). Absent = 1.
+    per_pick: PosInt | None = None
     pose: Pose | None = None
     capacity: PosInt | None = None
     refill_s: Pos | None = None
@@ -194,7 +196,6 @@ class Gantry(Model):
 class GantryDefaults(Model):
     """Pick-and-place timing and linear-axis dynamics shared by every gantry.
 
-    `safe_z` is a line-frame z (the datum plane is 0): the height every XY move travels at.
     `damping`/`friction` are the P1 values (D-002) for the x/y/z axes of every gantry; an axis
     that states its own wins, and the rotary C axis only ever uses its own (other units).
     """
@@ -202,7 +203,11 @@ class GantryDefaults(Model):
     grip_s: NonNeg | None
     release_s: NonNeg | None
     settle_s: NonNeg | None
-    safe_z: float | None
+    # safe_z is derived per gantry (tools/gantry_geometry.py, D-009): the tallest thing under it,
+    # plus the tallest part it carries, plus this margin.
+    z_margin: NonNeg | None
+    # Moves are planned at this fraction of v_max/a_max (D-007: a_max is a ceiling).
+    plan_speed_scale: Annotated[float, Field(gt=0, le=1)] | None
     damping: NonNeg | None
     friction: NonNeg | None
 
@@ -238,7 +243,7 @@ class Station(Model):
 class Step(Model):
     id: str
     station: str
-    capability: Literal["load", "place", "drive", "inspect", "test", "pack", "advance"]
+    capability: Literal["load", "place", "pick", "drive", "inspect", "test", "pack", "advance"]
     duration_s: NonNeg | None
     requires: list[str]
     part: str | None = None
@@ -267,6 +272,7 @@ class GantryFrame(Model):
     post_size: Pos | None       # square post section
     beam_height: Pos | None     # beam section, vertical
     beam_depth: Pos | None      # beam section, horizontal
+    conveyor_clearance: NonNeg | None = None   # post footprint to the conveyor edge, at least
 
 
 class TestBranch(Model):
@@ -286,6 +292,7 @@ class Layout(Model):
     conveyor: LayoutConveyor
     pallet_block: PalletBlock
     stop_unit_length: Pos | None
+    stop_unit_cycle_s: NonNeg | None = None    # stop, lift/locate, release: part of each transfer
     buffer_slots_between_stations: NonNegInt | None
     gantry_frame: GantryFrame
     # [w (x), d (y), h (floor to top)] keyed by feeder or buffer id: both stand on the floor.
@@ -335,6 +342,12 @@ class LineSpec(Model):
                 if gantry_served(s) and s.station in self.stations and s.station not in owner:
                     errors.append(f"sequence.{s.id}: moves a part with a gantry but station "
                                   f"'{s.station}' is in no gantry's zone")
+        # A gantry places a part; a driver drives fasteners. One step, one kind of qty (D-009).
+        for s in self.sequence:
+            if gantry_served(s) and (s.capability == "drive" or s.fastener is not None):
+                errors.append(f"sequence.{s.id}: moves part '{s.part}' with a gantry and drives "
+                              f"fasteners ({s.capability}, qty {s.qty}) in one step; split it "
+                              "into a place step and a drive step")
         # One tool id is one physical design: the CAD generators build it once.
         first: dict[str, tuple[str, Tool]] = {}
         for gid, g in self.gantries.items():

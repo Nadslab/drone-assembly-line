@@ -1,0 +1,22 @@
+{
+  "_note": "fixture: bbox of the dev build of this part (tools/cad), for safe_z tests",
+  "passed": true,
+  "part": "carrier_spider",
+  "bbox_mm": {
+    "min": [
+      -68.5,
+      -113.5,
+      -1.0
+    ],
+    "max": [
+      158.5,
+      113.5,
+      104.4
+    ],
+    "size": [
+      227.0,
+      227.0,
+      105.4
+    ]
+  }
+}

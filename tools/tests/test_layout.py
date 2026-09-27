@@ -1,9 +1,5 @@
 """tools/cad/layout.py: one solid per spec entity, provenance per dimension, and an interference
-check that fails on the overlaps it was not told to allow.
-
-The shared pass_spec's two gantries overlap in travel (both draw from buf_plate), so their frames
-would stand in each other. `layout_raw` moves gantry_2 onto its own stations and gives its steps a
-buffer of their own; everything else is the pass spec.
+check that fails on the overlaps it was not told to allow. The pass spec carries its own layout.
 """
 
 import copy
@@ -14,36 +10,16 @@ import pytest
 import yaml
 
 import check_line
+import gantry_geometry as gg
+import spec as spec_mod
 from conftest import TOOLS
 
 sys.path.insert(0, str(TOOLS / "cad"))
 import layout  # noqa: E402
 from build123d import import_step  # noqa: E402
 
-LAYOUT = {
-    "conveyor": {"width": 0.30, "top_height": 0.88, "belt_speed": 0.3},
-    "pallet_block": {"length": 0.20, "width": 0.20, "thickness": 0.02},
-    "stop_unit_length": 0.20,
-    "buffer_slots_between_stations": 1,
-    "gantry_frame": {"post_size": 0.10, "beam_height": 0.12, "beam_depth": 0.10},
-    "feeder_footprints": {"fd_mid_plate": [0.15, 0.15, 1.05], "buf_plate": [0.15, 0.15, 1.0],
-                          "buf_fixture": [0.15, 0.15, 1.0]},
-    "test_branch": {"offset_y": -1.0, "cell_w": 0.30, "cell_d": 0.30},
-    "operator_aisle": {"side": "+y", "width": 1.0},
-    "guard_offset": 0.3,
-}
-
-
 def layout_raw(pass_raw):
-    raw = copy.deepcopy(pass_raw)
-    raw["layout"] = copy.deepcopy(LAYOUT)
-    raw["buffers"]["buf_fixture"] = {"pose": [2.25, 0.3, 0.1, 0.0]}
-    for step in raw["sequence"]:
-        if step["id"] in ("place_spider", "place_pod"):
-            step["from"] = "buf_fixture"
-    raw["gantries"]["gantry_2"]["mount"] = [1.9, 0.0, 0.0]
-    raw["gantries"]["gantry_2"]["axes"]["x"].update(min=0.0, max=0.7)
-    return raw
+    return copy.deepcopy(pass_raw)
 
 
 def run(tmp_path, raw, *extra, overlay=None):
@@ -186,6 +162,7 @@ def test_a_null_layout_value_fails_naming_the_key(tmp_path, pass_raw):
 
 
 def test_no_layout_section_fails(tmp_path, pass_raw):
+    del pass_raw["layout"]
     code, doc = run(tmp_path, pass_raw)
     assert code == 1
     assert "no `layout:` section" in doc["errors"][0]
@@ -197,3 +174,16 @@ def test_a_footprint_for_no_feeder_or_buffer_is_a_schema_failure(pass_raw):
     schema = {r.name: r for r in check_line.run_checks(raw)[0]}["schema"]
     assert schema.status == "FAIL"
     assert any("fd_nowhere" in m for _, m in schema.findings)
+
+
+def test_the_layout_posts_are_the_posts_the_straddle_check_sees(clean):
+    """layout.py draws the posts with its own arithmetic; gantry_geometry is what check_line's
+    gantry_straddle judges. The two must be the same rectangles."""
+    raw, _, doc = clean
+    spec = spec_mod.parse_spec(raw)
+    for gid in raw["gantries"]:
+        n = gid.removeprefix("gantry_")
+        for k, rect in enumerate(gg.post_rects(spec, gid), start=1):
+            box = next(s for s in doc["solids"] if s["name"] == f"Gantry_{n}_Post_{k}")["bbox_mm"]
+            assert [box["min"][0], box["max"][0], box["min"][1], box["max"][1]] == \
+                pytest.approx([v * 1000.0 for v in rect.doc()], abs=1e-3)

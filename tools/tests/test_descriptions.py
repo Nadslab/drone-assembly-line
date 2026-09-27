@@ -127,7 +127,7 @@ def mount(joint_name, xyz):
                                       f'<origin xyz="{xyz}" rpy="0 0 0"/></joint>')}
 
 
-GANTRIES = mount("gantry_1_mount", "0 0 0") | mount("gantry_2_mount", "0.4 0 0")
+GANTRIES = mount("gantry_1_mount", "0 0 0") | mount("gantry_2_mount", "1.9 0 0")
 
 
 def test_every_gantry_is_bolted_at_its_spec_mount(pass_raw):

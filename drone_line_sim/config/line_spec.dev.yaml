@@ -94,7 +94,7 @@ feeders:
     pose: [4.2, 0.3, 0.17, null]         # PLACEHOLDER (218 mm magazine clears the frame top)
     refill_s: 60.0                       # PLACEHOLDER
   fd_standoff:
-    pose: [2.4, 0.3, 0.15, null]         # PLACEHOLDER (200 mm envelope clears the frame top)
+    pose: [2.4, 0.3, 0.15, null]         # PLACEHOLDER (nest pick plane)
     refill_s: 300.0                      # PLACEHOLDER
   fd_screw_m3x8:
     feed_s: 0.5                          # PLACEHOLDER
@@ -114,9 +114,11 @@ buffers:
   buf_plate:
     pose: [0.0, -0.3, 0.1, null]         # PLACEHOLDER
 
-# Each gantry's x/y limits cover only its zone's stations, feeders and buffers plus 0.1 m, in its
-# own frame (pose - mount): mount x = the zone's lowest x - 0.1, so x starts at 0. x/y/z joints
-# take damping/friction from gantry_defaults; C keeps its own rotary values.
+# Frame rule (D-009), in each gantry's own frame (pose - mount): x covers its zone's stations,
+# feeders and buffers plus 0.1 m (mount x = the zone's lowest x - 0.1, so x starts at 0); y covers
+# those items plus 0.1 m AND the whole conveyor (+-layout.conveyor.width/2 + 0.1 m), so the posts
+# outside the travel clear the belt by gantry_frame.conveyor_clearance. x/y/z joints take
+# damping/friction from gantry_defaults; C keeps its own rotary values.
 gantries:
   # x 0.0-1.2 m (line frame): load, spider, mid plate
   gantry_1:
@@ -183,6 +185,8 @@ gantries:
     tools:
       tool_carrier:
         dims: [0.06, 0.06, 0.03]         # PLACEHOLDER
+      standoff_gang:
+        dims: [0.10, 0.10, 0.015]        # PLACEHOLDER (4-finger gang over the standoff square)
     mount: [2.3, -0.5, 0.0]              # PLACEHOLDER
   # x 5.4 m: top plate
   gantry_3:
@@ -195,7 +199,7 @@ gantries:
         a_max: 3.0                       # PLACEHOLDER
         position_gain: 0.1               # PLACEHOLDER (D-002)
       y:
-        min: 0.4                         # PLACEHOLDER
+        min: 0.25                        # PLACEHOLDER (conveyor -0.15 - 0.1, D-009)
         max: 0.9                         # PLACEHOLDER
         v_max: 1.0                       # PLACEHOLDER
         a_max: 3.0                       # PLACEHOLDER
@@ -220,7 +224,8 @@ gantry_defaults:
   grip_s: 0.2                            # PLACEHOLDER
   release_s: 0.2                         # PLACEHOLDER
   settle_s: 0.1                          # PLACEHOLDER
-  safe_z: 0.15                           # PLACEHOLDER (0.15 m above the tallest station, z = 0)
+  z_margin: 0.03                         # PLACEHOLDER
+  plan_speed_scale: 0.5                  # PLACEHOLDER (D-007: plan at half of v_max/a_max)
 gang_heads:
   gh_arm_sandwich:
     stroke: 0.05                         # PLACEHOLDER
@@ -249,11 +254,13 @@ layout:
     width: 0.20                          # PLACEHOLDER
     thickness: 0.02                      # PLACEHOLDER
   stop_unit_length: 0.30                 # PLACEHOLDER
+  stop_unit_cycle_s: 1.0                 # PLACEHOLDER
   buffer_slots_between_stations: 1       # PLACEHOLDER
   gantry_frame:
     post_size: 0.10                      # PLACEHOLDER
     beam_height: 0.15                    # PLACEHOLDER
     beam_depth: 0.10                     # PLACEHOLDER
+    conveyor_clearance: 0.10             # PLACEHOLDER
   feeder_footprints:
     fd_mid_plate: [0.194, 0.194, 1.05]   # PLACEHOLDER
     fd_top_plate: [0.194, 0.194, 1.05]   # PLACEHOLDER
@@ -321,8 +328,10 @@ sequence:
     qty: 8                               # PLACEHOLDER
   - id: mount_servo
     duration_s: 5.0                      # PLACEHOLDER
-  - id: fit_top_plate
-    duration_s: 14.0                     # PLACEHOLDER
+  - id: place_top_plate
+    duration_s: 4.0                      # PLACEHOLDER (was fit_top_plate 14 s, split)
+  - id: drive_top_plate
+    duration_s: 10.0                     # PLACEHOLDER
   - id: audit_torque
     duration_s: 8.0                      # PLACEHOLDER
   - id: test

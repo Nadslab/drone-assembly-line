@@ -79,6 +79,8 @@ ZONE_CASES = {c[1]: c for c in FAILING if c[0] == "schema"}
     ("one_tool_id_two_designs", "gantries.gantry_2.tools.tool_plate differs from "
                                 "gantries.gantry_1.tools.tool_plate"),
     ("tool_not_on_the_zone_gantry", "'tool_carrier' is not on gantry_1, which serves st_place"),
+    ("place_and_drive_in_one_step", "sequence.place: moves part 'mid_plate' with a gantry and "
+                                    "drives fasteners"),
 ])
 def test_each_zone_rule_fails_for_its_own_reason(pass_raw, case, message):
     raw = copy.deepcopy(pass_raw)
@@ -107,6 +109,47 @@ def test_reach_is_judged_against_the_zone_gantry_only(pass_raw):
     r = by_name(check_line.run_checks(pass_raw)[0])["reach"]
     assert r.findings == [("FAIL", "feeder fd_mid_plate: x=1.000 m (gantry_1 frame) outside "
                                    "[0, 0.6]")]
+
+
+FIXTURE = {c[1]: c[2] for c in FAILING}
+
+
+@pytest.mark.parametrize("case, message", [
+    ("post_in_the_conveyor", "gantry_1 post 1 at x,y [-0.1, 0.0, -0.2, -0.1] stands in the "
+                             "conveyor (50.0 mm deep)"),
+    ("post_inside_the_clearance", "gantry_1 post 1 is 50.0 mm from the conveyor edge, less than "
+                                  "gantry_frame.conveyor_clearance 100 mm"),
+])
+def test_gantry_straddle_says_which_post_and_why(pass_raw, case, message):
+    FIXTURE[case](pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])["gantry_straddle"]
+    assert ("FAIL", message) in r.findings, r.findings
+
+
+def test_the_old_gantry_3_travel_puts_its_posts_in_the_belt(dev_cad_reports):
+    """The D-008 zone-only y travel (0.4-0.9) is what the layout caught: D-009's frame rule
+    widened it to 0.25. Put it back and gantry_straddle has to fail on gantry_3 alone."""
+    raw = spec_mod.load_raw(dev=True)
+    raw["gantries"]["gantry_3"]["axes"]["y"]["min"] = 0.4
+    r = by_name(check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)[0])[
+        "gantry_straddle"]
+    assert r.status == "FAIL"
+    assert {m.split()[0] for _, m in r.findings} == {"gantry_3"}
+
+
+def test_safe_z_failure_names_what_it_is_made_of(pass_raw):
+    FIXTURE["safe_z_above_the_z_travel"](pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])["safe_z"]
+    assert r.findings == [("FAIL", "gantry_2: safe_z=0.372 (station st_pod 0.237 + "
+                                   "carrier_spider 0.105 + margin 0.03) is outside its z travel "
+                                   "[0, 0.3]")]
+
+
+def test_a_nest_demands_a_whole_set_per_pick(pass_raw):
+    """fd_mid_plate supplies 20/60 x 20 = 6.67 parts per takt: 6 per pick fits, 7 does not."""
+    for per_pick, status in ((6, "PASS"), (7, "FAIL")):
+        pass_raw["feeders"]["fd_mid_plate"]["per_pick"] = per_pick
+        assert by_name(check_line.run_checks(pass_raw)[0])["feeder_rate"].status == status
 
 
 def test_gantry_load_reports_every_gantry_against_takt(pass_raw):
@@ -247,10 +290,25 @@ def test_repo_dev_overlay_marks_every_placeholder_line():
         assert "# PLACEHOLDER" in line, f"line {n} lacks '# PLACEHOLDER': {line}"
 
 
-def test_repo_dev_overlay_passes_all_checks():
-    results, _ = check_line.run_checks(spec_mod.load_raw(dev=True))
+@pytest.fixture(scope="module")
+def dev_cad_reports():
+    """The real dev builds of the build123d parts, which safe_z reads (built if missing)."""
+    missing = [p for p in ("pallet", "carrier_spider", "carrier_pod")
+               if not (spec_mod.REPO / "reports" / f"cad_{p}.dev.json").is_file()]
+    if missing:
+        subprocess.run([sys.executable, str(TOOLS / "cad" / "build_all.py"), "--dev"],
+                       check=True, capture_output=True)
+    return spec_mod.REPO / "reports"
+
+
+def test_repo_dev_overlay_passes_all_checks_but_gantry_1_budget(dev_cad_reports):
+    """D-009's recorded result: at plan_speed_scale 0.5 gantry_1 (load, spider, mid plate) needs
+    ~19.5 s against a 17.2 s budget. Everything else passes."""
+    results, _ = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
+                                       dev=True)
     bad = {r.name: r.findings for r in results if r.status != "PASS"}
-    assert bad == {}
+    assert set(bad) == {"gantry_load"}
+    assert [m.split(":")[0] for _, m in bad["gantry_load"]] == ["gantry_1"]
 
 
 def test_cli_dev_writes_dev_report_with_placeholders(tmp_path):

@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import estimate_moves  # noqa: E402
+import gantry_geometry as gg  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, LineSpec, Merged, SpecError, add_dev_argument,  # noqa: E402
                   gantry_served, load_merged, parse_spec, report_path, zone_owner)
 
@@ -260,21 +261,75 @@ def check_reach(spec: LineSpec, r: Result) -> None:
 
 
 def check_gantry_load(spec: LineSpec, r: Result) -> None:
-    """Each gantry's pick-and-place time per drone (tools/estimate_moves.py) must fit the takt."""
-    doc = estimate_moves.estimate(spec)
+    """Each gantry's pick-and-place time per drone (tools/estimate_moves.py), at
+    plan_speed_scale, must fit the budget: takt_s - transfer_s."""
+    doc = estimate_moves.estimate(spec, r.cfg["cad"])
     for msg in doc["errors"]:
         r.add(FAIL, msg)
     for msg in doc["unresolved"]:
         r.unresolved(msg)
     r.info["load_pct"] = {gid: g["load_pct"] for gid, g in doc["gantries"].items()}
     r.info["total_s"] = {gid: g["total_s"] for gid, g in doc["gantries"].items()}
+    r.info["budget_s"] = doc["budget_s"]
+    r.info["transfer_s"] = doc["transfer_s"]
+
+
+def check_gantry_straddle(spec: LineSpec, r: Result) -> None:
+    """Every gantry post stands clear of the conveyor by gantry_frame.conveyor_clearance
+    (D-009): a post in the belt is a machine that cannot be built."""
+    belt = gg.conveyor_rect(spec)
+    clear = spec.layout.gantry_frame.conveyor_clearance if spec.layout else None
+    if belt is None or clear is None:
+        r.unresolved("gantry_straddle: conveyor footprint or gantry_frame.conveyor_clearance "
+                     "(layout.conveyor.width, conveyor.pitch, station poses)")
+        return
+    r.info["conveyor_mm"] = [round(v * 1000.0, 1) for v in belt.doc()]
+    for gid in spec.gantries:
+        posts = gg.post_rects(spec, gid)
+        if posts is None:
+            r.unresolved(f"{gid}: post footprints (travel limits, mount or post_size null)")
+            continue
+        for k, post in enumerate(posts, start=1):
+            gap = post.gap(belt)
+            if gap < 0:
+                r.add(FAIL, f"{gid} post {k} at x,y {post.doc()} stands in the conveyor "
+                            f"({-gap * 1000:.1f} mm deep)")
+            elif gap < clear - gg.EPS:
+                r.add(FAIL, f"{gid} post {k} is {gap * 1000:.1f} mm from the conveyor edge, "
+                            f"less than gantry_frame.conveyor_clearance {clear * 1000:g} mm")
+
+
+def check_safe_z(spec: LineSpec, r: Result) -> None:
+    """Per gantry, safe_z = tallest item under it + tallest part it carries + z_margin
+    (tools/gantry_geometry.py). No item under it may reach above safe_z - z_margin, and safe_z
+    has to be inside the gantry's own z travel or it cannot move at that height."""
+    margin = spec.gantry_defaults.z_margin
+    r.info["safe_z"] = {}
+    for gid, g in spec.gantries.items():
+        sz = gg.safe_z(spec, gid, r.cfg["cad"])
+        r.info["safe_z"][gid] = sz.doc()
+        for u in sz.unresolved:
+            r.unresolved(u)
+        if sz.value is None:
+            continue
+        for label, top in sz.items:
+            if top > sz.value - margin + gg.EPS:
+                r.add(FAIL, f"{gid}: {label} reaches z={top:.3f}, above safe_z - z_margin "
+                            f"= {sz.value - margin:.3f}")
+        if g.mount[2] is None or g.axes.z.min is None or g.axes.z.max is None:
+            r.unresolved(f"{gid}: z travel null; cannot tell whether safe_z is reachable")
+        elif not g.axes.z.min - gg.EPS <= sz.value - g.mount[2] <= g.axes.z.max + gg.EPS:
+            r.add(FAIL, f"{gid}: safe_z={sz.value:.3f} ({sz.tallest[0]} {sz.tallest[1]:.3f} + "
+                        f"{sz.hang[0]} {sz.hang[1]:.3f} + margin {margin:g}) is outside its z "
+                        f"travel [{g.mount[2] + g.axes.z.min:g}, {g.mount[2] + g.axes.z.max:g}]")
 
 
 def check_feeder_rate(spec: LineSpec, r: Result) -> None:
     """Per takt one pallet passes, so demand per takt = quantity used per pallet.
     magazine/step: demand <= capacity / refill_s * takt_s (refill rate, parts per takt).
     blow: demand <= takt_s / feed_s (one fastener per feed_s).
-    Demand: fasteners = step.qty; parts drawn via `from` = qty on `place` steps, else 1."""
+    Demand: fasteners = step.qty; parts drawn via `from` = qty on `place` steps, else 1, times
+    the feeder's `per_pick` (a nest hands over a whole set per pick)."""
     takt = spec.line.takt_s
     demand: dict[str, float] = {}
     unknown_demand: set[str] = set()
@@ -287,7 +342,7 @@ def check_feeder_rate(spec: LineSpec, r: Result) -> None:
                 demand[fd] = demand.get(fd, 0) + s.qty
         if s.from_ in spec.feeders:
             n = s.qty if s.capability == "place" and s.qty else 1
-            demand[s.from_] = demand.get(s.from_, 0) + n
+            demand[s.from_] = demand.get(s.from_, 0) + n * (spec.feeders[s.from_].per_pick or 1)
     for name in sorted(set(demand) | unknown_demand):
         f = spec.feeders.get(name)
         if f is None:
@@ -368,6 +423,8 @@ CHECKS = [
     ("line_balance", check_line_balance),
     ("reach", check_reach),
     ("gantry_load", check_gantry_load),
+    ("gantry_straddle", check_gantry_straddle),
+    ("safe_z", check_safe_z),
     ("feeder_rate", check_feeder_rate),
     ("buffer", check_buffer),
     ("fastener_lengths", check_fastener_lengths),
@@ -377,8 +434,13 @@ CHECKS = [
 
 
 def run_checks(raw: dict, min_buffer: int = MIN_BUFFER_CAPACITY,
-               max_lengths: int = MAX_FASTENER_LENGTHS) -> tuple[list[Result], bool]:
-    """Run every check on the raw spec data. Returns (results, passed)."""
+               max_lengths: int = MAX_FASTENER_LENGTHS, cad_dir: Path | None = None,
+               dev: bool = False) -> tuple[list[Result], bool]:
+    """Run every check on the raw spec data. Returns (results, passed).
+
+    `cad_dir`/`dev` say where the build123d parts' reports are (gantry_geometry.CadHeights):
+    safe_z and gantry_load read those parts' heights from them."""
+    cad = gg.CadHeights(cad_dir, dev)
     results: list[Result] = []
     try:
         spec = parse_spec(raw)
@@ -390,7 +452,7 @@ def run_checks(raw: dict, min_buffer: int = MIN_BUFFER_CAPACITY,
         results += [Result(n, [(SKIP, "spec did not parse")]) for n, _ in CHECKS[1:]]
         return results, False
     for name, fn in CHECKS:
-        r = Result(name, cfg={"min_buffer": min_buffer, "max_lengths": max_lengths})
+        r = Result(name, cfg={"min_buffer": min_buffer, "max_lengths": max_lengths, "cad": cad})
         fn(spec, r, raw) if fn is check_unresolved else fn(spec, r)
         results.append(r)
     return results, all(r.status != FAIL for r in results)
@@ -399,13 +461,22 @@ def run_checks(raw: dict, min_buffer: int = MIN_BUFFER_CAPACITY,
 # --------------------------------------------------------------------------- output
 
 
+def _count(r: Result) -> str:
+    return f"{sum(1 for l, _ in r.findings if l == FAIL)} failure(s)"
+
+
 def _summary(r: Result) -> str:
     if r.name == "unresolved":
         return f"{r.info['count']} null value(s)"
     if r.name == "line_balance" and "bottleneck" in r.info:
         return f"bottleneck {r.info['bottleneck']} at {r.info['bottleneck_pct']}%"
     if r.name == "gantry_load" and r.status != WARN and r.info.get("load_pct"):
-        return ", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None)
+        return (", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None)
+                + f" of {r.info['budget_s']:g} s")
+    if r.name == "safe_z" and r.status != WARN and r.info.get("safe_z"):
+        return ", ".join(f"{g} {d['safe_z']:.3f} m" for g, d in r.info["safe_z"].items()
+                         if d["safe_z"] is not None) + (" — " + _count(r) if r.status == FAIL
+                                                        else "")
     n = {lvl: sum(1 for l, _ in r.findings if l == lvl) for lvl in (FAIL, WARN)}
     if r.status == FAIL:
         return f"{n[FAIL]} failure(s)"
@@ -469,6 +540,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="minimum buffer capacity (default %(default)s)")
     ap.add_argument("--max-fastener-lengths", type=int, default=MAX_FASTENER_LENGTHS,
                     help="WARN above this many distinct lengths (default %(default)s)")
+    ap.add_argument("--cad-reports", type=Path, default=None,
+                    help=f"where cad_<part>.json live (default {gg.CAD_REPORTS})")
     ap.add_argument("-v", "--verbose", action="store_true", help="also print warnings")
     args = ap.parse_args(argv)
 
@@ -481,7 +554,8 @@ def main(argv: list[str] | None = None) -> int:
                      report, time.monotonic() - t0, dev=args.dev)
         print(f"line_check: FAIL — {exc}", file=sys.stderr)
         return 1
-    results, passed = run_checks(merged.raw, args.min_buffer, args.max_fastener_lengths)
+    results, passed = run_checks(merged.raw, args.min_buffer, args.max_fastener_lengths,
+                                 args.cad_reports, args.dev)
     write_report(results, passed, args.spec, report, time.monotonic() - t0, merged, args.dev)
     if args.dev:
         print(f"DEV MODE: {len(merged.placeholders)} placeholder value(s) from the overlay; "
