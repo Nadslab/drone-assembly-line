@@ -1,8 +1,8 @@
-r"""Gantry end-effectors, one per `gantry.tools` entry (plan P4 B7).
+r"""Gantry end-effectors, one per tool id in `gantries.<id>.tools` (plan P4 B7).
 
     tools/.venv/bin/python tools/cad/tools.py [--out DIR] [--spec PATH] [--dev]
 
-`gantry.tools.<id>.dims` is the envelope a tool needs at a pick feature — [x, y, reach] — and the
+`gantries.<id>.tools.<tool>.dims` is the envelope a tool needs at a pick feature — [x, y, reach] — and the
 fixtures already size their pick features against it (tools/cad/gripper.py). This generator builds
 the other half: the tool that envelope belongs to, in the two grips the spec allows.
 
@@ -15,7 +15,7 @@ the other half: the tool that envelope belongs to, in the two grips the spec all
 
 Everything is derived:
 
-  * which tools exist, and their footprint and reach, are `gantry.tools`;
+  * which tools exist, and their footprint and reach, are `gantries.<id>.tools` (one id is one tool on every gantry);
   * a vacuum tool's cups are laid out inside the **smallest part that tool picks** — read off the
     `sequence` steps that name it — so the cups always land on the part and never overhang it;
   * a vacuum tool is checked against the **heaviest** part it picks: cup area x working vacuum,
@@ -48,8 +48,8 @@ from build123d import Align, Box, Compound, Cylinder, Pos
 sys.path.insert(0, str(Path(__file__).resolve().parent))         # tools/cad: common
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
 
-from common import (Values, bbox_doc, collect, export_solids, lookup, masses,  # noqa: E402
-                    new_item, new_run_report, pascal, write_report)
+from common import (Values, all_tools, bbox_doc, collect, export_solids, lookup, masses,  # noqa: E402
+                    new_item, new_run_report, pascal, tool_path, write_report)
 from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
                   parse_spec, report_path)
 
@@ -175,8 +175,9 @@ def handled_parts(v: Values, tid: str, grip: str) -> list[Handled]:
 
 def layout(v: Values, tid: str) -> Layout | None:
     """Resolve one tool into a Layout, or None when a value it needs is null."""
-    grip = v.plain(f"gantry.tools.{tid}.grip")
-    dims = tuple(v.mm(f"gantry.tools.{tid}.dims[{i}]") for i in range(3))
+    path = tool_path(v.raw, tid)
+    grip = v.plain(f"{path}.grip")
+    dims = tuple(v.mm(f"{path}.dims[{i}]") for i in range(3))
     handles = handled_parts(v, tid, grip) if grip else []
     if v.missing:
         return None
@@ -238,7 +239,7 @@ def build(lo: Layout) -> Compound:
 def derived(lo: Layout) -> dict:
     """Numbers another tool can check against the spec, in millimetres unless named otherwise."""
     doc = {
-        "frame": f"gantry.tools.{lo.tool}; z=0 at the pick plane (the face that meets the part)",
+        "frame": f"gantries.*.tools.{lo.tool}; z=0 at the pick plane (the face that meets the part)",
         "model_name": lo.name,
         "grip": lo.grip,
         "dims_mm": [round(c, 6) for c in lo.dims],
@@ -270,7 +271,7 @@ def check(lo: Layout, item: dict) -> None:
     if not lo.handles:
         item["warnings"].append(
             f"no sequence step picks anything with '{lo.tool}': it is sized by "
-            f"gantry.tools.{lo.tool}.dims alone")
+            f"gantries.*.tools.{lo.tool}.dims alone")
     if lo.grip == "vacuum":
         if min(lo.smallest) - 2.0 * CUP_INSET < CUP_D:
             smallest = min(lo.handles, key=lambda h: min(h.foot) if h.foot else 1e9, default=None)
@@ -288,7 +289,7 @@ def check(lo: Layout, item: dict) -> None:
                 f"({lift['demand_n']:.1f} N)")
     elif lo.jaw_opening < MIN_BOSS_D:
         item["errors"].append(
-            f"gantry.tools.{lo.tool}.dims open {min(lo.dims[0], lo.dims[1]):.1f} mm, so with "
+            f"gantries.*.tools.{lo.tool}.dims open {min(lo.dims[0], lo.dims[1]):.1f} mm, so with "
             f"{GRIP_CLEAR:g} mm of clearance per side the jaws close on a Ø{lo.jaw_opening:.1f} mm "
             f"boss: below Ø{MIN_BOSS_D:g} mm that is a pin, not a pick boss")
 
@@ -342,9 +343,9 @@ def main(argv: list[str] | None = None) -> int:
         return finish(1)
 
     overlay = {p["path"] for p in merged.placeholders}
-    tools = list((merged.raw.get("gantry") or {}).get("tools") or {})
+    tools = all_tools(merged.raw)
     if not tools:
-        print("tools: OK — gantry.tools is empty; nothing to build")
+        print("tools: OK — no gantry carries a tool; nothing to build")
         return finish(0)
 
     built = []

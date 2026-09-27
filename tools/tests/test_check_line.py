@@ -65,6 +65,56 @@ def test_parked_steps_are_excluded_from_takt(pass_raw):
     assert by_name(check_line.run_checks(pass_raw)[0])["takt"].status == "PASS"
 
 
+# ------------------------------------------------------------------ zones (D-008)
+
+ZONE_CASES = {c[1]: c for c in FAILING if c[0] == "schema"}
+
+
+@pytest.mark.parametrize("case, message", [
+    ("zone_names_unknown_station", "gantries.gantry_1.zone: station 'st_nowhere' does not exist"),
+    ("station_in_two_zones", "station 'st_place' is already in gantry_1's zone"),
+    ("gantry_step_in_no_zone", "sequence.place: moves a part with a gantry but station 'st_place' "
+                               "is in no gantry's zone"),
+    ("gantry_id_not_numbered", "gantries.gantry_b: a gantry id is gantry_<n>"),
+    ("one_tool_id_two_designs", "gantries.gantry_2.tools.tool_plate differs from "
+                                "gantries.gantry_1.tools.tool_plate"),
+    ("tool_not_on_the_zone_gantry", "'tool_carrier' is not on gantry_1, which serves st_place"),
+])
+def test_each_zone_rule_fails_for_its_own_reason(pass_raw, case, message):
+    raw = copy.deepcopy(pass_raw)
+    ZONE_CASES[case][2](raw)
+    schema = by_name(check_line.run_checks(raw)[0])["schema"]
+    assert schema.status == "FAIL"
+    assert any(message in msg for _, msg in schema.findings), schema.findings
+
+
+def test_a_null_zone_defers_the_coverage_rule(pass_raw):
+    """Until every zone is known, a station outside the known ones may be in the unknown one."""
+    pass_raw["gantries"]["gantry_1"]["zone"] = None
+    results, passed = check_line.run_checks(pass_raw)
+    got = by_name(results)
+    assert passed
+    assert got["schema"].status == "PASS"
+    assert got["reach"].status == "WARN"
+    assert got["gantry_load"].status == "WARN"
+
+
+def test_reach_is_judged_against_the_zone_gantry_only(pass_raw):
+    """buf_plate serves both zones, so it is checked once against each gantry that draws on it."""
+    r = by_name(check_line.run_checks(pass_raw)[0])["reach"]
+    assert r.status == "PASS"
+    pass_raw["feeders"]["fd_mid_plate"]["pose"] = [1.0, 0.3, 0.15, 0.0]
+    r = by_name(check_line.run_checks(pass_raw)[0])["reach"]
+    assert r.findings == [("FAIL", "feeder fd_mid_plate: x=1.000 m (gantry_1 frame) outside "
+                                   "[0, 0.6]")]
+
+
+def test_gantry_load_reports_every_gantry_against_takt(pass_raw):
+    r = by_name(check_line.run_checks(pass_raw)[0])["gantry_load"]
+    assert set(r.info["load_pct"]) == {"gantry_1", "gantry_2"}
+    assert all(0 < p <= 100 for p in r.info["load_pct"].values())
+
+
 # ------------------------------------------------------------------ spec.py
 
 
@@ -93,7 +143,8 @@ def test_repo_spec_parses_and_lists_unresolved():
     raw = spec_mod.load_raw()
     spec_mod.parse_spec(raw)  # exact §3 example must parse
     paths = list(check_line._walk_nulls(raw))
-    assert "gantry.axes.x.min" in paths
+    assert "gantries.gantry_1.axes.x.min" in paths
+    assert "gantries.gantry_3.zone" in paths
     assert "sequence[0].duration_s" in paths
     assert "parts.bottom_plate.datums.diamond[0]" in paths
 
@@ -196,11 +247,10 @@ def test_repo_dev_overlay_marks_every_placeholder_line():
         assert "# PLACEHOLDER" in line, f"line {n} lacks '# PLACEHOLDER': {line}"
 
 
-def test_repo_dev_overlay_passes_all_checks_but_the_known_dangling_reference():
+def test_repo_dev_overlay_passes_all_checks():
     results, _ = check_line.run_checks(spec_mod.load_raw(dev=True))
     bad = {r.name: r.findings for r in results if r.status != "PASS"}
-    assert set(bad) == {"schema"}
-    assert all("fd_screw_m3x12" in msg for _, msg in bad["schema"])
+    assert bad == {}
 
 
 def test_cli_dev_writes_dev_report_with_placeholders(tmp_path):

@@ -4,6 +4,7 @@ line:
   takt_s: 20.0
   units: {length: m, mass: kg, time: s, angle: rad}
   origin: pallet_datum_round
+  work_height: 0.9
 
 parts:
   bottom_plate:
@@ -45,18 +46,34 @@ sources:
 buffers:
   buf_plate: {pose: [0.5, 0.3, 0.1, 0.0]}
 
-gantry:
-  axes:
-    x: {min: 0.0, max: 3.0, v_max: 1.0, a_max: 2.0}
-    y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
-    z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
-    c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
-  tools:
-    tool_plate:   {grip: vacuum, dims: [0.12, 0.12, 0.02]}
-    tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}
-  mount: [0.0, 0.0, 0.0]
+# Two zones. gantry_2's travel (line x 0.4-3.0) overlaps gantry_1's (0-0.6) because both draw
+# from buf_plate; travel may overlap, zones may not.
+gantries:
+  gantry_1:
+    zone: [st_load, st_place]
+    axes:
+      x: {min: 0.0, max: 0.6, v_max: 1.0, a_max: 2.0}
+      y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
+      z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
+      c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
+    tools:
+      tool_plate: {grip: vacuum, dims: [0.12, 0.12, 0.02]}
+    mount: [0.0, 0.0, 0.0]
+  gantry_2:
+    zone: [st_spider, st_pod]
+    axes:
+      x: {min: 0.0, max: 2.6, v_max: 1.0, a_max: 2.0}
+      y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
+      z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
+      c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
+    tools:
+      tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}
+    mount: [0.4, 0.0, 0.0]
+gantry_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, safe_z: 0.3, damping: 5.0,
+                  friction: 0.5}
 gang_heads:
-  gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05}
+  gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05,
+           v_max: 0.1, a_max: 0.5}
 scaras: {}
 
 conveyor: {pitch: 0.5, index_s: 2.0}

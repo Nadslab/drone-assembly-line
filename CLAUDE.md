@@ -20,7 +20,7 @@ Guidance for Claude Code working in this repository.
   monitors.
 - `tools/` — plain Python (not built by colcon): spec loading/validation, static checks,
   generators (world, models, controllers), mesh pipeline, build123d CAD tooling.
-- `docs/` — plan, naming conventions, decisions log.
+- `docs/` — plan, naming conventions (`naming.md`), decisions log.
 - `cad_raw/` — SolidWorks exports (gitignored except a manifest).
 - `reports/` — generated JSON/CSV check output (gitignored).
 - `templates/` — Jinja templates for SDF generation.
@@ -38,12 +38,17 @@ colcon list
 tools/.venv/bin/python tools/check_line.py
 tools/.venv/bin/python tools/spec.py
 tools/.venv/bin/python tools/check_line.py --dev   # merge line_spec.dev.yaml placeholders
+tools/.venv/bin/python tools/estimate_moves.py --dev   # per-gantry pick-and-place time vs takt
 tools/.venv/bin/python tools/gen_sw_params.py      # spec -> cad_params.txt (SolidWorks variables)
 tools/.venv/bin/python tools/mesh_pipeline.py      # raw SolidWorks STL -> checked Gazebo meshes
 tools/.venv/bin/python tools/cad/pallet.py --dev   # build123d pallet + pins -> cad_out/
 tools/.venv/bin/python tools/cad/build_all.py --dev  # every generator + mesh_pipeline, < 30 s
+tools/.venv/bin/python tools/cad/layout.py --dev   # line layout STEP + top SVG + interference check
+                                                   # -> C:\Users\Admin\Documents\drone-line-cad\60_layout\dev\
 tools/.venv/bin/python tools/gen_models.py --dev   # spec + cad reports -> models/<id>/model.sdf
 tools/.venv/bin/python tools/gen_world.py --dev    # spec -> worlds/main_line.sdf
+tools/.venv/bin/python tools/gen_controllers.py --dev   # spec -> config/controllers.yaml
+tools/.venv/bin/python tools/spec.py --dev --dump reports/line_spec.dev.yaml  # merged spec (xacro)
 
 # Run tools tests
 tools/.venv/bin/python -m pytest tools/tests/
@@ -51,6 +56,8 @@ tools/.venv/bin/python -m pytest tools/tests/
 # Headless checks (per phase, each writes reports/<name>.json)
 tools/checks/spike.sh
 tools/checks/world_smoke.sh
+tools/checks/descriptions.sh    # xacro + check_urdf + joint limits vs spec (no Gazebo)
+tools/checks/line_smoke.sh      # launch line.launch.py headless, controllers active, gantry at 3 stations
 ```
 
 ## Naming conventions
@@ -66,7 +73,8 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | Returnable fixture carrying a subassembly | **carrier** | `carrier_spider`, `carrier_pod` | `Carrier_Spider` |
 | Part source at a fixed pick pose | **feeder** | `fd_mid_plate` | `Feeder_MidPlate` |
 | WIP between a sub-line and the main line | **buffer** | `buf_spider` | `Buffer_Spider` |
-| Pick-and-place robot | **gantry** | `gantry` | `Gantry` |
+| Pick-and-place robot | **gantry** | `gantry_<n>` (`gantry_1`) | `Gantry_<n>` (`Gantry_1`) |
+| Region served by one gantry | **zone** | zone list inside `gantries.<id>` | — |
 | Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich` |
 | Screwdriving unit (variable position) | **scara** | `scara_1` | `Scara_1` |
 | Interchangeable gantry tooling | **tool** | `tool_plate` | `Tool_Plate` |
@@ -78,6 +86,8 @@ Rules:
 - Station IDs use the **verb** of what happens there (`st_drive_arm_sandwich`), not the equipment.
 - yaml/topic IDs are `snake_case`; Gazebo model/link names are `PascalCase` derived mechanically.
 - "Arm" means the drone arm only. Robots are "gantry", "gang head", "scara". Never "robot arm".
+- A gantry's joints are `gantry_<n>_<axis>`, its links `Gantry_<n>_<axis>` / `Gantry_<n>_Tcp`,
+  its controller `gantry_<n>_controller` (docs/naming.md).
 
 ## P0 rules (apply throughout the project)
 
@@ -92,5 +102,8 @@ Rules:
   generator/check takes `--dev` (`spec.add_dev_argument`), loads via `load_spec(dev=True)`, and
   writes `reports/<name>.dev.json` listing its `placeholders`. Delete an overlay line when the
   real value lands in the base spec.
+- **The layout STEP is generated.** `60_layout/line_layout.step` (and its SVG) come from
+  `tools/cad/layout.py`; edits happen in the spec, never in SolidWorks. A change made in the
+  SolidWorks file is lost on the next run and never reaches the checks.
 - **Headless only.** No GUI launches during verification.
 - **No STL over 5 MB is ever committed.**

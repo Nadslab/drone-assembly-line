@@ -53,7 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))         # tools/cad: co
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
 
 from common import (Values, bbox_doc, collect, export_solids, lookup, masses,  # noqa: E402
-                    new_item, new_run_report, pascal, write_report)
+                    new_item, new_run_report, pascal, tool_path, write_report)
 from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
                   parse_spec, report_path)
 
@@ -174,9 +174,9 @@ def layout(v: Values, fid: str) -> Layout | None:
         key = (v.mm(f"{p}.key[0]"), v.mm(f"{p}.key[1]"))
 
     tool = picking_tool(v.raw, fid)
-    jaw = tuple(v.mm(f"gantry.tools.{tool}.dims[{i}]") for i in range(3)) if tool else (0.0, 0.0,
-                                                                                        0.0)
-    grip = v.plain(f"gantry.tools.{tool}.grip") if tool else None
+    jaw = (tuple(v.mm(f"{tool_path(v.raw, tool)}.dims[{i}]") for i in range(3)) if tool
+           else (0.0, 0.0, 0.0))
+    grip = v.plain(f"{tool_path(v.raw, tool)}.grip") if tool else None
 
     if v.missing:
         return None

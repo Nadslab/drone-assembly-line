@@ -3,6 +3,7 @@ line:
   takt_s: 20.2
   units: {length: m, mass: kg, time: s, angle: rad}
   origin: pallet_datum_round
+  work_height: null             # m — the datum plane above the floor; station poses are z = 0 on it
 
 # ---------- parts: everything that moves or is gripped ----------
 parts:
@@ -47,7 +48,6 @@ cad:
 # ---------- fasteners: one feeder per length (§7.9) ----------
 fasteners:
   m3_x8:  {length: 0.008, feeder: fd_screw_m3x8}
-  m3_x12: {length: 0.012, feeder: fd_screw_m3x12}
 
 # ---------- feeders: fixed pick pose, the gantry never searches ----------
 feeders:
@@ -68,23 +68,74 @@ buffers:
   buf_plate:  {pose: [null,null,null,0]}
 
 # ---------- equipment ----------
-gantry:
-  axes:                                     # from the axis spec; limits drive xacro + reach check
-    x: {min: null, max: null, v_max: null, a_max: null}
-    y: {min: null, max: null, v_max: null, a_max: null}
-    z: {min: null, max: null, v_max: null, a_max: null}
-    c: {min: -3.1416, max: 3.1416, v_max: null, a_max: null}   # delete if no yaw needed
-  tools:                                    # dims = [x, y, reach] the tool needs at a pick feature
-    tool_plate:   {grip: vacuum, dims: [null, null, null]}
-    tool_carrier: {grip: finger, dims: [null, null, null]}
-  mount: [null, null, null]                 # gantry base in line frame
-gang_heads:
-  gh_arm_sandwich: {direction: down,       spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: null}
-  gh_side_plates:  {direction: horizontal, spindles: null, opposed: true, stroke: null}
+# One gantry per zone (D-008); zones never overlap. Axis limits are in the gantry's own frame
+# (pose - mount) and drive the xacro, the reach check and estimate_moves.py.
+# tools: dims = [x, y, reach] the tool needs at a pick feature; one id is one tool on every gantry.
+gantries:
+  gantry_1:
+    zone: null                              # [station ids] this gantry serves
+    axes:
+      x: {min: null, max: null, v_max: null, a_max: null}
+      y: {min: null, max: null, v_max: null, a_max: null}
+      z: {min: null, max: null, v_max: null, a_max: null}
+      c: {min: -3.1416, max: 3.1416, v_max: null, a_max: null}   # delete if no yaw needed
+    tools:
+      tool_plate:   {grip: vacuum, dims: [null, null, null]}
+      tool_carrier: {grip: finger, dims: [null, null, null]}
+    mount: [null, null, null]               # gantry base in line frame
+  gantry_2:
+    zone: null
+    axes:
+      x: {min: null, max: null, v_max: null, a_max: null}
+      y: {min: null, max: null, v_max: null, a_max: null}
+      z: {min: null, max: null, v_max: null, a_max: null}
+      c: {min: -3.1416, max: 3.1416, v_max: null, a_max: null}
+    tools:
+      tool_carrier: {grip: finger, dims: [null, null, null]}
+    mount: [null, null, null]
+  gantry_3:
+    zone: null
+    axes:
+      x: {min: null, max: null, v_max: null, a_max: null}
+      y: {min: null, max: null, v_max: null, a_max: null}
+      z: {min: null, max: null, v_max: null, a_max: null}
+      c: {min: -3.1416, max: 3.1416, v_max: null, a_max: null}
+    tools:
+      tool_plate:   {grip: vacuum, dims: [null, null, null]}
+    mount: [null, null, null]
+gantry_defaults:
+  grip_s: null                              # s, tool closes on the part
+  release_s: null                           # s, tool lets go
+  settle_s: null                            # s, after every Z move
+  safe_z: null                              # m, line frame: the height XY moves travel at
+  damping: 5.0                              # N*s/m, x/y/z joints (D-002)
+  friction: 0.5                             # N, x/y/z joints (D-002)
+gang_heads:                                 # stroke/v_max/a_max are the ram's joint limits (P5.3)
+  gh_arm_sandwich: {direction: down,       spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: null, v_max: null, a_max: null}
+  gh_side_plates:  {direction: horizontal, spindles: null, opposed: true, stroke: null, v_max: null, a_max: null}
 scaras: {}                                  # add only where screw position varies
 
 # ---------- stations ----------
 conveyor: {pitch: null, index_s: null}      # pallet advance distance + time
+
+# ---------- layout: floor plan for tools/cad/layout.py (SolidWorks review), metres ----------
+layout:
+  conveyor: {width: null, top_height: null, belt_speed: null}   # top_height: belt top above floor
+  pallet_block: {length: null, width: null, thickness: null}    # length along the conveyor
+  stop_unit_length: null                    # station footprint along the conveyor
+  buffer_slots_between_stations: null       # queued pallets between two stations
+  gantry_frame: {post_size: null, beam_height: null, beam_depth: null}
+  feeder_footprints:                        # [w (x), d (y), h floor to top]; feeders and buffers
+    fd_mid_plate:  [null, null, null]
+    fd_top_plate:  [null, null, null]
+    fd_side_plate: [null, null, null]
+    fd_standoff:   [null, null, null]
+    buf_spider:    [null, null, null]
+    buf_pod:       [null, null, null]
+    buf_plate:     [null, null, null]
+  test_branch: {offset_y: null, cell_w: null, cell_d: null}     # cells step away from the line in y
+  operator_aisle: {side: null, width: null}                     # side: "+y" or "-y"
+  guard_offset: null                        # gantry travel envelope to the guard line
 stations:
   st_load_pallet:          {index: 1,  count: 1, pose: [null,null,null,0]}
   st_place_spider:         {index: 2,  count: 1, pose: [null,null,null,0]}

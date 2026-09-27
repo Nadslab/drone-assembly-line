@@ -1,0 +1,137 @@
+<?xml version="1.0"?>
+<!--
+  A gang head: one prismatic ram per bank and one spindle frame per screw, laid out from the
+  pattern the spec names (plan P5.3). Macro library: no <robot name>, so this file is never
+  expanded on its own — urdf/line.urdf.xacro instantiates it once per `gang_heads` entry.
+
+  The ram's limits come from the spec: `gang_heads.<id>.{stroke,v_max,a_max}`. The spindle
+  positions come from `gang_heads.<id>.pattern_from` (e.g. `bottom_plate.arm_holes` ->
+  `parts.bottom_plate.arm_holes.positions`) — the same list the spider carrier's arm pockets are
+  cut from (P4), so a head and the fixture it drives into cannot drift apart. A head the spec gives
+  no pattern gets its spindles spread evenly at `spindle_pitch` below, which is an envelope: it
+  says the head is about that wide, not where a screw is.
+
+  Frames, and what a P7 action can rely on:
+  * a **ram frame** is the tool face; its joint value is how far the ram has advanced, 0 = retracted;
+  * a **spindle frame** sits on that face with **+z along the drive direction**, so "advance the
+    spindle" is +z everywhere — down, up, or horizontally inward from either side.
+
+  `opposed: true` is two rams, not one: a URDF joint moves one child link, and two banks closing on
+  a workpiece from both sides are two links. Both carry the same limits from the same spec keys,
+  and the generated controller (tools/gen_controllers.py) commands them together.
+
+  Envelope numbers (masses, the boxes the head is drawn as, the per-spindle thrust that sizes the
+  ram's effort) are typed here and are not deliverables; every limit and every count is spec.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- envelopes, metres / kilograms / newtons -->
+  <xacro:property name="head_body" value="0.30"/>      <!-- the head frame above the ram -->
+  <xacro:property name="head_body_z" value="0.20"/>
+  <xacro:property name="m_head_body" value="25.0"/>
+  <xacro:property name="ram_z" value="0.12"/>          <!-- ram depth behind its tool face -->
+  <xacro:property name="m_ram" value="8.0"/>
+  <xacro:property name="spindle_pitch" value="0.04"/>  <!-- no pattern: even spread at this pitch -->
+  <xacro:property name="bank_gap" value="0.12"/>       <!-- opposed: how far apart the banks stand -->
+  <xacro:property name="spindle_thrust" value="30.0"/> <!-- thrust one spindle pushes with -->
+  <xacro:property name="head_g" value="9.81"/>
+  <xacro:property name="colour_head" value="0.45 0.45 0.48 1"/>
+  <xacro:property name="colour_ram" value="0.70 0.35 0.35 1"/>
+
+  <!-- One massless frame per screw, recursively: xacro has no loop. `items` is [[i, x, y], ...] -->
+  <xacro:macro name="spindle_frames" params="name parent items rpy">
+    <xacro:if value="${len(items) > 0}">
+      <xacro:property name="it" value="${items[0]}"/>
+      <link name="${name}_spindle_${int(it[0])}"/>
+      <joint name="${name}_spindle_${int(it[0])}_frame" type="fixed">
+        <parent link="${parent}"/>
+        <child link="${name}_spindle_${int(it[0])}"/>
+        <origin xyz="${it[1]} ${it[2]} 0" rpy="${rpy}"/>
+      </joint>
+      <xacro:spindle_frames name="${name}" parent="${parent}" items="${items[1:]}" rpy="${rpy}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- One bank: a ram on a prismatic joint, with its spindle frames on the tool face. -->
+  <xacro:macro name="gang_head_bank" params="name parent joint suffix axis rpy start
+                                             positions stroke v_max a_max effort
+                                             ox oy oz bx by bz">
+    <xacro:box_link name="${name}_ram${suffix}" m="${m_ram}" x="${head_body}" y="${head_body}"
+                    z="${ram_z}" colour="${colour_ram}" cx="${bx}" cy="${by}" cz="${bz}"/>
+    <xacro:no_gravity link="${name}_ram${suffix}"/>
+    <joint name="${joint}" type="prismatic">
+      <parent link="${parent}"/>
+      <child link="${name}_ram${suffix}"/>
+      <origin xyz="${ox} ${oy} ${oz}" rpy="0 0 0"/>
+      <axis xyz="${axis}"/>
+      <!-- 0 = retracted. Effort: accelerate the ram (plus its own weight when it works
+           vertically) and push every spindle at spindle_thrust. -->
+      <limit lower="0" upper="${stroke}" velocity="${v_max}" effort="${effort}"/>
+    </joint>
+    <xacro:spindle_frames name="${name}" parent="${name}_ram${suffix}" rpy="${rpy}"
+                          items="${[[start + i, p[0], p[1]] for i, p in python.enumerate(positions)]}"/>
+  </xacro:macro>
+
+  <xacro:macro name="gang_head" params="parent name prefix direction spindles stroke v_max a_max
+                                        opposed:=false positions:=${[]} *origin">
+    <xacro:property name="n" value="${int(spindles)}"/>
+    <!-- Spindles per bank, and their in-bank layout: the spec's pattern, or an even spread. -->
+    <xacro:property name="per_bank" value="${int(n / 2) if opposed else n}"/>
+    <xacro:property name="pat" value="${[[p[0], p[1]] for p in positions]}"/>
+    <xacro:property name="spread"
+                    value="${[[(i - (per_bank - 1) / 2.0) * spindle_pitch, 0.0]
+                              for i in python.range(per_bank)]}"/>
+    <xacro:property name="vertical" value="${direction != 'horizontal'}"/>
+    <xacro:property name="effort"
+                    value="${m_ram * (a_max + (head_g if vertical else 0.0))
+                             + per_bank * spindle_thrust}"/>
+
+    <!-- The head frame: welded to the parent, body drawn back along the drive direction. -->
+    <xacro:box_link name="${name}_body" m="${m_head_body}" x="${head_body}" y="${head_body}"
+                    z="${head_body_z}" colour="${colour_head}"
+                    cz="${(head_body_z / 2.0 + ram_z) * (1 if direction == 'down' else -1)
+                          if vertical else head_body_z / 2.0}"/>
+    <joint name="${prefix}mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${name}_body"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+
+    <xacro:if value="${vertical}">
+      <!-- down: the ram advances along -z and its spindles look down (+z of the frame is -z).
+           up: the mirror image, for a head that fastens from below (check_line.py rejects one
+           on a station the sequence uses, but the description can still say what it is). -->
+      <xacro:property name="dir_z" value="${-1 if direction == 'down' else 1}"/>
+      <xacro:gang_head_bank name="${name}" parent="${name}_body" joint="${prefix}stroke"
+                            suffix="" axis="0 0 ${dir_z}" rpy="${'0 3.14159265 0'
+                            if direction == 'down' else '0 0 0'}" start="1"
+                            positions="${pat if pat else spread}" stroke="${stroke}"
+                            v_max="${v_max}" a_max="${a_max}" effort="${effort}"
+                            ox="0" oy="0" oz="0" bx="0" by="0" bz="${-dir_z * ram_z / 2.0}"/>
+    </xacro:if>
+
+    <xacro:unless value="${vertical}">
+      <!-- horizontal: one bank per side, each advancing inward along its own -y/+y, spindles
+           spread along x. `opposed: false` keeps the single bank on +y. -->
+      <xacro:gang_head_bank name="${name}" parent="${name}_body"
+                            joint="${prefix}stroke${'_1' if opposed else ''}"
+                            suffix="${'_1' if opposed else ''}" axis="0 -1 0" rpy="1.57079633 0 0"
+                            start="1" positions="${pat[0:per_bank] if pat else spread}"
+                            stroke="${stroke}" v_max="${v_max}" a_max="${a_max}"
+                            effort="${effort}"
+                            ox="0" oy="${bank_gap / 2.0}" oz="0"
+                            bx="0" by="${ram_z / 2.0}" bz="0"/>
+      <xacro:if value="${opposed}">
+        <xacro:gang_head_bank name="${name}" parent="${name}_body" joint="${prefix}stroke_2"
+                              suffix="_2" axis="0 1 0" rpy="-1.57079633 0 0"
+                              start="${per_bank + 1}"
+                              positions="${pat[per_bank:n] if pat else spread}"
+                              stroke="${stroke}" v_max="${v_max}" a_max="${a_max}"
+                              effort="${effort}"
+                              ox="0" oy="${-bank_gap / 2.0}" oz="0"
+                              bx="0" by="${-ram_z / 2.0}" bz="0"/>
+      </xacro:if>
+    </xacro:unless>
+  </xacro:macro>
+
+</robot>

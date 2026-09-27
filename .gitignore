@@ -13,3 +13,7 @@ cad_out/
 drone_line_sim/models/dev/
 drone_line_sim/meshes/tooling/dev/
 drone_line_sim/worlds/*.dev.sdf
+
+# Dev-overlay controller config: generated from line_spec.dev.yaml placeholders
+drone_line_sim/config/controllers.dev.yaml
+drone_line_sim/config/line_spec.merged.dev.yaml

@@ -18,8 +18,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import estimate_moves  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, LineSpec, Merged, SpecError, add_dev_argument,  # noqa: E402
-                  load_merged, parse_spec, report_path)
+                  gantry_served, load_merged, parse_spec, report_path, zone_owner)
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 
@@ -72,8 +73,9 @@ def check_schema(spec: LineSpec, r: Result) -> None:
     """Parsing already happened (spec.py); here every reference must resolve."""
     parts, feeders, buffers = set(spec.parts), set(spec.feeders), set(spec.buffers)
     heads = set(spec.gang_heads) | set(spec.scaras)
-    tools = set(spec.gantry.tools)
+    tools = {t for g in spec.gantries.values() for t in g.tools}
     stations, steps = set(spec.stations), [s.id for s in spec.sequence]
+    owner = zone_owner(spec)
 
     def ref(where: str, kind: str, value: str | None, valid: set[str]):
         if value is not None and value not in valid:
@@ -102,10 +104,16 @@ def check_schema(spec: LineSpec, r: Result) -> None:
         ref(f"{w}.part", "part", s.part, parts)
         ref(f"{w}.from", "feeder/buffer", s.from_, feeders | buffers)
         ref(f"{w}.tool", "tool", s.tool, tools)
+        gid = owner.get(s.station)
+        if s.tool in tools and gid and s.tool not in spec.gantries[gid].tools:
+            r.add(FAIL, f"{w}.tool -> '{s.tool}' is not on {gid}, which serves {s.station}")
         ref(f"{w}.head", "head", s.head, heads)
         ref(f"{w}.fastener", "fastener", s.fastener, set(spec.fasteners))
         for req in s.requires:
             ref(f"{w}.requires", "step", req, set(steps))
+    if spec.layout is not None:
+        for key in spec.layout.feeder_footprints:
+            ref("layout.feeder_footprints", "feeder/buffer", key, feeders | buffers)
     idx = [st.index for st in spec.stations.values()]
     if len(idx) != len(set(idx)):
         r.add(FAIL, "stations: duplicate index")
@@ -193,9 +201,9 @@ def check_line_balance(spec: LineSpec, r: Result) -> None:
         r.info["bottleneck_pct"] = round(util[bottleneck], 1)
 
 
-def _pose_in_gantry(spec: LineSpec, label: str, pose, r: Result) -> None:
-    """Pose in line frame -> gantry frame (pose - mount) must be inside the axis limits."""
-    g = spec.gantry
+def _pose_in_gantry(spec: LineSpec, gid: str, label: str, pose, r: Result) -> None:
+    """Pose in line frame -> that gantry's frame (pose - mount) must be inside its axis limits."""
+    g = spec.gantries[gid]
     unknown = False
     for i, ax in enumerate("xyz"):
         lim, p, m = getattr(g.axes, ax), pose[i], g.mount[i]
@@ -204,34 +212,42 @@ def _pose_in_gantry(spec: LineSpec, label: str, pose, r: Result) -> None:
             continue
         rel = p - m
         if not lim.min <= rel <= lim.max:
-            r.add(FAIL, f"{label}: {ax}={rel:.3f} m (gantry frame) outside "
+            r.add(FAIL, f"{label}: {ax}={rel:.3f} m ({gid} frame) outside "
                         f"[{lim.min:g}, {lim.max:g}]")
     yaw = pose[3]
     if yaw is not None and yaw != 0:
         c = g.axes.c
         if c is None:
-            r.add(FAIL, f"{label}: needs yaw {yaw:g} rad but the gantry has no C axis")
+            r.add(FAIL, f"{label}: needs yaw {yaw:g} rad but {gid} has no C axis")
         elif c.min is not None and c.max is not None and not c.min <= yaw <= c.max:
-            r.add(FAIL, f"{label}: yaw {yaw:g} outside C [{c.min:g}, {c.max:g}]")
+            r.add(FAIL, f"{label}: yaw {yaw:g} outside {gid} C [{c.min:g}, {c.max:g}]")
     if unknown:
-        r.unresolved(f"{label}: reach not fully evaluable (pose, mount or axis limits null)")
+        r.unresolved(f"{label}: reach of {gid} not fully evaluable (pose, mount or axis "
+                     "limits null)")
 
 
 def check_reach(spec: LineSpec, r: Result) -> None:
-    """Gantry poses: feeders, buffers, and stations where the gantry places. Drive poses:
-    SCARA stations must be within `reach` of the SCARA base; gang heads are fixed-pattern, so
-    only their station pose matters (checked for existence by the schema)."""
-    for name, f in spec.feeders.items():
-        if f.pose is not None:
-            _pose_in_gantry(spec, f"feeder {name}", f.pose, r)
-    for name, b in spec.buffers.items():
-        _pose_in_gantry(spec, f"buffer {name}", b.pose, r)
-    seen = set()
+    """Gantry poses, per zone: every step a gantry performs has its station and its `from`
+    (feeder or buffer) inside the axis limits of the gantry whose zone holds that station. Drive
+    poses: SCARA stations must be within `reach` of the SCARA base; gang heads are fixed-pattern,
+    so only their station pose matters (checked for existence by the schema)."""
+    owner = zone_owner(spec)
+    seen: set[tuple[str, str]] = set()
     for s in _active_steps(spec):
-        if s.capability in ("load", "place") and s.station in spec.stations \
-                and s.station not in seen:
-            seen.add(s.station)
-            _pose_in_gantry(spec, f"station {s.station}", spec.stations[s.station].pose, r)
+        if gantry_served(s) and s.station in spec.stations:
+            gid = owner.get(s.station)
+            if gid is None:
+                r.unresolved(f"{s.id}: station {s.station} is in no known zone")
+            else:
+                targets = [(f"station {s.station}", spec.stations[s.station].pose)]
+                if s.from_ in spec.feeders and spec.feeders[s.from_].pose is not None:
+                    targets.append((f"feeder {s.from_}", spec.feeders[s.from_].pose))
+                elif s.from_ in spec.buffers:
+                    targets.append((f"buffer {s.from_}", spec.buffers[s.from_].pose))
+                for label, pose in targets:
+                    if (gid, label) not in seen:
+                        seen.add((gid, label))
+                        _pose_in_gantry(spec, gid, label, pose, r)
         if s.capability == "drive" and s.head in spec.scaras and s.station in spec.stations:
             sc, pose = spec.scaras[s.head], spec.stations[s.station].pose
             if sc.base is None or sc.reach is None or None in pose[:2] or None in sc.base[:2]:
@@ -241,6 +257,17 @@ def check_reach(spec: LineSpec, r: Result) -> None:
                 if d > sc.reach:
                     r.add(FAIL, f"{s.id}: {s.station} is {d:.3f} m from {s.head}, "
                                 f"reach {sc.reach:g} m")
+
+
+def check_gantry_load(spec: LineSpec, r: Result) -> None:
+    """Each gantry's pick-and-place time per drone (tools/estimate_moves.py) must fit the takt."""
+    doc = estimate_moves.estimate(spec)
+    for msg in doc["errors"]:
+        r.add(FAIL, msg)
+    for msg in doc["unresolved"]:
+        r.unresolved(msg)
+    r.info["load_pct"] = {gid: g["load_pct"] for gid, g in doc["gantries"].items()}
+    r.info["total_s"] = {gid: g["total_s"] for gid, g in doc["gantries"].items()}
 
 
 def check_feeder_rate(spec: LineSpec, r: Result) -> None:
@@ -340,6 +367,7 @@ CHECKS = [
     ("takt", check_takt),
     ("line_balance", check_line_balance),
     ("reach", check_reach),
+    ("gantry_load", check_gantry_load),
     ("feeder_rate", check_feeder_rate),
     ("buffer", check_buffer),
     ("fastener_lengths", check_fastener_lengths),
@@ -376,6 +404,8 @@ def _summary(r: Result) -> str:
         return f"{r.info['count']} null value(s)"
     if r.name == "line_balance" and "bottleneck" in r.info:
         return f"bottleneck {r.info['bottleneck']} at {r.info['bottleneck_pct']}%"
+    if r.name == "gantry_load" and r.status != WARN and r.info.get("load_pct"):
+        return ", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None)
     n = {lvl: sum(1 for l, _ in r.findings if l == lvl) for lvl in (FAIL, WARN)}
     if r.status == FAIL:
         return f"{n[FAIL]} failure(s)"

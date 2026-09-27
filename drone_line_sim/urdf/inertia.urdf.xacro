@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!--
+  Inertia macros shared by the descriptions (plan P5.3). Macro library: no <robot name>, so
+  tools/checks/descriptions.sh does not try to expand this file on its own.
+
+  A link without an inertial is legal URDF and illegal physics: Gazebo gives it a default mass and
+  the joint above it behaves like nothing is there. So every link with a joint under it gets one,
+  computed from the mass and the envelope it is drawn as — the same box formula gen_models.py uses
+  for a part's collision primitive (P5.2), and the same one the P1 spike used.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="box_inertial" params="m x y z *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${m}"/>
+      <inertia ixx="${m / 12.0 * (y*y + z*z)}" ixy="0" ixz="0"
+               iyy="${m / 12.0 * (x*x + z*z)}" iyz="0"
+               izz="${m / 12.0 * (x*x + y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- A box link: visual and inertial from one envelope, both about the same centre. No
+       collision — see the header of gantry.urdf.xacro. -->
+  <xacro:macro name="box_link" params="name m x y z colour:='0.5 0.5 0.55 1' cx:=0 cy:=0 cz:=0">
+    <link name="${name}">
+      <visual>
+        <origin xyz="${cx} ${cy} ${cz}" rpy="0 0 0"/>
+        <geometry><box size="${x} ${y} ${z}"/></geometry>
+        <material name="${name}_material"><color rgba="${colour}"/></material>
+      </visual>
+      <xacro:box_inertial m="${m}" x="${x}" y="${y}" z="${z}">
+        <origin xyz="${cx} ${cy} ${cz}" rpy="0 0 0"/>
+      </xacro:box_inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- A link that hangs on a driven axis with a vertical component is gravity-free in Gazebo.
+       GazeboSimSystem commands a joint *velocity* from its position error, and measured on the
+       gantry: with gravity on, the Z axis does not leave its lower limit at all, even with the
+       derived effort raised 3x; with world gravity zeroed it reaches its target. A real Z drive
+       holds its load (brake, counterbalance, servo); this is that, stated once. See
+       docs/decisions.md D-007. -->
+  <xacro:macro name="no_gravity" params="link">
+    <gazebo reference="${link}"><gravity>false</gravity></gazebo>
+  </xacro:macro>
+
+</robot>

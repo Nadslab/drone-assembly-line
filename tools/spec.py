@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import argparse
 import copy
+import re
 import sys
+from fnmatch import fnmatchcase
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal
@@ -55,6 +57,7 @@ class Line(Model):
     takt_s: Pos
     units: Units
     origin: str
+    work_height: Pos | None = None   # datum plane's height above the world ground plane
 
 
 class Datums(Model):
@@ -184,6 +187,24 @@ class Gantry(Model):
     axes: GantryAxes
     tools: dict[str, Tool]
     mount: Vec3
+    # The stations this gantry serves (docs/decisions.md D-008). Zones never overlap.
+    zone: list[str] | None
+
+
+class GantryDefaults(Model):
+    """Pick-and-place timing and linear-axis dynamics shared by every gantry.
+
+    `safe_z` is a line-frame z (the datum plane is 0): the height every XY move travels at.
+    `damping`/`friction` are the P1 values (D-002) for the x/y/z axes of every gantry; an axis
+    that states its own wins, and the rotary C axis only ever uses its own (other units).
+    """
+
+    grip_s: NonNeg | None
+    release_s: NonNeg | None
+    settle_s: NonNeg | None
+    safe_z: float | None
+    damping: NonNeg | None
+    friction: NonNeg | None
 
 
 class GangHead(Model):
@@ -192,6 +213,9 @@ class GangHead(Model):
     pattern_from: str | None = None
     opposed: bool = False
     stroke: Pos | None
+    # The stroke joint's own limits, like an axis: a URDF joint cannot be written without them.
+    v_max: Pos | None = None
+    a_max: Pos | None = None
 
 
 class Scara(Model):
@@ -227,6 +251,50 @@ class Step(Model):
     note: str | None = None
 
 
+class LayoutConveyor(Model):
+    width: Pos | None
+    top_height: Pos | None      # belt top above the floor
+    belt_speed: Pos | None      # m/s
+
+
+class PalletBlock(Model):
+    length: Pos | None          # along the conveyor (x)
+    width: Pos | None
+    thickness: Pos | None
+
+
+class GantryFrame(Model):
+    post_size: Pos | None       # square post section
+    beam_height: Pos | None     # beam section, vertical
+    beam_depth: Pos | None      # beam section, horizontal
+
+
+class TestBranch(Model):
+    offset_y: float | None      # first cell centre from st_test's pose, in y; cells step away
+    cell_w: Pos | None          # cell size along the branch (y), <= cell_pitch
+    cell_d: Pos | None          # cell size across the branch (x)
+
+
+class OperatorAisle(Model):
+    side: Literal["+y", "-y"] | None
+    width: Pos | None
+
+
+class Layout(Model):
+    """Floor-plan dimensions for tools/cad/layout.py (SolidWorks review). Metres."""
+
+    conveyor: LayoutConveyor
+    pallet_block: PalletBlock
+    stop_unit_length: Pos | None
+    buffer_slots_between_stations: NonNegInt | None
+    gantry_frame: GantryFrame
+    # [w (x), d (y), h (floor to top)] keyed by feeder or buffer id: both stand on the floor.
+    feeder_footprints: dict[str, Vec3]
+    test_branch: TestBranch
+    operator_aisle: OperatorAisle
+    guard_offset: Pos | None    # gantry travel envelope to the guard line, all round
+
+
 class LineSpec(Model):
     schema_version: Literal[1]
     line: Line
@@ -236,12 +304,81 @@ class LineSpec(Model):
     feeders: dict[str, Feeder]
     sources: dict[str, Source]
     buffers: dict[str, Buffer]
-    gantry: Gantry
+    gantries: Annotated[dict[str, Gantry], Field(min_length=1)]
+    gantry_defaults: GantryDefaults
     gang_heads: dict[str, GangHead]
     scaras: dict[str, Scara]
     conveyor: Conveyor
     stations: dict[str, Station]
     sequence: list[Step]
+    layout: Layout | None = None   # only tools/cad/layout.py needs it
+
+    @model_validator(mode="after")
+    def _zones(self):
+        errors = []
+        for gid in self.gantries:
+            if not GANTRY_ID.fullmatch(gid):
+                errors.append(f"gantries.{gid}: a gantry id is gantry_<n> (docs/naming.md)")
+        owner: dict[str, str] = {}
+        for gid, g in self.gantries.items():
+            for st in g.zone or []:
+                if st not in self.stations:
+                    errors.append(f"gantries.{gid}.zone: station '{st}' does not exist")
+                elif st in owner:
+                    errors.append(f"gantries.{gid}.zone: station '{st}' is already in "
+                                  f"{owner[st]}'s zone; zones may not overlap")
+                else:
+                    owner[st] = gid
+        # With a zone still null, a station missing from the known zones may be in that one.
+        if all(g.zone is not None for g in self.gantries.values()):
+            for s in self.sequence:
+                if gantry_served(s) and s.station in self.stations and s.station not in owner:
+                    errors.append(f"sequence.{s.id}: moves a part with a gantry but station "
+                                  f"'{s.station}' is in no gantry's zone")
+        # One tool id is one physical design: the CAD generators build it once.
+        first: dict[str, tuple[str, Tool]] = {}
+        for gid, g in self.gantries.items():
+            for tid, tool in g.tools.items():
+                if tid in first and first[tid][1] != tool:
+                    errors.append(f"gantries.{gid}.tools.{tid} differs from "
+                                  f"gantries.{first[tid][0]}.tools.{tid}; one tool id is one "
+                                  "tool")
+                first.setdefault(tid, (gid, tool))
+        if errors:
+            raise ValueError("; ".join(errors))
+        return self
+
+
+GANTRY_ID = re.compile(r"gantry_[1-9]\d*")
+
+
+def gantry_served(step: Step | dict) -> bool:
+    """A step the gantry performs: it names a tool, or draws a part `from` a feeder/buffer."""
+    if isinstance(step, dict):
+        tool, part, source = step.get("tool"), step.get("part"), step.get("from")
+    else:
+        tool, part, source = step.tool, step.part, step.from_
+    return tool is not None or (part is not None and source is not None)
+
+
+def zone_owner(spec: LineSpec) -> dict[str, str]:
+    """{station: gantry id} over every known zone."""
+    return {st: gid for gid, g in spec.gantries.items() for st in (g.zone or [])}
+
+
+def station_gantry(raw: dict, station: str | None) -> str | None:
+    """The gantry whose zone holds `station`, from plain spec data (generators, xacro helpers)."""
+    for gid, g in (raw.get("gantries") or {}).items():
+        if isinstance(g, dict) and station in (g.get("zone") or []):
+            return gid
+    return None
+
+
+def gantry_ids(raw: dict) -> list[str]:
+    """gantry_1, gantry_2, ... in numeric order (gantry_10 after gantry_9)."""
+    ids = list(raw.get("gantries") or {})
+    return sorted(ids, key=lambda g: (int(g.split("_")[-1]) if g.split("_")[-1].isdigit()
+                                      else 0, g))
 
 
 class SpecError(Exception):
@@ -276,7 +413,12 @@ def add_dev_argument(parser: argparse.ArgumentParser) -> None:
 
 # Collections whose keys are entities: the overlay may fill their fields but not add members.
 ENTITY_COLLECTIONS = {"parts", "fasteners", "feeders", "sources", "buffers", "gang_heads",
-                      "scaras", "stations", "gantry.tools"}
+                      "scaras", "stations", "gantries", "gantries.*.tools",
+                      "layout.feeder_footprints"}
+
+
+def _is_entity_collection(path: str) -> bool:
+    return any(fnmatchcase(path, pattern) for pattern in ENTITY_COLLECTIONS)
 
 
 @dataclass
@@ -323,7 +465,7 @@ def merge_overlay(base: dict, overlay: dict) -> Merged:
                 if k in b or ov is None:
                     continue
                 kp = f"{path}.{k}" if path else k
-                if path in ENTITY_COLLECTIONS:
+                if _is_entity_collection(path):
                     raise SpecError([f"overlay adds new entity {kp}; the overlay may only "
                                      "fill values of entities the base spec defines"])
                 res[k] = fill(ov, kp)
@@ -374,9 +516,29 @@ def load_spec(path: str | Path | None = None, dev: bool = False) -> LineSpec:
     return parse_spec(load_raw(path, dev))
 
 
+DUMP_HEADER = ("# GENERATED by tools/spec.py --dump — do not edit.\n"
+               "# line_spec.yaml{overlay} as one file, for a consumer that cannot merge the\n"
+               "# overlay itself (xacro's load_yaml reads one path).\n")
+
+
+def dump_merged(merged: Merged, out: Path, dev: bool) -> None:
+    """Write the merged spec as a single YAML file.
+
+    `xacro.load_yaml` takes one path and knows nothing about the dev overlay, so a dev expansion
+    of the descriptions needs the merged spec on disk. It is a generated file: it goes to
+    reports/ (never installed, never committed) and carries the header that says so.
+    """
+    out.parent.mkdir(parents=True, exist_ok=True)
+    overlay = " + line_spec.dev.yaml (PLACEHOLDER values)" if dev else ""
+    out.write_text(DUMP_HEADER.format(overlay=overlay)
+                   + yaml.safe_dump(merged.raw, sort_keys=False, default_flow_style=False))
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Validate line_spec.yaml")
     ap.add_argument("path", nargs="?")
+    ap.add_argument("--dump", type=Path,
+                    help="also write the merged spec as one YAML file (what xacro loads)")
     add_dev_argument(ap)
     args = ap.parse_args()
     try:
@@ -388,6 +550,9 @@ if __name__ == "__main__":
             print(f"  {e}", file=sys.stderr)
         sys.exit(1)
     print(f"spec: OK — {len(s.parts)} parts, {len(s.feeders)} feeders, "
-          f"{len(s.stations)} stations, {len(s.sequence)} steps")
+          f"{len(s.stations)} stations, {len(s.gantries)} gantries, {len(s.sequence)} steps")
+    if args.dump:
+        dump_merged(m, args.dump, args.dev)
+        print(f"spec: merged spec -> {args.dump}")
     if args.dev:
         print(f"spec: DEV — {len(m.placeholders)} placeholder value(s) from the overlay")

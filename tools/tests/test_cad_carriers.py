@@ -175,10 +175,10 @@ def test_carrier_fits_the_gantry_z_travel(work):
 @pytest.mark.parametrize("part", ["carrier_spider", "carrier_pod"])
 def test_a_fixture_taller_than_the_z_travel_fails(tmp_path, pass_raw, part):
     raw = copy.deepcopy(pass_raw)
-    raw["gantry"]["axes"]["z"]["max"] = 0.05        # 50 mm of travel
+    raw["gantries"]["gantry_2"]["axes"]["z"]["max"] = 0.05   # 50 mm on the gantry placing it
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
-    assert "gantry.axes.z" in doc["errors"][-1]
+    assert "gantries.gantry_2.axes.z" in doc["errors"][-1]
 
 
 def test_the_arms_are_carried_on_ring_material_not_thin_air(work):
@@ -226,10 +226,10 @@ def test_nothing_sits_where_the_jaws_go(work, part):
 def test_a_tool_that_cannot_grip_the_boss_fails_naming_the_tool(tmp_path, pass_raw, part, dims,
                                                                 wanted):
     raw = copy.deepcopy(pass_raw)
-    raw["gantry"]["tools"]["tool_carrier"]["dims"] = dims
+    raw["gantries"]["gantry_2"]["tools"]["tool_carrier"]["dims"] = dims
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
-    assert wanted in doc["errors"][0] and "gantry.tools.tool_carrier" in doc["errors"][0]
+    assert wanted in doc["errors"][0] and "gantries.*.tools.tool_carrier" in doc["errors"][0]
 
 
 def test_the_keep_out_volume_is_measured_not_assumed():

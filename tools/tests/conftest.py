@@ -38,6 +38,12 @@ def _null_durations(s):
     _seq(s, "place")["duration_s"] = None
 
 
+def _rename_gantry(old, new):
+    def mutate(s):
+        s["gantries"][new] = s["gantries"].pop(old)
+    return mutate
+
+
 def _set(path, value):
     """Mutation that sets spec[k1][k2]... = value."""
     def mutate(s):
@@ -60,7 +66,26 @@ FAILING = [
     ("line_balance", "partial_durations", _null_durations, "WARN"),
     ("reach", "feeder_outside_x", _set(["feeders", "fd_mid_plate", "pose"], [9.0, 0.3, 0.1, 0.0]),
      "FAIL"),
-    ("reach", "null_axis_limit", _set(["gantry", "axes", "x", "max"], None), "WARN"),
+    ("reach", "null_axis_limit", _set(["gantries", "gantry_1", "axes", "x", "max"], None), "WARN"),
+    # Inside gantry_2's travel but not gantry_1's, and st_place (which draws from it) is gantry_1's.
+    ("reach", "feeder_outside_its_zone_gantry",
+     _set(["feeders", "fd_mid_plate", "pose"], [1.0, 0.3, 0.15, 0.0]), "FAIL"),
+    # Zone rules (pydantic): a failure there fails the parse, so it surfaces as `schema`.
+    ("schema", "zone_names_unknown_station",
+     _set(["gantries", "gantry_1", "zone"], ["st_load", "st_place", "st_nowhere"]), "FAIL"),
+    ("schema", "station_in_two_zones",
+     _set(["gantries", "gantry_2", "zone"], ["st_spider", "st_pod", "st_place"]), "FAIL"),
+    ("schema", "gantry_step_in_no_zone", _set(["gantries", "gantry_1", "zone"], ["st_load"]),
+     "FAIL"),
+    ("schema", "gantry_id_not_numbered", _rename_gantry("gantry_2", "gantry_b"), "FAIL"),
+    ("schema", "one_tool_id_two_designs",
+     _set(["gantries", "gantry_2", "tools", "tool_plate"],
+          {"grip": "vacuum", "dims": [0.10, 0.10, 0.02]}), "FAIL"),
+    ("schema", "tool_not_on_the_zone_gantry", _set(["sequence", 1, "tool"], "tool_carrier"),
+     "FAIL"),
+    ("gantry_load", "gantry_2_over_takt",
+     _set(["gantries", "gantry_2", "axes", "x", "v_max"], 0.1), "FAIL"),
+    ("gantry_load", "null_grip_time", _set(["gantry_defaults", "grip_s"], None), "WARN"),
     ("feeder_rate", "screws_too_slow", _set(["feeders", "fd_screw", "feed_s"], 5.0), "FAIL"),
     ("feeder_rate", "unknown_refill", _set(["feeders", "fd_mid_plate", "refill_s"], None), "WARN"),
     ("buffer", "source_slower_than_takt", _set(["sources", "src_plate", "interval_s"], 25.0),

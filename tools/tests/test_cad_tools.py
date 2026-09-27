@@ -1,4 +1,4 @@
-"""P4 B7: the gantry end-effectors, built from `gantry.tools` and the parts they pick.
+"""P4 B7: the gantry end-effectors, built from `gantries.<id>.tools` and the parts they pick.
 
 Two load-bearing assertions. `test_the_cups_stay_inside_the_smallest_part_the_tool_picks` is the
 vacuum tool's: a cup over the edge of a part never seals, and which parts a tool picks is the
@@ -41,21 +41,26 @@ def run(tmp_path, pass_raw):
     return go
 
 
+def spec_tools(raw):
+    """Every tool any gantry carries; one id is one tool, so any gantry's entry will do."""
+    return {tid: tool for g in raw["gantries"].values() for tid, tool in g["tools"].items()}
+
+
 # ---------------------------------------------------------------- what gets built
 
 def test_one_end_effector_per_gantry_tool(run, pass_raw):
     code, doc = run()
     assert code == 0, doc["errors"]
-    assert sorted(doc["items"]) == sorted(pass_raw["gantry"]["tools"])
+    assert sorted(doc["items"]) == sorted(spec_tools(pass_raw))
     assert doc["items"]["tool_plate"]["derived"]["grip"] == "vacuum"
     assert doc["items"]["tool_carrier"]["derived"]["grip"] == "finger"
 
 
 def test_the_tool_is_the_envelope_the_spec_gives_it(run, pass_raw):
-    """`gantry.tools.<id>.dims` is what the fixtures are checked against, so it is the tool."""
+    """`gantries.<id>.tools.<tool>.dims` is what the fixtures are checked against: the tool."""
     code, doc = run()
     assert code == 0, doc["errors"]
-    for tid, spec_tool in pass_raw["gantry"]["tools"].items():
+    for tid, spec_tool in spec_tools(pass_raw).items():
         d = doc["items"][tid]["derived"]
         assert d["dims_mm"] == pytest.approx([c * 1000.0 for c in spec_tool["dims"]], abs=TOL_MM)
         assert doc["items"][tid]["bbox_mm"]["min"][2] == pytest.approx(0.0, abs=TOL_MM)
@@ -125,15 +130,16 @@ def test_the_carrier_tool_can_close_on_the_bosses_the_fixtures_build(run):
 
 def test_jaws_that_could_only_grip_a_pin_fail(run, pass_raw):
     raw = copy.deepcopy(pass_raw)
-    raw["gantry"]["tools"]["tool_carrier"]["dims"] = [0.012, 0.012, 0.03]
+    raw["gantries"]["gantry_2"]["tools"]["tool_carrier"]["dims"] = [0.012, 0.012, 0.03]
     code, doc = run(raw)
     assert code == 1
-    assert "gantry.tools.tool_carrier.dims" in doc["errors"][0]
+    assert "gantries.*.tools.tool_carrier.dims" in doc["errors"][0]
 
 
 def test_a_tool_nothing_picks_with_is_still_built_with_a_warning(run, pass_raw):
     raw = copy.deepcopy(pass_raw)
-    raw["gantry"]["tools"]["tool_spare"] = {"grip": "finger", "dims": [0.06, 0.06, 0.03]}
+    raw["gantries"]["gantry_1"]["tools"]["tool_spare"] = {"grip": "finger",
+                                                           "dims": [0.06, 0.06, 0.03]}
     code, doc = run(raw)
     assert code == 0, doc["errors"]
     assert doc["items"]["tool_spare"]["status"] == "PASS"
@@ -156,8 +162,8 @@ def test_writes_step_stl_and_report_per_tool(run, tmp_path):
 
 
 @pytest.mark.parametrize("key, blank", [
-    ("gantry.tools.tool_plate.dims[2]",
-     lambda raw: raw["gantry"]["tools"]["tool_plate"]["dims"].__setitem__(2, None)),
+    ("gantries.gantry_1.tools.tool_plate.dims[2]",
+     lambda raw: raw["gantries"]["gantry_1"]["tools"]["tool_plate"]["dims"].__setitem__(2, None)),
     ("parts.mid_plate.envelope[0]",
      lambda raw: raw["parts"]["mid_plate"]["envelope"].__setitem__(0, None)),
     ("parts.mid_plate.mass",
@@ -174,12 +180,12 @@ def test_null_spec_value_fails_and_names_the_key(run, tmp_path, pass_raw, key, b
 
 def test_dev_run_is_quarantined_in_its_own_folder(tmp_path, pass_raw):
     raw = copy.deepcopy(pass_raw)
-    raw["gantry"]["tools"]["tool_plate"]["dims"] = [0.12, 0.12, None]
-    (tmp_path / "line_spec.dev.yaml").write_text(
-        yaml.safe_dump({"gantry": {"tools": {"tool_plate": {"dims": [None, None, 0.02]}}}}))
+    raw["gantries"]["gantry_1"]["tools"]["tool_plate"]["dims"] = [0.12, 0.12, None]
+    (tmp_path / "line_spec.dev.yaml").write_text(yaml.safe_dump(
+        {"gantries": {"gantry_1": {"tools": {"tool_plate": {"dims": [None, None, 0.02]}}}}}))
     code, doc = run_raw(tmp_path, raw, "--dev")
     assert code == 0, doc["errors"]
     assert (tmp_path / "out" / "dev" / "tool_plate.step").is_file()
     assert not (tmp_path / "out" / "tool_plate.step").exists()
-    assert doc["dev"] is True and doc["placeholders"] == ["gantry.tools.tool_plate.dims[2]"]
+    assert doc["dev"] is True and doc["placeholders"] == ["gantries.gantry_1.tools.tool_plate.dims[2]"]
     assert not (tmp_path / "cad_tools.json").exists()

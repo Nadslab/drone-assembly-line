@@ -29,13 +29,17 @@ fasteners: {}
 feeders: {}
 sources: {}
 buffers: {}
-gantry:
-  axes:
-    x: {min: 0.0, max: 3.0, v_max: 1.0, a_max: 2.0}
-    y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
-    z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
-  tools: {}
-  mount: [0, 0, 0]
+gantries:
+  gantry_1:
+    zone: []
+    axes:
+      x: {min: 0.0, max: 3.0, v_max: 1.0, a_max: 2.0}
+      y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
+      z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
+    tools: {}
+    mount: [0, 0, 0]
+gantry_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, safe_z: 0.3, damping: 5.0,
+                  friction: 0.5}
 gang_heads: {}
 scaras: {}
 conveyor: {pitch: null, index_s: null}

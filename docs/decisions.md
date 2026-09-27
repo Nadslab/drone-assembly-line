@@ -167,3 +167,160 @@ pose plus `k x cell_pitch`) to 1 mm, writing `reports/world.json`. It reads ever
 budget, and past a handful in parallel the service starts refusing. The whole check runs in
 ~13 s. It defaults to `--dev` because the base spec's poses are still null; `--real` runs it
 against `line_spec.yaml` alone.
+
+## D-006 — P5.3: the robot descriptions, and what a limit is allowed to come from
+
+**Date:** 2026-09-20
+
+**Context:** the gantry and the gang heads become xacro descriptions driven by
+`xacro.load_yaml(line_spec.yaml)` (plan P5.3), with `tools/gen_controllers.py` writing
+`config/controllers.yaml` beside them. The P1 spike proved one axis moves; this is the shape the
+rest of the machines take.
+
+**Decision — one robot, not three.** `gz_ros2_control` starts a controller manager per model, and
+one controller manager reads one parameter file. P5.3 asks for the gantry controller and one per
+head in a single `controllers.yaml`, so they share a manager: `urdf/line.urdf.xacro` is the
+description, `urdf/gantry.urdf.xacro` and `urdf/gang_head.urdf.xacro` are macro libraries it
+instantiates. The machines are welded to the world and never touch each other, so nothing is lost
+by describing them together, and P5.4 spawns one model with one `robot_description`.
+
+**Decision — every *limit* comes from the spec; the *structure* is an envelope typed in the
+xacro.** `lower`/`upper`/`velocity` are `gantry.axes.<axis>.{min,max,v_max}` and
+`gang_heads.<id>.{stroke,v_max}`, and the check fails on any difference. Masses and the boxes a
+machine is drawn as are local constants collected at the top of each file — the same rule
+`gen_world.py` follows for the world's static geometry (D-005), for the same reason: they say how
+heavy and how big, which is what an inertia and a picture need, and no deliverable number comes
+from them.
+
+**Decision — effort is derived, never typed.** A URDF joint needs one and the spec has no force
+field, so each axis gets the force to accelerate what it actually carries: moved mass x `a_max`,
+plus that axis's friction, plus gravity on the vertical axis. This is the one place `a_max` is
+consumed in the description; `joint_trajectory_controller` has no acceleration parameter in Jazzy,
+so `a_max` is reported in `reports/gen_controllers.json` (as `joint_limits`) for the sequencer to
+time a move with, and is not written to the yaml.
+
+**Decision — the gantry has no collision geometry.** In position mode `GazeboSimSystem` drives the
+joint from position error (D-002's caveat), so a colliding structure fights the drive instead of
+stopping it. Picking is a `DetachableJoint` at the TCP (P7), not a contact.
+
+**Decision — a joint value *is* a coordinate.** The gantry's axis frames carry no offsets, so
+`Gantry_tcp` sits at `gantry.mount + (x, y, z)` — the same arithmetic `check_line.py`'s reach check
+does (`pose - mount`). A spindle frame's `+z` points along the drive direction, down, up or
+inward, so a P7 action advances any spindle the same way.
+
+**Decision — `opposed: true` is two rams.** A URDF joint moves one child link, and two banks
+closing on a workpiece from both sides are two links: `<id>_stroke_1` and `<id>_stroke_2`, same
+limits, one controller over both. An `opposed` head that is not `horizontal` is a spec error.
+
+**Consequence — three new spec fields.** `gang_heads.<id>.v_max` and `.a_max` (a ram's joint
+cannot be written without them), and `damping`/`friction`/`position_gain` for the C axis in the dev
+overlay, the rotary counterparts of D-002's values. Damping and friction stay optional: a
+`<dynamics>` tag is written only for an axis the spec gives them for.
+
+**Consequence — `tools/spec.py --dump`.** `xacro.load_yaml` takes one path and knows nothing about
+the dev overlay, so a dev expansion needs the merged spec as a file. It is written to
+`reports/line_spec.dev.yaml`, generated and never installed.
+
+**Consequence — `tools/checks/descriptions.sh`** regenerates `controllers.yaml` and the merged
+spec, expands every top-level xacro in `urdf/` (a `<robot>` with a `name`; the macro libraries are
+recognised by not having one), runs `check_urdf` on each, and compares the result with the spec:
+joint type and limits, one spindle frame per spindle at the pattern's own positions, and the mount
+poses. It ends by comparing the URDF's movable joints with the joints `controllers.yaml`
+configures — the only thing tying the xacro's naming to the generator's, since the two derive the
+same names in different languages. Writes `reports/descriptions.json`; `--dev` by default because
+the base spec's limits are still null, `--real` for the base spec alone. No Gazebo, no controller
+manager: this is the description alone, and it runs in about 3 s.
+
+## D-007 — P5.4: launching the line, and what a position-driven vertical axis needs
+
+**Date:** 2026-09-20
+
+**Context:** `launch/line.launch.py` starts the generated world and the one `line` robot
+(D-006), and `tools/checks/line_smoke.sh` proves it: every controller active <= 30 s from launch
+(measured ~6-8 s), then the gantry visits the first three stations the sequence places at with a
+gantry tool, each with TCP error < 1 mm.
+
+**Decision — the TCP error is measured against Gazebo, not against `/joint_states`.** The pose of
+the `Gantry_c` link (where `Gantry_tcp` sits, no offset) comes from `/world/<w>/pose/info` and is
+compared with the station's spec pose. A joint that reports its target while the link is
+elsewhere would pass a joint-state check. Negative test: launching with the gantry mount shifted
+5 mm makes all three stations FAIL at exactly 5.000 mm; the passing run reads <= 0.001 mm.
+
+**Decision — links that hang on a vertical driven axis are gravity-free in Gazebo.**
+`GazeboSimSystem` in position mode commands a joint *velocity* from position error (D-002's
+caveat, which said to re-verify on a loaded axis). Measured on the loaded gantry: with gravity on
+the Z axis never left its lower limit, and raising its derived effort 3x changed nothing; with
+world gravity zeroed it reached its target. The vertical gang head's ram also sagged ~10 um at
+rest. So the Z and C links and every ram carry `<gravity>false</gravity>`
+(`urdf/inertia.urdf.xacro: no_gravity`) — what a real Z drive's brake or counterbalance does. The
+derived efforts still include the gravity term; they are conservative, not load-bearing.
+
+**Consequence — moves are planned at half of `v_max`/`a_max`.** The X axis (~50 kg moved,
+effort = mass x `a_max`) fell 5 cm behind a cubic move that asked for 87% of `a_max` and aborted
+on the 5 cm path tolerance. The cubic between rest points peaks at `1.5 d/t` and `6 d/t^2`, so
+`line_measure.py` picks `t` to keep both under `--speed-fraction` (0.5) of the spec limits. The P8
+sequencer has the same constraint: **`a_max` is a ceiling, not a planning value.**
+
+**Consequence — the launch reads the installed package.** The dev spec merged with its overlay
+(`config/line_spec.merged.dev.yaml`, from `spec.py --dev --dump`, gitignored) and
+`controllers.dev.yaml` are generated into `config/`, so `line_smoke.sh` regenerates everything
+and rebuilds `drone_line_sim` before it launches. A dev run writes `reports/line_smoke.dev.json`
+and `--real` writes `reports/line_smoke.json` (CLAUDE.md P0); `dev:=true` is the launch default
+until the base spec has real values, and the launch says so on the console.
+
+**Consequence — the "GPU env" from `drone-assembly-line` is three variables.** Its launch sets
+`GZ_SIM_RESOURCE_PATH` (models), `GZ_SIM_SYSTEM_PLUGIN_PATH` and `LD_LIBRARY_PATH` (both
+`/opt/ros/jazzy/lib`, where `gz_ros2_control-system` lives) and nothing GPU- or Mesa-specific; a
+headless `-s` server renders nothing. This launch sets the same three.
+
+## D-008 — Zoned multi-gantry
+
+**Date:** 2026-09-27
+
+**Context:** one gantry cannot make 8+ picks inside a 20.2 s takt. The line's gantry steps —
+load pallet, place spider, place mid plate, 4 standoffs, place pod, fit top plate (qty 5) — are
+13 pick-and-places per drone, at ~3–4.4 s each on the dev overlay's 1 m/s, 3 m/s² axes
+(`tools/estimate_moves.py`): 46 s summed over the three zones, before the travel one machine would
+add between them — more than twice the takt.
+
+**Decision:** one gantry per zone, no overlapping zones. `gantry:` becomes `gantries:`, a map keyed
+`gantry_<n>`; each entry keeps `axes`, `tools` and `mount` and adds `zone: [station ids]`. A
+top-level `gantry_defaults: {grip_s, release_s, settle_s, safe_z, damping, friction}` holds the
+pick-and-place timings and the P1 dynamics (D-002: 5.0 N·s/m, 0.5 N, real values in the base spec).
+
+| Rule | Where | Why there |
+|---|---|---|
+| every zone station exists; no station in two zones; ids are `gantry_<n>` | `spec.py` (pydantic) | structural: the spec is wrong, not unfinished |
+| a step with a `tool`, or a `part` drawn `from` somewhere, stands at a station in a zone | `spec.py` (pydantic) | skipped while any zone is null — that station may be in the unknown zone |
+| one tool id is one design on every gantry that carries it | `spec.py` (pydantic) | the CAD generators build each tool id once |
+| a step's `tool` is on the gantry whose zone holds its station | `check_line.py` `schema` | a reference, like every other one there |
+| the station and the `from` feeder/buffer of each gantry step are inside **that** gantry's limits | `check_line.py` `reach` | needs WARN on a null, which a validator cannot give; replaces the single-gantry reach |
+| each gantry's moves per drone fit the takt | `check_line.py` `gantry_load` → `estimate_moves.py` | FAIL above takt, UNRESOLVED on a null input |
+
+**Decision — the move model** (`tools/estimate_moves.py`, no ROS): XY to the pick at `safe_z`,
+Z down, grip, Z up, XY to the place, Z down, release, Z up, plus `settle_s` after each Z move.
+Each axis is trapezoidal (`d/v + v/a` if `d >= v²/a`, else `2√(d/a)`); XY is the slower of X and
+Y. A gantry works its steps as a tour, once per drone: each cycle starts where the last one
+placed, so the first cycle of a `qty: n` step includes the move over from the previous station
+and cycles 2..n start at its own. This is the static bound; D-007's "plan at half of
+`v_max`/`a_max`" applies to what the sequencer commands, and would roughly double these times.
+
+**Decision — dynamics fall back per axis kind.** An x/y/z axis without its own
+`damping`/`friction` takes `gantry_defaults`; C only ever takes its own, because the defaults are
+linear units. `position_gain` stays per axis.
+
+**Consequence — descriptions.** Still one robot (D-006): `urdf/gantry.urdf.xacro`'s macro is
+instantiated once per `gantries` entry as `Gantry_<n>` with joints `gantry_<n>_<axis>` and TCP link
+`Gantry_<n>_Tcp`; `gen_controllers.py` writes one `gantry_<n>_controller` per gantry;
+`gen_world.py` one `Rail_Gantry_<n>` each. The CAD generators read a tool at
+`gantries.<id>.tools.<tool>` and a carrier's z stroke from the gantry whose zone places it.
+
+**Consequence — dev overlay.** Zones: gantry_1 = load pallet, place spider, place mid plate;
+gantry_2 = install standoffs, place pod; gantry_3 = fit top plate. Each gantry's x/y limits cover
+only its zone's stations, feeders and buffers plus 0.1 m, with the mount at the zone's lowest x
+minus 0.1. The existing feeder/buffer poses already sat beside their stations, so all were inside
+their zone gantry's reach and none moved. `safe_z` is 0.15 m; `fd_standoff` stands at exactly
+0.15, so the gantry picks standoffs without a Z move.
+
+**Not verified:** `tools/checks/line_smoke.sh` (Gazebo) was not run for this change;
+`line_measure.py` now drives the zone gantry per station but has only been compiled.

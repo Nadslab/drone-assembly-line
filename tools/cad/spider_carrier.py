@@ -36,7 +36,7 @@ Built solids, bottom to top:
     (main line step 3) and the carrier lifted off afterwards.
 
 Gripper clearance comes from the spec too: the pick boss is sized against
-`gantry.tools.<tool>.dims` of whichever tool the sequence uses to place `carrier_spider`, and the
+`gantries.<id>.tools.<tool>.dims` of whichever tool the sequence uses to place `carrier_spider`, and the
 volume the jaws sweep around the boss is checked empty against the rest of the carrier
 (tools/cad/gripper.py).
 
@@ -67,7 +67,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
 
 import gripper  # noqa: E402
 from common import (Values, bbox_doc, export_solids, fouling, lookup, masses,  # noqa: E402
-                    new_report, pick_xy, pick_z_note, placing_tool, write_report, xyz, z_travel)
+                    new_report, pick_xy, pick_z_note, placing_gantry, placing_tool, tool_path, write_report, xyz, z_travel)
 from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
                   parse_spec, report_path)
 
@@ -177,6 +177,7 @@ class Layout:
     tool: str
     grip: gripper.GripDims
     travel_z: float
+    gantry: str = ""          # the gantry that places it: travel_z is its z stroke
 
     @property
     def size(self) -> tuple[float, float]:
@@ -240,8 +241,10 @@ def layout(v: Values) -> Layout | None:
     esc_floor = v.mm(f"{e}.z_in_stack")
 
     tool = placing_tool(v, PART)
-    jaw = tuple(v.mm(f"gantry.tools.{tool}.dims[{i}]") for i in range(3)) if tool else (0, 0, 0)
-    travel = z_travel(v)
+    jaw = (tuple(v.mm(f"{tool_path(v.raw, tool)}.dims[{i}]") for i in range(3)) if tool
+           else (0, 0, 0))
+    gid = placing_gantry(v, PART)
+    travel = z_travel(v, gid)
 
     grip_at = pick_xy(v, PART, default=centre)
 
@@ -256,7 +259,7 @@ def layout(v: Values) -> Layout | None:
         pick_xy=grip_at, tool=tool,
         grip=gripper.GripDims(boss_d=BOSS_D, boss_h=BOSS_H, jaw_x=jaw[0], jaw_y=jaw[1],
                               reach=jaw[2], clearance=GRIP_CLEAR),
-        travel_z=travel)
+        travel_z=travel, gantry=gid)
 
 
 # ---------------------------------------------------------------- geometry
@@ -490,7 +493,7 @@ def main(argv: list[str] | None = None) -> int:
                     "sweep around the pick boss")
     height = doc["bbox_mm"]["size"][2]
     if height > lo.travel_z:
-        return fail(f"the carrier is {height:.1f} mm tall but gantry.axes.z travels only "
+        return fail(f"the carrier is {height:.1f} mm tall but gantries.{lo.gantry}.axes.z travels only "
                     f"{lo.travel_z:.1f} mm: the gantry cannot lift it clear")
     if doc["errors"]:
         print(f"{STEM}: FAIL — {doc['errors'][-1]}", file=sys.stderr)
