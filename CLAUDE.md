@@ -106,6 +106,12 @@ Rules:
   real value lands in the base spec.
 - **The layout STEP is generated.** `60_layout/line_layout.step` (and its SVG) come from
   `tools/cad/layout.py`; edits happen in the spec, never in SolidWorks. A change made in the
-  SolidWorks file is lost on the next run and never reaches the checks.
+  SolidWorks file is lost on the next run and never reaches the checks. `layout.py` also writes
+  `line_layout_physical.step` next to it — the same assembly without the `Reference` group
+  (travel envelopes, guard walls, the operator aisle, the floor); `--no-reference` drops
+  `Reference` from `line_layout.step` too. Every check (interference, straddle, opacity) and
+  `reports/layout.json` stay in the spec/line frame (Z up). Only the exported STEP is rotated:
+  SolidWorks is Y-up, so the assembly is rotated -90° about X right before writing, mapping spec
+  `(x, y, z)` to STEP `(x, z, -y)` so SolidWorks' Top view shows the plan view.
 - **Headless only.** No GUI launches during verification.
 - **No STL over 5 MB is ever committed.**

@@ -1,6 +1,6 @@
 """Layout-level CAD assembly of the main line, from line_spec.yaml, for review in SolidWorks.
 
-    tools/.venv/bin/python tools/cad/layout.py [--dev] [--spec PATH] [--out FILE.step]
+    tools/.venv/bin/python tools/cad/layout.py [--dev] [--no-reference] [--spec PATH] [--out FILE.step]
 
 Simple solids in the line frame (origin = pallet datum at st_load_pallet, Z up; the floor is at
 z = -line.work_height), exported in millimetres:
@@ -9,25 +9,34 @@ z = -line.work_height), exported in millimetres:
              Pallet_Slot_<n>_<k> (queued-pallet outlines between station n and the next)
   Stations   Station_<Name> (stop_unit_length x conveyor width, floor to belt top), and for a
              station with count > 1 one Station_<Name>_Cell<k> per cell on the test branch
-  Gantries   Gantry_<n> > 4 posts, 2 beams along x, and Gantry_<n>_Envelope = the full axis travel
+  Gantries   Gantry_<n> > 4 posts and 2 beams along x — the physical frame only
   Feeders    Feeder_<Name> at its pose, sized by layout.feeder_footprints (a feeder with no pose —
              a blow feeder riding its gang head — has nothing to place)
   Buffers    Buffer_<Name>, the same
-  Safety     Floor (bbox of everything + 1 m), OperatorAisle (outside the outermost guard on its
-             side), Guard_Gantry_<n> (a wall guard_offset outside each envelope, with a tunnel
-             where the conveyor passes)
+  Reference  non-physical solids: Floor (bbox of everything + 1 m), OperatorAisle (outside the
+             outermost guard on its side), Guard_Gantry_<n> (a wall guard_offset outside each
+             envelope, with a tunnel where the conveyor passes), Gantry_<n>_Envelope (the full
+             axis travel)
 
-Every dimension carries the spec keys it came from; a solid that used any placeholder is orange
-and its name ends in `_PH`. The numbers typed below are envelopes (floor slab, guard wall,
-outline rim), listed in the report as constants — no spec value comes from them.
+Every dimension carries the spec keys it came from; a solid that used any placeholder is coloured
+by its category exactly as a real one and its name ends in `_PH` — placeholder status never
+changes colour. The numbers typed below are envelopes (floor slab, guard wall, outline rim),
+listed in the report as constants — no spec value comes from them.
 
 Interference: every pair of solids is intersected (bbox first, then the boolean). Only the pairs in
 ALLOWED_OVERLAPS may share volume; anything else above VOLUME_TOL_MM3 is a FAIL naming both solids.
 
-Outputs: one STEP assembly (Line > Conveyor, Stations, Gantries, Feeders, Buffers, Safety), a
-top-view SVG next to it, and reports/layout.json with every solid's bbox and dimension provenance.
-The STEP is re-imported and its names and hierarchy compared with what was built; if the
-hierarchy does not survive, one STEP per group and a manifest.txt are written instead.
+Axes: all of the above — layout.json, bbox_mm, the interference/straddle checks — stay in the spec
+(line) frame, Z up. Only the exported STEP is rotated: SolidWorks is Y-up, so the whole assembly is
+rotated EXPORT_ROT_X_DEG (-90 deg about X) right before writing, mapping spec (x, y, z) to STEP
+(x, z, -y) so SolidWorks' Top view is the plan view.
+
+Outputs: two STEP assemblies next to each other — line_layout.step (Line > Conveyor, Stations,
+Gantries, Feeders, Buffers, Reference; `--no-reference` drops Reference from this one too) and
+line_layout_physical.step (always written, always without Reference) — a top-view SVG, and
+reports/layout.json with every solid's bbox and dimension provenance. Each STEP is re-imported and
+its names and hierarchy compared with what was built; if line_layout.step's hierarchy does not
+survive, one STEP per group and a manifest.txt are written instead.
 `--dev` writes to <out dir>/dev/ and reports/layout.dev.json. The STEP is generated: edit the
 spec, never the SolidWorks file.
 """
@@ -35,7 +44,9 @@ spec, never the SolidWorks file.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,8 +61,16 @@ from spec import (DEFAULT_SPEC, SpecError, add_dev_argument, gantry_ids,  # noqa
                   load_merged, parse_spec, report_path)
 
 DEFAULT_OUT = Path("/mnt/c/Users/Admin/Documents/drone-line-cad/60_layout/line_layout.step")
+PHYSICAL_NAME = "line_layout_physical.step"   # the same assembly, Reference group dropped
 SVG_NAME = "line_layout_top.svg"
-GROUPS = ("Conveyor", "Stations", "Gantries", "Feeders", "Buffers", "Safety")
+GROUPS = ("Conveyor", "Stations", "Gantries", "Feeders", "Buffers", "Reference")
+PHYSICAL_GROUPS = GROUPS[:-1]                 # every group except Reference
+
+# Export-only axis fix: SolidWorks is Y-up, the spec/line frame is Z-up. Rotating -90 deg about X
+# sends spec (x, y, z) -> STEP (x, z, -y), so SolidWorks' Top view shows the plan view. Applied to
+# a rotated copy of the assembly right before write_step() (rotate_tree()); layout.json, bbox_mm
+# and every check (interference, straddle, opacity) stay in the spec/line frame.
+EXPORT_ROT_X_DEG = -90.0
 
 # ---- envelopes, metres. Drawing choices, not spec values; each is named in the report. ----
 FLOOR_T = 0.02           # floor slab thickness
@@ -73,13 +92,31 @@ ALLOWED_OVERLAPS = (
     ("floor", "*"),
 )
 
-COLOURS = {                      # by category, RGB 0-1
-    "floor": (0.80, 0.80, 0.80), "aisle": (0.55, 0.80, 0.45), "guard": (0.85, 0.15, 0.15),
-    "conveyor": (0.30, 0.30, 0.32), "pallet": (0.20, 0.45, 0.85), "station": (0.25, 0.65, 0.35),
-    "gantry": (0.35, 0.50, 0.65), "envelope": (0.95, 0.90, 0.40), "feeder": (0.60, 0.35, 0.75),
-    "buffer": (0.20, 0.70, 0.75),
+# Every solid is always coloured by category, placeholder or not: placeholder status shows only
+# in the `_PH` name suffix and in layout.json, never as a colour override.
+CATEGORY_COLOUR = {
+    "floor": "reference", "aisle": "reference", "guard": "reference", "envelope": "reference",
+    "conveyor": "conveyor", "pallet": "pallet", "station": "station", "gantry": "gantry",
+    "feeder": "feeder", "buffer": "buffer",
 }
-PLACEHOLDER_COLOUR = (1.0, 0.55, 0.0)
+COLOURS = {                      # by colour bucket, RGB 0-1
+    "reference": (0.80, 0.80, 0.82), "conveyor": (0.45, 0.45, 0.47), "pallet": (0.20, 0.45, 0.85),
+    "station": (0.25, 0.65, 0.35), "gantry": (0.25, 0.25, 0.27), "feeder": (0.95, 0.80, 0.20),
+    "buffer": (0.55, 0.25, 0.70),
+}
+PLACEHOLDER_COLOUR = (1.0, 0.55, 0.0)  # SVG placeholder outline only — never a STEP fill colour
+
+
+def colour_of(category: str) -> tuple:
+    return COLOURS[CATEGORY_COLOUR[category]]
+
+# Every solid is fully opaque, envelopes and placeholders included. OCCT writes an opacity entity
+# only for alpha < 1, so at alpha 1.0 the file says nothing about opacity and a viewer is left to
+# guess. write_step() has OCCT write the entity (PROBE_ALPHA) and then sets it to transparency 0.
+OPAQUE = 1.0
+PROBE_ALPHA = 0.99
+ALPHA_TOL = 1e-6
+TRANSPARENT_ENTITY = re.compile(r"SURFACE_STYLE_TRANSPARENT\(([^)]*)\)")
 
 
 # ---------------------------------------------------------------- dimensions with provenance
@@ -191,7 +228,7 @@ def build_shape(it: Item):
     for c, s in it.cuts:
         solid -= box_mm(c, s)
     solid.label = it.label
-    solid.color = Color(*(PLACEHOLDER_COLOUR if it.placeholder else COLOURS[it.category]))
+    solid.color = Color(*colour_of(it.category), OPAQUE)
     return solid
 
 
@@ -272,8 +309,8 @@ def plan(v: Values) -> list[Item] | None:
                 q(f"{g}.mount[{i}]") + q(f"{g}.axes.{a}.max")) for i, a in enumerate("xyz")]
         envelopes[gid] = env
         ec = [span(*e) for e in env]
-        items.append(Item(f"{sub}_Envelope", "envelope", "Gantries",
-                          tuple(c for c, _ in ec), tuple(s for _, s in ec), subgroup=sub))
+        items.append(Item(f"{sub}_Envelope", "envelope", "Reference",
+                          tuple(c for c, _ in ec), tuple(s for _, s in ec)))
         pz = span(floor_z, env[2][1])
         corners = [(env[0][0] - post / 2.0, env[1][0] - post / 2.0),
                    (env[0][1] + post / 2.0, env[1][0] - post / 2.0),
@@ -314,7 +351,7 @@ def plan(v: Values) -> list[Item] | None:
                                                                    inner[1][1] + wall)
         tz = span(floor_z, tunnel_top)
         tunnel = ((gx[0], cy, tz[0]), (gx[1] + wall * 4.0, sy, tz[1]))
-        it = Item(f"Guard_Gantry_{gid.removeprefix('gantry_')}", "guard", "Safety",
+        it = Item(f"Guard_Gantry_{gid.removeprefix('gantry_')}", "guard", "Reference",
                   (gx[0], gy[0], gz[0]), (gx[1], gy[1], gz[1]),
                   hollow=(inner[0][1] - inner[0][0], inner[1][1] - inner[1][0]), cuts=[tunnel])
         guards.append(it)
@@ -333,7 +370,7 @@ def plan(v: Values) -> list[Item] | None:
         edge = dmin(*(g.lo(1) for g in guards)) if guards else y0
         ay = span(edge - width, edge)
     az = span(floor_z, floor_z + const("AISLE_T"))
-    aisle = Item("OperatorAisle", "aisle", "Safety", (lx[0], ay[0], az[0]), (lx[1], ay[1], az[1]))
+    aisle = Item("OperatorAisle", "aisle", "Reference", (lx[0], ay[0], az[0]), (lx[1], ay[1], az[1]))
     # `side` is not a length, but it decides where y is: carry its provenance on centre y.
     aisle_side = Dim(0.0, frozenset({f"{L}.operator_aisle.side"}),
                      v.is_placeholder(f"{L}.operator_aisle.side"))
@@ -345,7 +382,7 @@ def plan(v: Values) -> list[Item] | None:
     fx = span(dmin(*(it.lo(0) for it in items)) - margin, dmax(*(it.hi(0) for it in items)) + margin)
     fy = span(dmin(*(it.lo(1) for it in items)) - margin, dmax(*(it.hi(1) for it in items)) + margin)
     fz = span(floor_z - const("FLOOR_T"), floor_z)
-    items.insert(0, Item("Floor", "floor", "Safety", (fx[0], fy[0], fz[0]), (fx[1], fy[1], fz[1])))
+    items.insert(0, Item("Floor", "floor", "Reference", (fx[0], fy[0], fz[0]), (fx[1], fy[1], fz[1])))
     return items
 
 
@@ -386,21 +423,43 @@ def interference(items: list[Item]) -> dict:
 
 # ---------------------------------------------------------------- assembly, export, verify
 
-def assemble(items: list[Item]) -> Compound:
-    groups = []
-    for gname in GROUPS:
+def assemble(items: list[Item], groups: tuple[str, ...] = GROUPS,
+            copy_shapes: bool = False) -> Compound:
+    """The group/subgroup tree, in `groups` order. A group not listed is left out entirely — used
+    to build the physical-only assembly, which has no Reference group at all.
+
+    `copy_shapes`: building a Compound reparents each child shape to it, silently dropping it out
+    of any Compound it was already a child of — so a second assemble() call over the same `items`
+    (physical, after the full one) must work from independent deep copies, never the same
+    `it.shape` objects, or the first tree's groups come back empty.
+    """
+    out = []
+    for gname in groups:
         children, subs = [], {}
         for it in items:
             if it.group != gname:
                 continue
+            shape = copy.deepcopy(it.shape) if copy_shapes else it.shape
             if it.subgroup:
-                subs.setdefault(it.subgroup, []).append(it.shape)
+                subs.setdefault(it.subgroup, []).append(shape)
             else:
-                children.append(it.shape)
+                children.append(shape)
         for sname, shapes in subs.items():
             children.append(Compound(children=shapes, label=sname))
-        groups.append(Compound(children=children, label=gname))
-    return Compound(children=groups, label="Line")
+        out.append(Compound(children=children, label=gname))
+    return Compound(children=out, label="Line")
+
+
+def rotate_tree(node: Compound) -> Compound:
+    """A copy of `node` rotated EXPORT_ROT_X_DEG about X, for STEP export only. Leaves keep their
+    label and colour; the items' own `.shape`s (used for interference, the SVG, layout.json) are
+    never touched."""
+    kids = list(getattr(node, "children", ()) or ())
+    if not kids:
+        rotated = Rot(X=EXPORT_ROT_X_DEG) * node
+        rotated.label = node.label
+        return rotated
+    return Compound(children=[rotate_tree(k) for k in kids], label=node.label)
 
 
 def tree(node, path=()) -> dict[str, tuple[str, ...]]:
@@ -419,6 +478,57 @@ def count_leaves(node) -> int:
     return 1 if not kids else sum(count_leaves(k) for k in kids)
 
 
+def leaves(node) -> list:
+    kids = list(getattr(node, "children", ()) or ())
+    return [node] if not kids else [leaf for k in kids for leaf in leaves(k)]
+
+
+def write_step(assembly: Compound, path: Path) -> None:
+    """export_step, with every solid's opacity written out as fully opaque.
+
+    Each solid is exported at PROBE_ALPHA so OCCT emits SURFACE_STYLE_RENDERING_WITH_PROPERTIES +
+    SURFACE_STYLE_TRANSPARENT (it writes neither at alpha 1.0), then every transparency value in
+    the file is set to 0 — opaque — and the solids are put back at OPAQUE.
+    """
+    solids = leaves(assembly)
+    keep = [s.color for s in solids]
+    try:
+        for s in solids:
+            s.color = Color(*tuple(s.color)[:3], PROBE_ALPHA)
+        export_step(assembly, str(path))
+    finally:
+        for s, c in zip(solids, keep):
+            s.color = c
+    text = path.read_text()
+    text, n = TRANSPARENT_ENTITY.subn("SURFACE_STYLE_TRANSPARENT(0.)", text)
+    if n < len(solids):
+        raise OSError(f"expected a transparency entity per solid, wrote {n} for "
+                      f"{len(solids)} solids")
+    path.write_text(text)
+
+
+def opacity(step: Path, back: Compound) -> dict:
+    """Is every solid opaque? Two views of the same file, and `opaque` needs both.
+
+    * the file itself: a SURFACE_STYLE_TRANSPARENT for every solid, every one 0. This is the
+      authoritative check — it is what a viewer reads.
+    * the re-import: alpha of every solid. build123d's import_step does NOT read transparency
+      back (a solid written at 0.5 comes back at 1.0), so this alone cannot tell an opaque file
+      from a translucent one; it only catches a colour lost on the way.
+    """
+    solids = leaves(back)
+    alphas = {s.label: tuple(s.color)[3] if s.color else None for s in solids}
+    values = [float(v) for v in TRANSPARENT_ENTITY.findall(step.read_text())]
+    not_opaque = sorted(n for n, a in alphas.items() if a is None or abs(a - OPAQUE) > ALPHA_TOL)
+    nonzero = sum(v != 0.0 for v in values)
+    states = len(values) >= len(solids)
+    return {"opaque": not not_opaque and states and not nonzero,
+            "all_alpha_1": not not_opaque, "not_opaque": not_opaque,
+            "min_alpha": min((a for a in alphas.values() if a is not None), default=None),
+            "file_states_opacity": states, "transparent_entities": len(values),
+            "transparent_entities_nonzero": nonzero}
+
+
 def verify(step: Path, built: Compound) -> dict:
     back = import_step(str(step))
     want, got = tree(built), tree(back)
@@ -426,7 +536,8 @@ def verify(step: Path, built: Compound) -> dict:
             "reimported_solids": count_leaves(back),
             "names_match": sorted(want) == sorted(got),
             "hierarchy_preserved": want == got,
-            "missing": sorted(set(want) - set(got)), "unexpected": sorted(set(got) - set(want))}
+            "missing": sorted(set(want) - set(got)), "unexpected": sorted(set(got) - set(want)),
+            "opacity": opacity(step, back)}
 
 
 def write_svg(items: list[Item], path: Path) -> None:
@@ -449,7 +560,7 @@ def write_svg(items: list[Item], path: Path) -> None:
         for it, b in boxes:
             if it.category != cat:
                 continue
-            fill = hexrgb(COLOURS[cat])
+            fill = hexrgb(colour_of(cat))
             edge = hexrgb(PLACEHOLDER_COLOUR) if it.placeholder else "#222"
             hollow = it.hollow is not None or cat == "envelope"
             if hollow:
@@ -469,7 +580,7 @@ def write_svg(items: list[Item], path: Path) -> None:
     legend_y = -y0 + font * 2
     lx = x0 + font
     for cat in order + ["placeholder (outline, _PH)"]:
-        fill = hexrgb(COLOURS.get(cat, PLACEHOLDER_COLOUR))
+        fill = hexrgb(colour_of(cat)) if cat in CATEGORY_COLOUR else hexrgb(PLACEHOLDER_COLOUR)
         rows.append(f'<rect x="{lx:.1f}" y="{legend_y:.1f}" width="{font:.1f}" '
                     f'height="{font:.1f}" fill="{fill}"/><text x="{lx + font * 1.3:.1f}" '
                     f'y="{legend_y + font * 0.9:.1f}" font-size="{font:.1f}" '
@@ -517,6 +628,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help=f"default {DEFAULT_OUT}")
     ap.add_argument("--report", type=Path, default=None,
                     help="default reports/layout.json (layout.dev.json with --dev)")
+    ap.add_argument("--no-reference", action="store_true",
+                    help=f"the primary STEP ({DEFAULT_OUT.name}) drops the Reference group too; "
+                         f"{PHYSICAL_NAME} (always written) is unaffected")
     add_dev_argument(ap)
     args = ap.parse_args(argv)
 
@@ -525,8 +639,12 @@ def main(argv: list[str] | None = None) -> int:
     report = args.report or report_path("layout", args.dev)
     doc: dict = {"passed": False, "dev": args.dev, "generator": "tools/cad/layout.py",
                  "units": "mm", "frame": "line frame: origin = pallet datum at st_load_pallet, "
-                 "Z up; floor at z = -line.work_height",
+                 "Z up; floor at z = -line.work_height. Exported STEP only: rotated "
+                 f"{EXPORT_ROT_X_DEG:g} deg about X so spec (x, y, z) -> STEP (x, z, -y) — "
+                 "SolidWorks is Y-up, so its Top view is the plan view. layout.json, bbox_mm and "
+                 "every check stay in the spec/line frame.",
                  "outputs": {}, "counts": {}, "interference": {}, "verify": {},
+                 "verify_physical": {},
                  "constants_m": {k: globals()[k] for k in (
                      "FLOOR_T", "FLOOR_MARGIN", "AISLE_T", "GUARD_T", "GUARD_H", "TUNNEL_CLEAR",
                      "OUTLINE_RIM", "OUTLINE_H")},
@@ -562,7 +680,9 @@ def main(argv: list[str] | None = None) -> int:
 
     for it in items:
         it.shape = build_shape(it)
-    line = assemble(items)
+    line = assemble(items, GROUPS)                                   # full, incl. Reference
+    physical = assemble(items, PHYSICAL_GROUPS, copy_shapes=True)    # no Reference group at all
+    primary = physical if args.no_reference else line
     doc["solids"] = [solid_doc(it) for it in items]
     doc["counts"] = {"solids": len(items),
                      "placeholder_solids": sum(it.placeholder for it in items),
@@ -573,21 +693,24 @@ def main(argv: list[str] | None = None) -> int:
     for f in doc["interference"]["failures"]:
         doc["errors"].append(f"interference: {f['a']} ∩ {f['b']} = {f['volume_mm3']} mm3")
 
+    physical_step = out_dir / PHYSICAL_NAME
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
-        export_step(line, str(step))
+        write_step(rotate_tree(primary), step)
+        write_step(rotate_tree(physical), physical_step)
         write_svg(items, out_dir / SVG_NAME)
     except OSError as exc:
         doc["errors"].append(f"cannot write {out_dir}: {exc}")
         return finish(1)
-    doc["outputs"] = {"step": str(step), "svg": str(out_dir / SVG_NAME)}
+    doc["outputs"] = {"step": str(step), "step_physical": str(physical_step),
+                      "svg": str(out_dir / SVG_NAME)}
 
-    doc["verify"] = verify(step, line)
+    doc["verify"] = verify(step, primary)
     if not doc["verify"]["hierarchy_preserved"]:
         manifest, files = out_dir / "manifest.txt", []
-        for group in line.children:
+        for group in primary.children:
             path = out_dir / f"{step.stem}_{group.label}.step"
-            export_step(group, str(path))
+            write_step(rotate_tree(group), path)
             files.append({"group": group.label, **verify(path, group)})
         manifest.write_text("".join(f"{f['group']}\t{Path(f['file']).name}\t"
                                     f"{f['reimported_solids']} solids\n" for f in files))
@@ -600,6 +723,25 @@ def main(argv: list[str] | None = None) -> int:
             doc["verify"]["reimported_solids"] != doc["verify"]["built_solids"]:
         doc["errors"].append("re-imported STEP does not have the solids that were built")
 
+    doc["verify_physical"] = verify(physical_step, physical)
+    if not doc["verify_physical"]["hierarchy_preserved"] or \
+            not doc["verify_physical"]["names_match"] or \
+            doc["verify_physical"]["reimported_solids"] != doc["verify_physical"]["built_solids"]:
+        doc["errors"].append(f"{PHYSICAL_NAME}: re-imported STEP does not have the solids that "
+                             "were built, or lost the hierarchy")
+
+    checked = ([doc["verify"]] + [f for f in doc["verify"].get("fallback", {}).get("files", [])]
+              + [doc["verify_physical"]])
+    for v in checked:
+        op = v["opacity"]
+        if not op["opaque"]:
+            doc["errors"].append(
+                f"{Path(v['file']).name}: not fully opaque — {len(op['not_opaque'])} solid(s) "
+                f"re-import below alpha 1.0 (min {op['min_alpha']}), "
+                f"{op['transparent_entities_nonzero']} non-zero transparency entit(ies), "
+                f"{op['transparent_entities']} written"
+                + ("" if op["file_states_opacity"] else " (fewer than one per solid)"))
+
     for w in doc["warnings"]:
         print(f"layout: WARN {w}", file=sys.stderr)
     if args.dev:
@@ -611,8 +753,12 @@ def main(argv: list[str] | None = None) -> int:
           f"{i['allowed_overlaps']} allowed, {len(i['failures'])} interference(s) -> {step}")
     if doc["errors"]:
         return finish(1)
+    op = doc["verify"]["opacity"]
     print(f"layout: OK — STEP re-imported with {doc['verify']['reimported_solids']} solids, "
-          f"hierarchy preserved -> {report}")
+          f"hierarchy preserved, all opaque ({op['transparent_entities']} transparency "
+          f"entities, all 0; re-import alpha 1.0 on every solid) -> {report}")
+    print(f"layout: {PHYSICAL_NAME} ({doc['verify_physical']['reimported_solids']} solids, no "
+          f"Reference group) -> {physical_step}")
     return finish(0)
 
 

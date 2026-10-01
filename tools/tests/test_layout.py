@@ -5,6 +5,7 @@ check that fails on the overlaps it was not told to allow. The pass spec carries
 import copy
 import json
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -138,7 +139,7 @@ def test_a_guard_closer_than_the_posts_cuts_through_them(tmp_path, pass_raw):
                for f in doc["interference"]["failures"])
 
 
-def test_a_placeholder_solid_is_orange_and_suffixed(tmp_path, pass_raw):
+def test_a_placeholder_solid_is_suffixed_but_keeps_its_category_colour(tmp_path, pass_raw):
     raw = layout_raw(pass_raw)
     raw["layout"]["guard_offset"] = None
     code, doc = run(tmp_path, raw, "--dev", overlay={"layout": {"guard_offset": 0.3}})
@@ -149,7 +150,10 @@ def test_a_placeholder_solid_is_orange_and_suffixed(tmp_path, pass_raw):
     assert doc["placeholders"] == ["layout.guard_offset"]
     assert "/dev/" in doc["outputs"]["step"]
     guard = find(import_step(doc["outputs"]["step"]), "Guard_Gantry_1_PH")
-    assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) == layout.PLACEHOLDER_COLOUR
+    assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) == \
+        tuple(round(c, 2) for c in layout.colour_of("guard"))
+    assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) != \
+        tuple(round(c, 2) for c in layout.PLACEHOLDER_COLOUR)
 
 
 def test_a_null_layout_value_fails_naming_the_key(tmp_path, pass_raw):
@@ -187,3 +191,130 @@ def test_the_layout_posts_are_the_posts_the_straddle_check_sees(clean):
             box = next(s for s in doc["solids"] if s["name"] == f"Gantry_{n}_Post_{k}")["bbox_mm"]
             assert [box["min"][0], box["max"][0], box["min"][1], box["max"][1]] == \
                 pytest.approx([v * 1000.0 for v in rect.doc()], abs=1e-3)
+
+
+# ---------------------------------------------------------------- opacity
+
+def leaf_alphas(step):
+    return {s.label: tuple(s.color)[3] for s in layout.leaves(import_step(str(step)))}
+
+
+def test_every_re_imported_solid_is_fully_opaque(clean):
+    _, _, doc = clean
+    alphas = leaf_alphas(doc["outputs"]["step"])
+    assert len(alphas) == doc["counts"]["solids"]
+    assert set(alphas.values()) == {1.0}
+    assert any(n.endswith("_Envelope") for n in alphas)          # envelopes too, not just bodies
+    assert doc["verify"]["opacity"]["opaque"] is True
+
+
+def test_placeholder_solids_are_opaque_too(tmp_path, pass_raw):
+    raw = layout_raw(pass_raw)
+    raw["layout"]["guard_offset"] = None
+    code, doc = run(tmp_path, raw, "--dev", overlay={"layout": {"guard_offset": 0.3}})
+    assert code == 0, doc["errors"]
+    alphas = leaf_alphas(doc["outputs"]["step"])
+    assert alphas["Guard_Gantry_1_PH"] == 1.0
+    assert set(alphas.values()) == {1.0}
+
+
+def test_the_file_states_opacity_for_every_solid(clean):
+    """OCCT writes no opacity at alpha 1.0; the file must carry it, all zero (opaque)."""
+    _, _, doc = clean
+    text = open(doc["outputs"]["step"]).read()
+    values = layout.TRANSPARENT_ENTITY.findall(text)
+    assert len(values) >= doc["counts"]["solids"]
+    assert {float(v) for v in values} == {0.0}
+
+
+def test_a_translucent_solid_is_caught_by_the_file_not_by_the_re_import(tmp_path):
+    """import_step does not read transparency back: Glass re-imports at alpha 1.0. Only the
+    file's own SURFACE_STYLE_TRANSPARENT entities give it away, which is why they are checked."""
+    from build123d import Box, Color, Compound, export_step
+    a, b = Box(10, 10, 10), Box(5, 5, 5)
+    a.label, b.label = "Opaque", "Glass"
+    a.color, b.color = Color(1, 0, 0, 1.0), Color(0, 0, 1, 0.5)
+    step = tmp_path / "t.step"
+    export_step(Compound(children=[a, b], label="Line"), str(step))
+    op = layout.opacity(step, import_step(str(step)))
+    assert op["all_alpha_1"] is True                     # the blind spot, pinned
+    assert op["transparent_entities_nonzero"] > 0 and op["opaque"] is False
+
+
+def test_an_alpha_1_export_states_no_opacity_so_it_is_not_accepted(tmp_path):
+    """The file this task started from: colours, but no opacity entity anywhere."""
+    from build123d import Box, Color, Compound, export_step
+    a = Box(10, 10, 10)
+    a.label, a.color = "A", Color(1, 0, 0, 1.0)
+    step = tmp_path / "t.step"
+    export_step(Compound(children=[a], label="Line"), str(step))
+    op = layout.opacity(step, import_step(str(step)))
+    assert op["all_alpha_1"] is True and op["transparent_entities"] == 0
+    assert op["file_states_opacity"] is False and op["opaque"] is False
+
+
+def test_write_step_makes_a_translucent_export_opaque_and_restores_the_colours(tmp_path):
+    from build123d import Box, Color, Compound
+    a = Box(10, 10, 10)
+    a.label, a.color = "A", Color(0.2, 0.4, 0.6, 1.0)
+    line = Compound(children=[a], label="Line")
+    step = tmp_path / "t.step"
+    layout.write_step(line, step)
+    assert leaf_alphas(step) == {"A": 1.0}
+    assert tuple(a.color) == pytest.approx((0.2, 0.4, 0.6, 1.0))    # the probe alpha did not leak
+
+
+# ---------------------------------------------------------------- axes, Reference, two files
+
+def test_the_export_rotates_spec_xyz_to_step_x_z_negy(clean):
+    """SolidWorks is Y-up: a station at spec (x, y, z) appears at (x, z, -y) in the STEP."""
+    _, _, doc = clean
+    floor = next(s for s in doc["solids"] if s["name"] == "Floor")["bbox_mm"]
+    cx = (floor["min"][0] + floor["max"][0]) / 2.0
+    cy = (floor["min"][1] + floor["max"][1]) / 2.0
+    cz = (floor["min"][2] + floor["max"][2]) / 2.0
+    leaf = find(import_step(doc["outputs"]["step"]), "Floor")
+    b = leaf.bounding_box()
+    got = ((b.min.X + b.max.X) / 2.0, (b.min.Y + b.max.Y) / 2.0, (b.min.Z + b.max.Z) / 2.0)
+    assert got == pytest.approx((cx, cz, -cy), abs=1e-2)
+
+
+def test_both_step_files_are_always_written(clean):
+    _, _, doc = clean
+    step, physical = Path(doc["outputs"]["step"]), Path(doc["outputs"]["step_physical"])
+    assert step.exists() and physical.exists()
+    assert physical.name == "line_layout_physical.step"
+    assert doc["verify_physical"]["hierarchy_preserved"] is True
+    assert doc["verify_physical"]["opacity"]["opaque"] is True
+
+
+def test_the_physical_step_has_no_reference_group(clean):
+    _, _, doc = clean
+    back = import_step(doc["outputs"]["step_physical"])
+    assert [c.label for c in back.children] == list(layout.PHYSICAL_GROUPS)
+    assert "Reference" not in [c.label for c in back.children]
+
+
+def test_the_reference_group_holds_exactly_the_non_physical_solids(clean):
+    raw, _, doc = clean
+    back = import_step(doc["outputs"]["step"])
+    reference = next(c for c in back.children if c.label == "Reference")
+    got = {c.label for c in reference.children}
+    expected = {"Floor", "OperatorAisle"}
+    for gid in raw["gantries"]:
+        n = gid.removeprefix("gantry_")
+        expected.add(f"Guard_Gantry_{n}")
+        expected.add(f"Gantry_{n}_Envelope")
+    assert got == expected
+    gantries = next(c for c in back.children if c.label == "Gantries")
+    for sub in gantries.children:
+        assert all(not c.label.endswith("_Envelope") for c in sub.children)  # posts/beams only
+
+
+def test_no_step_solid_is_coloured_orange(clean):
+    _, _, doc = clean
+    orange = tuple(round(c, 2) for c in layout.PLACEHOLDER_COLOUR)
+    for step_path in (doc["outputs"]["step"], doc["outputs"]["step_physical"]):
+        colours = {s.label: tuple(round(c, 2) for c in tuple(s.color)[:3])
+                  for s in layout.leaves(import_step(str(step_path)))}
+        assert orange not in colours.values(), (step_path, colours)
