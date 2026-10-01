@@ -42,7 +42,7 @@ gantry_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03,
                   plan_speed_scale: 0.5, damping: 5.0, friction: 0.5}
 gang_heads: {}
 scaras: {}
-conveyor: {pitch: null, index_s: null}
+conveyor: {pitch: null}
 stations: {}
 sequence: []
 """

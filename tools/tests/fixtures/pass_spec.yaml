@@ -76,7 +76,7 @@ gang_heads:
            v_max: 0.1, a_max: 0.5}
 scaras: {}
 
-conveyor: {pitch: 0.5, index_s: 2.0}
+conveyor: {pitch: 0.5}
 stations:
   st_load:  {index: 1, count: 1, pose: [0.0, 0.0, 0.1, 0.0]}
   st_place: {index: 2, count: 1, pose: [0.5, 0.0, 0.1, 0.0]}

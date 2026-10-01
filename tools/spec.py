@@ -229,8 +229,12 @@ class Scara(Model):
 
 
 class Conveyor(Model):
+    # No index time here: the pallet advances one pitch at layout.conveyor.belt_speed, so the
+    # index time is derived (`index_s()`), never stated twice (D-010).
     pitch: Pos | None
-    index_s: Pos | None
+
+
+ACTORS = ("gantry", "driver", "operator", "sub_line", "test")
 
 
 class Station(Model):
@@ -238,6 +242,11 @@ class Station(Model):
     count: PosInt
     pose: Pose
     cell_pitch: Pos | None = None
+    # Who works here (D-010). Derived from the steps for gantry/driver/test; stated only where a
+    # step cannot say it: an operator, or a sub_line that loads the pallet from `source` (a buffer
+    # or a source). check_line.py `actors` holds every station to exactly one actor type.
+    actor: Literal[ACTORS] | None = None
+    source: str | None = None
 
 
 class Step(Model):
@@ -385,6 +394,15 @@ def station_gantry(raw: dict, station: str | None) -> str | None:
         if isinstance(g, dict) and station in (g.get("zone") or []):
             return gid
     return None
+
+
+def index_s(spec: LineSpec) -> float | None:
+    """Seconds the pallet takes to advance one station: conveyor.pitch / layout.conveyor.belt_speed.
+    The only index time there is (D-010); None while either is unknown."""
+    lay = spec.layout
+    if spec.conveyor.pitch is None or lay is None or lay.conveyor.belt_speed is None:
+        return None
+    return spec.conveyor.pitch / lay.conveyor.belt_speed
 
 
 def gantry_ids(raw: dict) -> list[str]:

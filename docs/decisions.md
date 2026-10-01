@@ -383,3 +383,103 @@ the mid-plate feeder at x = 1.2 to `buf_plate` at x = 0 takes 2.73 s. Candidate 
 applied: let sub-line C load the bottom plate onto the pallet itself, so `load_pallet` leaves
 gantry_1 (~12.2 s, 71%); move `buf_plate` next to `buf_spider` to shorten the tour; or plan
 gantry_1 above 0.5 once its X axis is shown to track at that speed (D-007).
+
+## D-010 — Actor audit, side plates, single-purpose loader at pallet return
+
+**Date:** 2026-10-01
+
+**Context:** D-009 left two gaps it could see: nothing drew from `fd_side_plate`, and
+`drive_top_plate` had no driver. Neither was caught by a check, so a rule was written first and run
+on the D-009 spec before anything was fixed.
+
+**Decision — check `actors`** (`tools/check_line.py`, after `schema`). Actor rules:
+- every station with an active step has **exactly one actor type**: gantry (a step with a `tool`,
+  or a part drawn `from` a feeder/buffer), driver (a drive step's `head`, gang head or scara), test
+  (a test step), or the station's stated `actor`. A station whose steps are all parked is skipped.
+- a station states `actor` only where no step can say it: `operator`, or `sub_line` with `source`
+  (the buffer or source it loads from). `actor: null` = not decided: UNRESOLVED, not a FAIL.
+- a drive step without a `head` FAILs.
+
+Material rules:
+- a step's part comes `from` a feeder that holds that part, from a buffer a source fills with it (or
+  with what it carries), or from a sub_line station's `source`. Anything else FAILs.
+- a step's fastener comes from that fastener's feeder. A drive step that names no `fastener` is
+  UNRESOLVED: its screw is not chosen yet.
+- every feeder and every buffer is drawn from by at least one active step.
+
+Each rule has a fixture in `tools/tests/conftest.py` (12 cases).
+
+**Audit of the D-009 spec** (same result with and without `--dev`):
+
+| # | Finding | Level | Now |
+|---|---|---|---|
+| 1 | `feeder fd_side_plate`: no active step draws from it | FAIL | fixed: `place_side_plates` |
+| 2 | `drive_top_plate`: drive step has no driver | FAIL | fixed: `gh_top_plate` |
+| 3 | `seat_esc`: drive step has no driver | FAIL | fixed: `gh_seat_esc` |
+| 4 | `st_seat_esc`: no actor | FAIL | fixed by 3 |
+| 5 | `st_audit_torque`: no actor | FAIL | **open gap A**: `actor: null` |
+| 6 | `st_pack`: no actor | FAIL | **open gap A**: `actor: null` |
+| 7 | `seat_esc`, `fit_side_plates`, `drive_top_plate` name no fastener | WARN | **open gap B** |
+
+`st_mount_servo` is parked (§15.3) and has no driver either; the audit skips it (**open gap C**).
+
+**Decision — side plates.** New step `place_side_plates` at `st_fit_side_plates`: place, qty 2,
+`side_plate` from `fd_side_plate`, `tool_plate`. `fit_side_plates` now requires it.
+`st_fit_side_plates` moves into gantry_3's zone. Under the D-009 frame rule (dev), gantry_3 has
+x 4.1–5.5 m in the line frame (mount x 4.1, travel 0–1.4). Its y travel stays 0.25–0.9: the side
+plate feeder sits at the same y as the top plate feeder. safe_z is 0.203 m
+(`fd_side_plate` pick plane 0.17 + a 3 mm plate + 0.03).
+
+**Decision — drivers.** Neither existing gang head can be reused. `gh_arm_sandwich` is the
+8-hole arm pattern, and `gh_side_plates` drives horizontally. A gang head also mounts at exactly one
+station (`gen_controllers.validate_heads`). So two new heads: `gh_seat_esc` and `gh_top_plate`,
+both `direction: down`. Every dimension is null in the base spec. In dev they are PLACEHOLDERs:
+4 and 5 spindles (one per screw), stroke 0.05, v_max 0.1, a_max 0.5. Neither has a
+`pattern_from`, so the xacro spreads their spindles evenly. That gives the head's width, not screw
+positions.
+
+**Decision — single-purpose loader at pallet return.** `load_pallet` leaves gantry_1. Station
+`st_pallet_loader` (index 1, where returned pallets re-enter the line) replaces `st_load_pallet`:
+`actor: sub_line, source: buf_plate`. Sub-line C's bottom plate arrives on the pallet, and the step
+has no `from` and no tool. gantry_1's zone is now `[st_place_spider, st_place_mid_plate]`, so its
+dev x travel shrinks to 0.5–1.3 m (mount x 0.5, travel 0–0.8). The station name follows the brief.
+It breaks the naming rule that station ids use a verb; `st_load_pallet` would follow it.
+
+**Decision — `conveyor.index_s` is gone.** The index time is `conveyor.pitch /
+layout.conveyor.belt_speed` (`spec.index_s()`). It is used for `transfer_s` and reported as
+`index_s` in `move_estimate*.json`. The key is now a schema error, so the time cannot be stated
+twice again.
+
+**Result — move estimate (dev, budget 17.2 s = 20.2 − (0.6/0.3 + 1.0)):**
+
+| gantry | steps | @0.5 | @1.0 | load @0.5 | status |
+|---|---|---|---|---|---|
+| gantry_1 | place_spider 6.11, place_mid_plate 6.11 | 12.23 s | 8.72 s | 71.1% | PASS |
+| gantry_2 | install_standoffs 7.25, place_pod 7.48 | 14.73 s | 9.97 s | 85.6% | PASS |
+| gantry_3 | place_side_plates ×2 11.28, place_top_plate 6.99 | 18.27 s | 12.70 s | 106.2% | **FAIL** |
+
+gantry_1 is fixed. gantry_3 is now over budget. Its tour crosses 1.2 m twice per drone: from the
+top-plate station (x 5.4) to the side-plate feeder (x 4.2), then from the side-plate station back to
+the top-plate feeder. Each leg takes 2.73 s at scale 0.5, so 5.47 s of the 18.27 s. The 4 Z moves at
+the station each take 0.84 s, including settle. Candidate fixes, none applied:
+- a gang pick of both side plates (one cycle, about −4.7 s → about 13.5 s, 79%);
+- `fd_top_plate` next to `st_fit_side_plates`, or `fd_side_plate` next to `st_fit_top_plate`;
+- side plates on their own gantry.
+
+**Open gaps** (each visible in `check_line.py`):
+- **A.** Who works `st_audit_torque` and `st_pack`: `actor: null` (WARN). The dev overlay says
+  `operator`, PLACEHOLDER.
+- **B.** Fasteners for `seat_esc` (4), `fit_side_plates` (dev 8) and `drive_top_plate` (5): no
+  fastener id, so no feeder (WARN). Choosing them needs screw lengths from CAD, plus one feeder per
+  length (§7.9).
+- **C.** `mount_servo` (parked) has no driver.
+- **D. FAIL, `actors`:** `st_fit_side_plates` and `st_fit_top_plate` each have a gantry and a
+  driver. This rule's fixes created both. Fix: split each into a place station and a drive station,
+  or rule that a gang head may share a station with the gantry that places there. Not applied: the
+  first moves every downstream station, and the second is the user's call.
+- **E. FAIL, `layout.py --dev`:** 9 interferences between gantry_2 and gantry_3. Each guard is
+  `guard_offset` 0.3 m outside its envelope. With side plates on gantry_3, gantry_3's envelope
+  starts at x 4.1, 0.4 m after gantry_2's ends at 3.7. Every frame and guard of the two now
+  overlaps. Before D-010 there were 0 interferences. Fix: one shared guard around adjacent
+  gantries (layout.py), or a free station between their zones. The clearances were not reduced.
+- **F. FAIL, `gantry_load`:** gantry_3, above.

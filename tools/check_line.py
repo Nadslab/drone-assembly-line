@@ -120,6 +120,129 @@ def check_schema(spec: LineSpec, r: Result) -> None:
         r.add(FAIL, "stations: duplicate index")
 
 
+def _step_actor(spec: LineSpec, s) -> str | None:
+    """The one actor type that performs a step, or None when nothing in the spec says."""
+    st = spec.stations.get(s.station)
+    if st is not None and st.actor == "sub_line":
+        return "sub_line"
+    if gantry_served(s):
+        return "gantry"
+    if s.capability == "drive":
+        return "driver" if s.head is not None else None
+    if s.capability == "test":
+        return "test"
+    return None
+
+
+def _buffer_holds(spec: LineSpec, buf: str, part: str) -> bool:
+    """A buffer holds what the sources filling it make, or the fixture that carries it. A buffer
+    no source fills is unconstrained (fixtures returning on their own loop)."""
+    outs = [src.output for src in spec.sources.values() if src.buffer == buf]
+    return not outs or any(o == part or (o in spec.parts and spec.parts[o].carried_by == part)
+                           for o in outs)
+
+
+def check_actors(spec: LineSpec, r: Result) -> None:
+    """Who does each station's work, and where each part and fastener comes from (D-010).
+
+    Actors: every station with an active step has exactly one actor type — gantry (a step with a
+    tool, or a part drawn `from` a feeder/buffer), driver (a drive step's `head`: gang head or
+    scara), test (a test step), or the station's stated `actor` (operator, sub_line). A station
+    with only parked steps is parked and skipped. `actor: null` is UNRESOLVED (not decided yet).
+
+    Material: a step's part comes `from` a feeder that holds it, a buffer a source fills with it
+    (or with what it carries), or — at a sub_line station — the station's `source`. A step's
+    fastener comes from that fastener's feeder. A drive step that names no fastener is UNRESOLVED
+    (the screw is not chosen). Every feeder and buffer is drawn from by at least one active step.
+    """
+    active = _active_steps(spec)
+    info: dict[str, list[str]] = {}
+    for sid, st in sorted(spec.stations.items(), key=lambda kv: kv[1].index):
+        steps = [s for s in active if s.station == sid]
+        if not steps:
+            if any(s.station == sid for s in spec.sequence):
+                info[sid] = ["parked"]
+            else:
+                r.add(FAIL, f"{sid}: no step stands at this station, so nothing works there")
+            continue
+        types = {st.actor} if st.actor else set()
+        for s in steps:
+            a = _step_actor(spec, s)
+            if a is not None:
+                types.add(a)
+            elif s.capability == "drive":
+                r.add(FAIL, f"{s.id}: drive step at {sid} has no driver (head: a gang head or "
+                            "scara)")
+            elif s.capability in ("load", "place", "pick"):
+                r.add(FAIL, f"{s.id}: moves part '{s.part}' but no gantry (tool or `from`) or "
+                            "sub_line station does")
+        info[sid] = sorted(types)
+        if len(types) > 1:
+            r.add(FAIL, f"{sid}: {len(types)} actor types ({', '.join(sorted(types))}); a "
+                        "station has exactly one")
+        elif not types:
+            if "actor" in st.model_fields_set:
+                r.unresolved(f"stations.{sid}.actor: who does "
+                             f"{', '.join(s.id for s in steps)} is not decided")
+            else:
+                r.add(FAIL, f"{sid}: no actor for {', '.join(s.id for s in steps)} (no gantry, "
+                            "driver or test step, and no stated `actor`)")
+        if st.actor == "sub_line" and st.source is None:
+            r.add(FAIL, f"{sid}: a sub_line station needs `source` (the buffer or source it "
+                        "loads from)")
+        if st.source is not None and st.actor != "sub_line":
+            r.add(FAIL, f"{sid}: `source` is only for a sub_line station (actor is "
+                        f"{st.actor})")
+        if st.source is not None and st.source not in spec.buffers \
+                and st.source not in spec.sources:
+            r.add(FAIL, f"stations.{sid}.source -> buffer/source '{st.source}' does not exist")
+    r.info["station_actors"] = info
+
+    drawn: set[str] = set()
+    for s in active:
+        st = spec.stations.get(s.station)
+        if s.from_ is not None:
+            drawn.add(s.from_)
+        if st is not None and st.actor == "sub_line" and st.source is not None:
+            drawn.add(st.source)
+            if st.source in spec.sources:
+                drawn.add(spec.sources[st.source].buffer)
+        if s.fastener in spec.fasteners:
+            fd = spec.fasteners[s.fastener].feeder
+            drawn.add(fd)
+            if fd in spec.feeders and spec.feeders[fd].part != s.fastener:
+                r.add(FAIL, f"{s.id}: fastener {s.fastener}'s feeder {fd} feeds "
+                            f"'{spec.feeders[fd].part}'")
+        elif s.capability == "drive" and s.fastener is None:
+            r.unresolved(f"{s.id}: drives {s.qty if s.qty else 'an unknown number of'} "
+                         "fastener(s) but names no `fastener` (no feeder supplies them)")
+        if s.part is None:
+            continue
+        origin = s.from_
+        if origin is None and st is not None and st.actor == "sub_line":
+            origin = st.source
+        if origin is None:
+            r.add(FAIL, f"{s.id}: part '{s.part}' comes from nowhere (no `from`, and "
+                        f"{s.station} is not a sub_line station with a `source`)")
+        elif origin in spec.feeders:
+            if spec.feeders[origin].part != s.part:
+                r.add(FAIL, f"{s.id}: takes '{s.part}' from {origin}, which holds "
+                            f"'{spec.feeders[origin].part}'")
+        elif origin in spec.buffers:
+            if not _buffer_holds(spec, origin, s.part):
+                r.add(FAIL, f"{s.id}: takes '{s.part}' from {origin}, which no source fills "
+                            "with it")
+        elif origin in spec.sources:
+            if spec.sources[origin].output != s.part:
+                r.add(FAIL, f"{s.id}: takes '{s.part}' from {origin}, which makes "
+                            f"'{spec.sources[origin].output}'")
+        # A dangling `from` is reported by schema; a dangling station source just above.
+    for coll, kind in ((spec.feeders, "feeder"), (spec.buffers, "buffer")):
+        for fid in coll:
+            if fid not in drawn:
+                r.add(FAIL, f"{kind} {fid}: no active step draws from it")
+
+
 def check_unresolved(spec: LineSpec, r: Result, raw: dict) -> None:
     paths = list(_walk_nulls(raw))
     for p in paths:
@@ -417,6 +540,7 @@ def check_datums(spec: LineSpec, r: Result) -> None:
 
 CHECKS = [
     ("schema", check_schema),
+    ("actors", check_actors),
     ("unresolved", check_unresolved),
     ("precedence", check_precedence),
     ("takt", check_takt),
@@ -467,7 +591,7 @@ def _count(r: Result) -> str:
 
 def _summary(r: Result) -> str:
     if r.name == "unresolved":
-        return f"{r.info['count']} null value(s)"
+        return f"{r.info.get('count', 0)} null value(s)"
     if r.name == "line_balance" and "bottleneck" in r.info:
         return f"bottleneck {r.info['bottleneck']} at {r.info['bottleneck_pct']}%"
     if r.name == "gantry_load" and r.status != WARN and r.info.get("load_pct"):

@@ -9,7 +9,7 @@ import yaml
 
 import check_line
 import spec as spec_mod
-from conftest import FAILING, FIXTURES, TOOLS
+from conftest import FAILING, FIXTURES, TOOLS, _sub_line_loader
 
 CHECK_NAMES = [name for name, _ in check_line.CHECKS]
 
@@ -301,14 +301,78 @@ def dev_cad_reports():
     return spec_mod.REPO / "reports"
 
 
-def test_repo_dev_overlay_passes_all_checks_but_gantry_1_budget(dev_cad_reports):
-    """D-009's recorded result: at plan_speed_scale 0.5 gantry_1 (load, spider, mid plate) needs
-    ~19.5 s against a 17.2 s budget. Everything else passes."""
+def test_repo_dev_overlay_state_after_d010(dev_cad_reports):
+    """D-010's recorded result. The pallet loader took load_pallet off gantry_1, which now
+    passes (~12.2 s of 17.2 s); gantry_2 passes. gantry_3 took the side plates and is over
+    budget (~18.3 s): the goal was gantry_load PASS on every gantry, and it does not hold yet.
+    `actors` fails on the two stations where a gantry places and a gang head drives (open gap
+    in D-010). Everything else passes."""
     results, _ = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
                                        dev=True)
-    bad = {r.name: r.findings for r in results if r.status != "PASS"}
-    assert set(bad) == {"gantry_load"}
-    assert [m.split(":")[0] for _, m in bad["gantry_load"]] == ["gantry_1"]
+    got = by_name(results)
+    bad = {r.name for r in results if r.status != "PASS"}
+    assert bad == {"gantry_load", "actors"}, {n: got[n].findings for n in bad}
+    fails = [m for lvl, m in got["gantry_load"].findings if lvl == "FAIL"]
+    assert [m.split(":")[0] for m in fails] == ["gantry_3"]
+    assert got["gantry_load"].info["load_pct"]["gantry_1"] <= 100.0
+    assert got["gantry_load"].info["load_pct"]["gantry_2"] <= 100.0
+    assert sorted(m.split(":")[0] for lvl, m in got["actors"].findings if lvl == "FAIL") == [
+        "st_fit_side_plates", "st_fit_top_plate"]
+    # The three drive steps whose screws are not chosen yet are UNRESOLVED, not failures.
+    assert sorted(m.split()[1].rstrip(":") for lvl, m in got["actors"].findings
+                  if lvl == "WARN") == ["drive_top_plate", "fit_side_plates", "seat_esc"]
+
+
+def test_repo_spec_every_feeder_and_buffer_is_drawn_and_every_drive_has_a_driver():
+    """The two gaps the D-010 audit was written to find stay fixed, on the base spec too."""
+    results, _ = check_line.run_checks(spec_mod.load_raw())
+    msgs = [m for _, m in by_name(results)["actors"].findings]
+    assert not [m for m in msgs if "draws from it" in m or "has no driver" in m], msgs
+    actors = by_name(results)["actors"].info["station_actors"]
+    assert actors["st_pallet_loader"] == ["sub_line"]
+    assert actors["st_mount_servo"] == ["parked"]
+
+
+def test_index_time_is_derived_never_stated(pass_raw):
+    """D-010: conveyor.index_s is gone; the index time is pitch / belt_speed."""
+    s = spec_mod.parse_spec(pass_raw)
+    assert spec_mod.index_s(s) == pytest.approx(0.5 / 0.3)
+    pass_raw["conveyor"]["index_s"] = 2.0
+    with pytest.raises(spec_mod.SpecError, match="index_s"):
+        spec_mod.parse_spec(pass_raw)
+
+
+@pytest.mark.parametrize("case, message", [
+    ("station_without_actor", "st_test: no actor for test"),
+    ("two_actor_types_at_one_station", "st_place: 2 actor types (driver, gantry)"),
+    ("drive_step_without_driver", "drive: drive step at st_drive has no driver"),
+    ("feeder_never_drawn_from", "feeder fd_spare: no active step draws from it"),
+    ("buffer_never_drawn_from", "buffer buf_spare: no active step draws from it"),
+    ("feeder_holds_another_part", "place: takes 'top_plate' from fd_mid_plate, which holds "
+                                  "'mid_plate'"),
+    ("buffer_filled_with_another_part", "load: takes 'mid_plate' from buf_plate, which no "
+                                        "source fills with it"),
+    ("part_from_nowhere", "place: part 'mid_plate' comes from nowhere"),
+    ("sub_line_source_does_not_exist", "stations.st_load.source -> buffer/source 'buf_nope' "
+                                       "does not exist"),
+    ("sub_line_without_source", "st_load: a sub_line station needs `source`"),
+])
+def test_each_actor_rule_fails_for_its_own_reason(pass_raw, case, message):
+    FIXTURE[case](pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])["actors"]
+    assert r.status == "FAIL"
+    assert any(message in m for lvl, m in r.findings if lvl == "FAIL"), r.findings
+
+
+def test_a_sub_line_loader_needs_no_gantry(pass_raw):
+    """st_load as a sub-line loader fed from buf_plate: actors passes and gantry_1 loses load."""
+    _sub_line_loader("buf_plate")(pass_raw)
+    pass_raw["gantries"]["gantry_1"]["zone"] = ["st_place"]
+    results, passed = check_line.run_checks(pass_raw)
+    got = by_name(results)
+    assert got["actors"].status == "PASS", got["actors"].findings
+    assert got["actors"].info["station_actors"]["st_load"] == ["sub_line"]
+    assert passed
 
 
 def test_cli_dev_writes_dev_report_with_placeholders(tmp_path):

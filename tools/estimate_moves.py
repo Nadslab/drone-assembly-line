@@ -24,8 +24,8 @@ previous one placed, the first at the last step's station (the previous drone); 
 is n cycles, cycles 2..n starting at its own station.
 
 Budget: the pallet is only at a station between transfers, so each gantry's load is compared
-with takt_s - transfer_s, transfer_s = conveyor.pitch / layout.conveyor.belt_speed +
-layout.stop_unit_cycle_s.
+with takt_s - transfer_s, transfer_s = index_s + layout.stop_unit_cycle_s, where index_s =
+conveyor.pitch / layout.conveyor.belt_speed (spec.index_s; the spec states no index time, D-010).
 
 Writes reports/move_estimate.json (`--dev`: move_estimate.dev.json) with per-step phase times,
 per-gantry load at both scales, the budget, and `passed`. A null the estimate needs is
@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gantry_geometry as gg  # noqa: E402
 from spec import (DEFAULT_SPEC, LineSpec, SpecError, add_dev_argument, gantry_ids,  # noqa: E402
-                  load_merged, parse_spec, report_path, zone_owner)
+                  index_s, load_merged, parse_spec, report_path, zone_owner)
 
 GANTRY_CAPABILITIES = ("place", "load", "pick")
 
@@ -97,7 +97,7 @@ def _nulls(label: str, values: dict) -> list[str]:
 
 
 def transfer(spec: LineSpec) -> tuple[float | None, list[str]]:
-    """Seconds per drone the pallet spends moving between stations: pitch / belt + stop unit."""
+    """Seconds per drone the pallet spends moving between stations: index_s + stop unit."""
     lay = spec.layout
     missing = _nulls("conveyor", {"pitch": spec.conveyor.pitch})
     if lay is None:
@@ -106,7 +106,7 @@ def transfer(spec: LineSpec) -> tuple[float | None, list[str]]:
                                  "stop_unit_cycle_s": lay.stop_unit_cycle_s})
     if missing:
         return None, missing
-    return spec.conveyor.pitch / lay.conveyor.belt_speed + lay.stop_unit_cycle_s, []
+    return index_s(spec) + lay.stop_unit_cycle_s, []
 
 
 def estimate(spec: LineSpec, cad: gg.CadHeights | None = None) -> dict:
@@ -118,7 +118,9 @@ def estimate(spec: LineSpec, cad: gg.CadHeights | None = None) -> dict:
     owner = zone_owner(spec)
     transfer_s, transfer_missing = transfer(spec)
     budget = None if transfer_s is None else takt - transfer_s
-    doc: dict = {"takt_s": takt, "transfer_s": transfer_s and round(transfer_s, 3),
+    idx = index_s(spec)
+    doc: dict = {"takt_s": takt, "index_s": idx and round(idx, 3),
+                 "transfer_s": transfer_s and round(transfer_s, 3),
                  "budget_s": budget and round(budget, 3), "plan_speed_scale": scale,
                  "passed": True, "complete": True, "gantries": {}, "unresolved": [], "errors": [],
                  "model": {"grip_s": d.grip_s, "release_s": d.release_s,
@@ -228,6 +230,7 @@ def print_table(doc: dict) -> None:
         print("-" * 80)
     if doc["transfer_s"] is not None:
         print(f"budget = takt {doc['takt_s']:g} s - transfer {doc['transfer_s']:g} s "
+              f"(index {doc['index_s']:g} s = pitch / belt_speed, + stop unit) "
               f"= {doc['budget_s']:g} s per gantry")
     for e in doc["errors"]:
         print(f"  [FAIL] {e}")

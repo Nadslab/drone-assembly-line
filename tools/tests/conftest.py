@@ -38,6 +38,24 @@ def _null_durations(s):
     _seq(s, "place")["duration_s"] = None
 
 
+def _drive_at_place(s):
+    """A gang head drives at a station a gantry places at: two actor types at one station."""
+    _seq(s, "drive")["station"] = "st_place"
+
+
+def _sub_line_loader(source):
+    """st_load becomes a sub-line loader: the plate arrives on the pallet from `source`."""
+    def mutate(s):
+        s["stations"]["st_load"].update(actor="sub_line", source=source)
+        _seq(s, "load").pop("from")
+    return mutate
+
+
+def _second_drive_without_fastener(s):
+    s["sequence"].append({"id": "drive_more", "station": "st_drive", "capability": "drive",
+                          "head": "gh_top", "qty": 2, "duration_s": 1.0, "requires": ["drive"]})
+
+
 def _rename_gantry(old, new):
     def mutate(s):
         s["gantries"][new] = s["gantries"].pop(old)
@@ -58,6 +76,26 @@ def _set(path, value):
 FAILING = [
     ("schema", "dangling_station", _set(["sequence", 1, "station"], "st_nowhere"), "FAIL"),
     ("schema", "dangling_feeder", _set(["fasteners", "m3_x8", "feeder"], "fd_nope"), "FAIL"),
+    # Actor audit (D-010).
+    ("actors", "station_without_actor", _set(["sequence", 3, "capability"], "inspect"), "FAIL"),
+    ("actors", "undecided_actor_is_unresolved",
+     lambda s: (_set(["sequence", 3, "capability"], "inspect")(s),
+                _set(["stations", "st_test", "actor"], None)(s)), "WARN"),
+    ("actors", "two_actor_types_at_one_station", _drive_at_place, "FAIL"),
+    ("actors", "drive_step_without_driver", lambda s: _seq(s, "drive").pop("head"), "FAIL"),
+    ("actors", "drive_step_without_fastener", _second_drive_without_fastener, "WARN"),
+    ("actors", "feeder_never_drawn_from",
+     _set(["feeders", "fd_spare"], {"type": "magazine", "part": "mid_plate",
+                                    "pose": [0.3, 0.3, 0.15, 0.0], "capacity": 20,
+                                    "refill_s": 60.0}), "FAIL"),
+    ("actors", "buffer_never_drawn_from", _set(["buffers", "buf_spare"],
+                                               {"pose": [0.3, -0.3, 0.1, 0.0]}), "FAIL"),
+    ("actors", "feeder_holds_another_part", _set(["sequence", 1, "part"], "top_plate"), "FAIL"),
+    ("actors", "buffer_filled_with_another_part", _set(["sequence", 0, "part"], "mid_plate"),
+     "FAIL"),
+    ("actors", "part_from_nowhere", lambda s: _seq(s, "place").pop("from"), "FAIL"),
+    ("actors", "sub_line_source_does_not_exist", _sub_line_loader("buf_nope"), "FAIL"),
+    ("actors", "sub_line_without_source", _sub_line_loader(None), "FAIL"),
     ("unresolved", "null_mass", _set(["parts", "mid_plate", "mass"], None), "WARN"),
     ("precedence", "cycle", _cycle, "FAIL"),
     ("precedence", "requires_later_step", _requires_later, "FAIL"),

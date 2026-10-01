@@ -116,10 +116,13 @@ gantry_defaults:
 gang_heads:                                 # stroke/v_max/a_max are the ram's joint limits (P5.3)
   gh_arm_sandwich: {direction: down,       spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: null, v_max: null, a_max: null}
   gh_side_plates:  {direction: horizontal, spindles: null, opposed: true, stroke: null, v_max: null, a_max: null}
+  # D-010: one gang head per drive step; neither existing pattern fits these screws.
+  gh_seat_esc:     {direction: down,       spindles: null, stroke: null, v_max: null, a_max: null}
+  gh_top_plate:    {direction: down,       spindles: null, stroke: null, v_max: null, a_max: null}
 scaras: {}                                  # add only where screw position varies
 
 # ---------- stations ----------
-conveyor: {pitch: null, index_s: null}      # pallet advance distance + time
+conveyor: {pitch: null}                     # pallet advance distance; index time = pitch / layout.conveyor.belt_speed (D-010)
 
 # ---------- layout: floor plan for tools/cad/layout.py (SolidWorks review), metres ----------
 layout:
@@ -141,8 +144,12 @@ layout:
   test_branch: {offset_y: null, cell_w: null, cell_d: null}     # cells step away from the line in y
   operator_aisle: {side: null, width: null}                     # side: "+y" or "-y"
   guard_offset: null                        # gantry travel envelope to the guard line
+# actor (D-010): stated only where no step says who works there — operator, or sub_line (which
+# loads from `source`); gantry, driver and test follow from the steps. null = not decided yet.
 stations:
-  st_load_pallet:          {index: 1,  count: 1, pose: [null,null,null,0]}
+  # Single-purpose loader where returned pallets re-enter the line: sub-line C's bottom plate
+  # arrives on the pallet, no gantry involved (D-010).
+  st_pallet_loader:        {index: 1,  count: 1, pose: [null,null,null,0], actor: sub_line, source: buf_plate}
   st_place_spider:         {index: 2,  count: 1, pose: [null,null,null,0]}
   st_place_mid_plate:      {index: 3,  count: 1, pose: [null,null,null,0]}
   st_drive_arm_sandwich:   {index: 4,  count: 1, pose: [null,null,null,0]}
@@ -152,25 +159,26 @@ stations:
   st_fit_side_plates:      {index: 8,  count: 1, pose: [null,null,null,0]}
   st_mount_servo:          {index: 9,  count: 1, pose: [null,null,null,0]}   # parked (§15.3)
   st_fit_top_plate:        {index: 10, count: 1, pose: [null,null,null,0]}
-  st_audit_torque:         {index: 11, count: 1, pose: [null,null,null,0]}
+  st_audit_torque:         {index: 11, count: 1, pose: [null,null,null,0], actor: null}
   st_test:                 {index: 12, count: 5, pose: [null,null,null,0], cell_pitch: null}
-  st_pack:                 {index: 13, count: 1, pose: [null,null,null,0]}
+  st_pack:                 {index: 13, count: 1, pose: [null,null,null,0], actor: null}
 
 # ---------- sequence: the beat table ----------
 # Order = execution order within one pallet. `requires` = precedence graph (§13 next step 1).
 # duration_s = work content at that station; from AnyLogic / line balancing.
 sequence:
-  - {id: load_pallet,       station: st_load_pallet,        capability: load,    part: bottom_plate, from: buf_plate,   duration_s: null, requires: []}
+  - {id: load_pallet,       station: st_pallet_loader,      capability: load,    part: bottom_plate, duration_s: null, requires: []}
   - {id: place_spider,      station: st_place_spider,       capability: place,   part: carrier_spider, from: buf_spider, tool: tool_carrier, duration_s: null, requires: [load_pallet]}
   - {id: place_mid_plate,   station: st_place_mid_plate,    capability: place,   part: mid_plate, from: fd_mid_plate, tool: tool_plate, duration_s: null, requires: [place_spider]}
   - {id: drive_arm_sandwich, station: st_drive_arm_sandwich, capability: drive,  head: gh_arm_sandwich, fastener: m3_x8, qty: 8, duration_s: null, requires: [place_mid_plate]}
   - {id: install_standoffs, station: st_install_standoffs,  capability: place,   part: standoff, from: fd_standoff, tool: standoff_gang, qty: 1, duration_s: null, requires: [drive_arm_sandwich]}
-  - {id: seat_esc,          station: st_seat_esc,           capability: drive,   qty: 4, duration_s: null, requires: [install_standoffs], note: "releases carrier_spider"}
+  - {id: seat_esc,          station: st_seat_esc,           capability: drive,   head: gh_seat_esc, qty: 4, duration_s: null, requires: [install_standoffs], note: "releases carrier_spider"}
   - {id: place_pod,         station: st_place_pod,          capability: place,   part: carrier_pod, from: buf_pod, tool: tool_carrier, duration_s: null, requires: [seat_esc]}
-  - {id: fit_side_plates,   station: st_fit_side_plates,    capability: drive,   head: gh_side_plates, qty: null, duration_s: null, requires: [place_pod]}
+  - {id: place_side_plates, station: st_fit_side_plates,    capability: place,   part: side_plate, from: fd_side_plate, tool: tool_plate, qty: 2, duration_s: null, requires: [place_pod]}
+  - {id: fit_side_plates,   station: st_fit_side_plates,    capability: drive,   head: gh_side_plates, qty: null, duration_s: null, requires: [place_side_plates]}
   - {id: mount_servo,       station: st_mount_servo,        capability: drive,   qty: 2, duration_s: null, requires: [fit_side_plates], status: parked}
   - {id: place_top_plate,   station: st_fit_top_plate,      capability: place,   part: top_plate, from: fd_top_plate, tool: tool_plate, qty: 1, duration_s: null, requires: [fit_side_plates]}
-  - {id: drive_top_plate,   station: st_fit_top_plate,      capability: drive,   qty: 5, duration_s: null, requires: [place_top_plate]}
+  - {id: drive_top_plate,   station: st_fit_top_plate,      capability: drive,   head: gh_top_plate, qty: 5, duration_s: null, requires: [place_top_plate]}
   - {id: audit_torque,      station: st_audit_torque,       capability: inspect, duration_s: null, requires: [drive_top_plate]}
   - {id: test,              station: st_test,               capability: test,    duration_s: 90,  requires: [audit_torque]}
   - {id: pack,              station: st_pack,               capability: pack,    duration_s: null, requires: [test]}
