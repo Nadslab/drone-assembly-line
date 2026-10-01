@@ -15,8 +15,9 @@ z = -line.work_height), exported in millimetres:
   Buffers    Buffer_<Name>, the same
   Reference  non-physical solids: Floor (bbox of everything + 1 m), OperatorAisle (outside the
              outermost guard on its side), Guard_Gantry_<n> (a wall guard_offset outside each
-             envelope, with a tunnel where the conveyor passes), Gantry_<n>_Envelope (the full
-             axis travel)
+             envelope, with a tunnel where the conveyor passes; gantries whose guards would
+             overlap or touch share one, Guard_Gantry_<a>_Gantry_<b>, around the union of their
+             envelopes, D-011), Gantry_<n>_Envelope (the full axis travel)
 
 Every dimension carries the spec keys it came from; a solid that used any placeholder is coloured
 by its category exactly as a real one and its name ends in `_PH` — placeholder status never
@@ -232,6 +233,35 @@ def build_shape(it: Item):
     return solid
 
 
+def guard_groups(envelopes: dict, offset: Dim, wall: Dim) -> list[list[str]]:
+    """Gantry ids grouped so that no two groups' guards overlap or touch, in gantry order.
+
+    A guard's outer face is its envelope + offset + wall in x and y. Two groups whose outer
+    rectangles overlap or share a face merge, and the merged guard is checked again, so a chain
+    of three adjacent gantries ends up behind one guard."""
+    def outer(members):
+        return [(min(envelopes[g][i][0].value for g in members) - offset.value - wall.value,
+                 max(envelopes[g][i][1].value for g in members) + offset.value + wall.value)
+                for i in range(2)]
+
+    groups = [[g] for g in envelopes]
+    merged = True
+    while merged:
+        merged = False
+        for a in range(len(groups)):
+            for b in range(a + 1, len(groups)):
+                ra, rb = outer(groups[a]), outer(groups[b])
+                if all(ra[i][0] <= rb[i][1] + 1e-9 and rb[i][0] <= ra[i][1] + 1e-9
+                       for i in range(2)):
+                    groups[a] = groups[a] + groups.pop(b)
+                    merged = True
+                    break
+            if merged:
+                break
+    order = list(envelopes)
+    return sorted((sorted(g, key=order.index) for g in groups), key=lambda g: order.index(g[0]))
+
+
 def span(lo: Dim, hi: Dim) -> tuple[Dim, Dim]:
     """(centre, size) of the interval [lo, hi]."""
     return (lo + hi) / 2.0, hi - lo
@@ -340,18 +370,23 @@ def plan(v: Values) -> list[Item] | None:
                                floor_z + h / 2.0), (w, d, h), yaw=yaw))
 
     # Guards: a wall guard_offset outside each envelope, open where the belt passes through.
+    # Gantries whose guards would overlap or touch share one guard around the union of their
+    # envelopes (D-011): two walls in one gap cannot both stand there.
     offset = q(f"{L}.guard_offset")
     tunnel_top = belt_top + pallet[2] + const("TUNNEL_CLEAR")
     wall = const("GUARD_T")
     gz = span(floor_z, floor_z + const("GUARD_H"))
     guards = []
-    for gid, env in envelopes.items():
+    for members in guard_groups(envelopes, offset, wall):
+        env = [(dmin(*(envelopes[g][i][0] for g in members)),
+                dmax(*(envelopes[g][i][1] for g in members))) for i in range(2)]
         inner = [(env[i][0] - offset, env[i][1] + offset) for i in range(2)]
         gx, gy = span(inner[0][0] - wall, inner[0][1] + wall), span(inner[1][0] - wall,
                                                                    inner[1][1] + wall)
         tz = span(floor_z, tunnel_top)
         tunnel = ((gx[0], cy, tz[0]), (gx[1] + wall * 4.0, sy, tz[1]))
-        it = Item(f"Guard_Gantry_{gid.removeprefix('gantry_')}", "guard", "Reference",
+        name = "Guard_" + "_".join(f"Gantry_{g.removeprefix('gantry_')}" for g in members)
+        it = Item(name, "guard", "Reference",
                   (gx[0], gy[0], gz[0]), (gx[1], gy[1], gz[1]),
                   hollow=(inner[0][1] - inner[0][0], inner[1][1] - inner[1][0]), cuts=[tunnel])
         guards.append(it)

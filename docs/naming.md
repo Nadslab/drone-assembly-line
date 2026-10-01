@@ -19,6 +19,7 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | Screwdriving unit (variable position) | **scara** | `scara_1` | `Scara_1` |
 | Interchangeable gantry tooling | **tool** | `tool_plate` | `Tool_Plate` |
 | Gantry tool taking a whole set in one pick | **gang gripper** | `<part>_gang` (`standoff_gang`) | `Tool_StandoffGang` |
+| Gantry tool taking a left and right part together, one pocket each | **pair gripper** | `<part>_pair` (`side_plate_pair`) | `Tool_SidePlatePair` |
 | Named frame on a part used for grasp | **pick frame** | `pick` | `<Part>_pick` |
 | Named datum on a plate/pallet | **datum** | `datum_round`, `datum_diamond` | `<Part>_datum_round` |
 | An operation the sequencer can request | **capability** | `place`, `drive`, `advance`, `test` | — |

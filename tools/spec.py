@@ -221,6 +221,9 @@ class GangHead(Model):
     # The stroke joint's own limits, like an axis: a URDF joint cannot be written without them.
     v_max: Pos | None = None
     a_max: Pos | None = None
+    # One pass: advance, drive every spindle home, retract (D-011). A step with more screws than
+    # spindles takes ceil(qty / spindles) passes; check_line.py `station_time` adds them up.
+    drive_s: Pos | None = None
 
 
 class Scara(Model):

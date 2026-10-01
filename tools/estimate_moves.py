@@ -208,6 +208,76 @@ def estimate(spec: LineSpec, cad: gg.CadHeights | None = None) -> dict:
     return doc
 
 
+def station_times(spec: LineSpec, doc: dict) -> dict:
+    """Per station with a gantry or drive step (D-011):
+
+        station_time = gantry step times there + drive time + index_s
+
+    gantry step times are the estimate's per-step times at plan_speed_scale (each includes the
+    tour leg that brings the gantry to it); drive time = gang head `drive_s` x passes, passes =
+    ceil(qty / spindles). A null input is UNRESOLVED; status FAIL when station_time > takt_s."""
+    takt = spec.line.takt_s
+    idx = index_s(spec)
+    step_s = {s["id"]: s["time_s"] for g in doc["gantries"].values() for s in g["steps"]}
+    owner = zone_owner(spec)
+    rows: dict = {}
+    for sid, st in sorted(spec.stations.items(), key=lambda kv: kv[1].index):
+        steps = [s for s in spec.sequence if s.status == "active" and s.station == sid
+                 and (s.capability in GANTRY_CAPABILITIES and owner.get(sid) is not None
+                      or s.capability == "drive")]
+        if not steps:
+            continue
+        row = {"gantry_s": 0.0, "drive_s": 0.0, "index_s": idx, "total_s": None,
+               "takt_s": takt, "status": "UNRESOLVED", "steps": [], "unresolved": []}
+        if idx is None:
+            row["unresolved"].append("index time: conveyor.pitch or layout.conveyor.belt_speed "
+                                     "is null")
+        for s in steps:
+            if s.capability != "drive":
+                t = step_s.get(s.id)
+                if t is None:
+                    row["unresolved"].append(f"{s.id}: no move estimate for {owner[sid]}")
+                else:
+                    row["gantry_s"] += t
+                    row["steps"].append({"id": s.id, "kind": "gantry", "time_s": t})
+                continue
+            head = spec.gang_heads.get(s.head)
+            if head is None:
+                row["unresolved"].append(f"{s.id}: no gang head, so no drive_s"
+                                         + (f" ({s.head} is a scara)" if s.head else ""))
+                continue
+            missing = [k for k, v in (("drive_s", head.drive_s), ("spindles", head.spindles))
+                       if v is None] + (["qty"] if s.qty is None else [])
+            if missing:
+                row["unresolved"].append(f"{s.id}: {', '.join(missing)} null "
+                                         f"(gang_heads.{s.head} / step)")
+                continue
+            passes = math.ceil(s.qty / head.spindles)
+            t = head.drive_s * passes
+            row["drive_s"] += t
+            row["steps"].append({"id": s.id, "kind": "drive", "head": s.head, "qty": s.qty,
+                                 "spindles": head.spindles, "passes": passes,
+                                 "drive_s_per_pass": head.drive_s, "time_s": round(t, 3)})
+        row["gantry_s"] = round(row["gantry_s"], 3)
+        row["drive_s"] = round(row["drive_s"], 3)
+        if not row["unresolved"]:
+            total = row["gantry_s"] + row["drive_s"] + idx
+            row["total_s"] = round(total, 3)
+            row["status"] = "PASS" if total <= takt else "FAIL"
+        rows[sid] = row
+    return rows
+
+
+def print_station_table(rows: dict) -> None:
+    print(f"{'station':<24}{'gantry_s':>9}{'drive_s':>9}{'index_s':>9}{'total_s':>9}"
+          f"{'takt_s':>8}  status")
+    for sid, r in rows.items():
+        def f(v):
+            return f"{v:>9.3f}" if v is not None else f"{'-':>9}"
+        print(f"{sid:<24}{f(r['gantry_s'])}{f(r['drive_s'])}{f(r['index_s'])}{f(r['total_s'])}"
+              f"{r['takt_s']:>8g}  {r['status']}")
+
+
 def print_table(doc: dict) -> None:
     scale = doc["plan_speed_scale"]
     head = f"@{scale:g}" if scale is not None else "@plan"

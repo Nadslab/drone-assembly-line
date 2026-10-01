@@ -142,13 +142,27 @@ def _buffer_holds(spec: LineSpec, buf: str, part: str) -> bool:
                            for o in outs)
 
 
-def check_actors(spec: LineSpec, r: Result) -> None:
-    """Who does each station's work, and where each part and fastener comes from (D-010).
+def _head_mounts(spec: LineSpec) -> dict[str, set[str]]:
+    """{gang head: stations of every step that names it}. A gang head is fixed hardware: it is
+    mounted at a station only when that is the one station it is ever named at."""
+    out: dict[str, set[str]] = {}
+    for s in spec.sequence:
+        if s.head in spec.gang_heads:
+            out.setdefault(s.head, set()).add(s.station)
+    return out
 
-    Actors: every station with an active step has exactly one actor type — gantry (a step with a
-    tool, or a part drawn `from` a feeder/buffer), driver (a drive step's `head`: gang head or
-    scara), test (a test step), or the station's stated `actor` (operator, sub_line). A station
-    with only parked steps is parked and skipped. `actor: null` is UNRESOLVED (not decided yet).
+
+def check_actors(spec: LineSpec, r: Result) -> None:
+    """Who does each station's work, and where each part and fastener comes from (D-010, D-011).
+
+    Actors: every station with an active step has exactly one **primary** actor — gantry (a step
+    with a tool, or a part drawn `from` a feeder/buffer), driver (a drive step's `head`: gang head
+    or scara), test (a test step), or the station's stated `actor` (operator, sub_line) — plus, at
+    a gantry station, at most one **gang head that fastens what the gantry placed**: mounted at
+    this station (every step naming it stands here) and driving a step that requires a gantry
+    step at this station. Any other drive step at a gantry station makes "driver" a second
+    primary actor. A driver station has one head. A station with only parked steps is skipped.
+    `actor: null` is UNRESOLVED (not decided yet).
 
     Material: a step's part comes `from` a feeder that holds it, a buffer a source fills with it
     (or with what it carries), or — at a sub_line station — the station's `source`. A step's
@@ -156,18 +170,32 @@ def check_actors(spec: LineSpec, r: Result) -> None:
     (the screw is not chosen). Every feeder and buffer is drawn from by at least one active step.
     """
     active = _active_steps(spec)
-    info: dict[str, list[str]] = {}
+    mounts = _head_mounts(spec)
+    for head, where in sorted(mounts.items()):
+        if len(where) > 1:
+            r.add(FAIL, f"gang head {head} is named at {len(where)} stations "
+                        f"({', '.join(sorted(where))}); it is mounted at one")
+    info: dict[str, str] = {}
     for sid, st in sorted(spec.stations.items(), key=lambda kv: kv[1].index):
         steps = [s for s in active if s.station == sid]
         if not steps:
             if any(s.station == sid for s in spec.sequence):
-                info[sid] = ["parked"]
+                info[sid] = "parked"
             else:
                 r.add(FAIL, f"{sid}: no step stands at this station, so nothing works there")
             continue
+        gantry_here = {s.id for s in steps if _step_actor(spec, s) == "gantry"}
         types = {st.actor} if st.actor else set()
+        primary_heads: set[str] = set()
+        fastening_heads: set[str] = set()
         for s in steps:
             a = _step_actor(spec, s)
+            if a == "driver":
+                if s.head in spec.gang_heads and mounts.get(s.head) == {sid} and gantry_here \
+                        and set(s.requires) & gantry_here:
+                    fastening_heads.add(s.head)
+                    continue
+                primary_heads.add(s.head)
             if a is not None:
                 types.add(a)
             elif s.capability == "drive":
@@ -176,10 +204,13 @@ def check_actors(spec: LineSpec, r: Result) -> None:
             elif s.capability in ("load", "place", "pick"):
                 r.add(FAIL, f"{s.id}: moves part '{s.part}' but no gantry (tool or `from`) or "
                             "sub_line station does")
-        info[sid] = sorted(types)
+        info[sid] = " + ".join(sorted(types) + sorted(fastening_heads)) or "none"
         if len(types) > 1:
-            r.add(FAIL, f"{sid}: {len(types)} actor types ({', '.join(sorted(types))}); a "
-                        "station has exactly one")
+            why = (" (a drive step here that does not fasten what the gantry placed, with a gang "
+                   "head mounted here, is a second actor)" if {"gantry", "driver"} <= types
+                   else "")
+            r.add(FAIL, f"{sid}: {len(types)} primary actors ({', '.join(sorted(types))}); a "
+                        f"station has exactly one{why}")
         elif not types:
             if "actor" in st.model_fields_set:
                 r.unresolved(f"stations.{sid}.actor: who does "
@@ -187,6 +218,12 @@ def check_actors(spec: LineSpec, r: Result) -> None:
             else:
                 r.add(FAIL, f"{sid}: no actor for {', '.join(s.id for s in steps)} (no gantry, "
                             "driver or test step, and no stated `actor`)")
+        if len(fastening_heads) > 1:
+            r.add(FAIL, f"{sid}: {len(fastening_heads)} gang heads fasten what the gantry "
+                        f"placed ({', '.join(sorted(fastening_heads))}); at most one")
+        if types == {"driver"} and len(primary_heads) > 1:
+            r.add(FAIL, f"{sid}: {len(primary_heads)} drivers ({', '.join(sorted(primary_heads))})"
+                        "; a station has exactly one primary actor")
         if st.actor == "sub_line" and st.source is None:
             r.add(FAIL, f"{sid}: a sub_line station needs `source` (the buffer or source it "
                         "loads from)")
@@ -397,6 +434,20 @@ def check_gantry_load(spec: LineSpec, r: Result) -> None:
     r.info["transfer_s"] = doc["transfer_s"]
 
 
+def check_station_time(spec: LineSpec, r: Result) -> None:
+    """Per station (D-011): its gantry step times + gang head drive_s x passes + the index time
+    (pitch / belt_speed) must fit in takt_s (tools/estimate_moves.py station_times)."""
+    rows = estimate_moves.station_times(spec, estimate_moves.estimate(spec, r.cfg["cad"]))
+    r.info["stations"] = rows
+    for sid, row in rows.items():
+        for u in row["unresolved"]:
+            r.unresolved(f"{sid}: {u}")
+        if row["status"] == "FAIL":
+            parts = ", ".join(f"{s['id']} {s['time_s']:.2f}" for s in row["steps"])
+            r.add(FAIL, f"{sid}: {row['total_s']:.2f} s ({parts}, index {row['index_s']:.2f}) "
+                        f"> takt {row['takt_s']:g} s")
+
+
 def check_gantry_straddle(spec: LineSpec, r: Result) -> None:
     """Every gantry post stands clear of the conveyor by gantry_frame.conveyor_clearance
     (D-009): a post in the belt is a machine that cannot be built."""
@@ -547,6 +598,7 @@ CHECKS = [
     ("line_balance", check_line_balance),
     ("reach", check_reach),
     ("gantry_load", check_gantry_load),
+    ("station_time", check_station_time),
     ("gantry_straddle", check_gantry_straddle),
     ("safe_z", check_safe_z),
     ("feeder_rate", check_feeder_rate),
@@ -597,6 +649,12 @@ def _summary(r: Result) -> str:
     if r.name == "gantry_load" and r.status != WARN and r.info.get("load_pct"):
         return (", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None)
                 + f" of {r.info['budget_s']:g} s")
+    if r.name == "station_time" and r.status != WARN and r.info.get("stations"):
+        done = {s: row for s, row in r.info["stations"].items() if row["total_s"] is not None}
+        if done:
+            top = max(done, key=lambda s: done[s]["total_s"])
+            return (f"max {top} {done[top]['total_s']:.2f} s of {done[top]['takt_s']:g} s"
+                    + (" — " + _count(r) if r.status == FAIL else ""))
     if r.name == "safe_z" and r.status != WARN and r.info.get("safe_z"):
         return ", ".join(f"{g} {d['safe_z']:.3f} m" for g, d in r.info["safe_z"].items()
                          if d["safe_z"] is not None) + (" — " + _count(r) if r.status == FAIL
@@ -619,6 +677,11 @@ def print_table(results: list[Result], passed: bool, verbose: bool) -> None:
         for lvl, msg in r.findings:
             if lvl == FAIL or (verbose and lvl in (WARN, SKIP)):
                 print(f"  [{lvl}] {r.name}: {msg}")
+    st = next((r for r in results if r.name == "station_time"), None)
+    if st is not None and st.info.get("stations"):
+        print("station_time = gantry steps + drive_s x passes + index (pitch / belt_speed):")
+        estimate_moves.print_station_table(st.info["stations"])
+        print("-" * 60)
     warns = sum(1 for r in results for lvl, _ in r.findings if lvl == WARN)
     if warns and not verbose:
         print(f"  ({warns} warning(s) not shown; -v or see the report)")

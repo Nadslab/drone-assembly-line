@@ -9,7 +9,7 @@ import yaml
 
 import check_line
 import spec as spec_mod
-from conftest import FAILING, FIXTURES, TOOLS, _sub_line_loader
+from conftest import FAILING, FIXTURES, TOOLS, _drive_at_place, _sub_line_loader
 
 CHECK_NAMES = [name for name, _ in check_line.CHECKS]
 
@@ -301,24 +301,20 @@ def dev_cad_reports():
     return spec_mod.REPO / "reports"
 
 
-def test_repo_dev_overlay_state_after_d010(dev_cad_reports):
-    """D-010's recorded result. The pallet loader took load_pallet off gantry_1, which now
-    passes (~12.2 s of 17.2 s); gantry_2 passes. gantry_3 took the side plates and is over
-    budget (~18.3 s): the goal was gantry_load PASS on every gantry, and it does not hold yet.
-    `actors` fails on the two stations where a gantry places and a gang head drives (open gap
-    in D-010). Everything else passes."""
-    results, _ = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
-                                       dev=True)
+def test_repo_dev_overlay_passes_every_check_and_every_gantry_load(dev_cad_reports):
+    """D-011's recorded result: with the paired side-plate pick gantry_3 is back under budget
+    (~13.5 s of 17.2 s), so gantry_load passes on every gantry, and a gang head that fastens what
+    its station's gantry placed is no second actor. The only findings left are open gap B: the
+    three drive steps whose screws are not chosen are UNRESOLVED (WARN), never failures."""
+    results, passed = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
+                                            dev=True)
     got = by_name(results)
-    bad = {r.name for r in results if r.status != "PASS"}
-    assert bad == {"gantry_load", "actors"}, {n: got[n].findings for n in bad}
-    fails = [m for lvl, m in got["gantry_load"].findings if lvl == "FAIL"]
-    assert [m.split(":")[0] for m in fails] == ["gantry_3"]
-    assert got["gantry_load"].info["load_pct"]["gantry_1"] <= 100.0
-    assert got["gantry_load"].info["load_pct"]["gantry_2"] <= 100.0
-    assert sorted(m.split(":")[0] for lvl, m in got["actors"].findings if lvl == "FAIL") == [
-        "st_fit_side_plates", "st_fit_top_plate"]
-    # The three drive steps whose screws are not chosen yet are UNRESOLVED, not failures.
+    assert passed
+    assert {r.name for r in results if r.status != "PASS"} == {"actors"}
+    assert got["gantry_load"].status == "PASS"
+    assert set(got["gantry_load"].info["load_pct"]) == {"gantry_1", "gantry_2", "gantry_3"}
+    assert all(p <= 100.0 for p in got["gantry_load"].info["load_pct"].values())
+    assert got["station_time"].status == "PASS"
     assert sorted(m.split()[1].rstrip(":") for lvl, m in got["actors"].findings
                   if lvl == "WARN") == ["drive_top_plate", "fit_side_plates", "seat_esc"]
 
@@ -329,8 +325,10 @@ def test_repo_spec_every_feeder_and_buffer_is_drawn_and_every_drive_has_a_driver
     msgs = [m for _, m in by_name(results)["actors"].findings]
     assert not [m for m in msgs if "draws from it" in m or "has no driver" in m], msgs
     actors = by_name(results)["actors"].info["station_actors"]
-    assert actors["st_pallet_loader"] == ["sub_line"]
-    assert actors["st_mount_servo"] == ["parked"]
+    assert actors["st_load_pallet"] == "sub_line"
+    assert actors["st_mount_servo"] == "parked"
+    assert actors["st_fit_side_plates"] == "gantry + gh_side_plates"
+    assert actors["st_fit_top_plate"] == "gantry + gh_top_plate"
 
 
 def test_index_time_is_derived_never_stated(pass_raw):
@@ -344,7 +342,14 @@ def test_index_time_is_derived_never_stated(pass_raw):
 
 @pytest.mark.parametrize("case, message", [
     ("station_without_actor", "st_test: no actor for test"),
-    ("two_actor_types_at_one_station", "st_place: 2 actor types (driver, gantry)"),
+    ("two_primary_actors", "st_place: 2 primary actors (gantry, test)"),
+    ("gang_head_not_fastening_what_the_gantry_placed",
+     "st_place: 2 primary actors (driver, gantry); a station has exactly one (a drive step"),
+    ("gang_head_named_at_two_stations", "gang head gh_top is named at 2 stations (st_drive, "
+                                        "st_place)"),
+    ("two_gang_heads_at_a_gantry_station", "st_place: 2 gang heads fasten what the gantry placed "
+                                           "(gh_top, gh_two)"),
+    ("two_drivers_at_a_driver_station", "st_drive: 2 drivers (gh_top, gh_two)"),
     ("drive_step_without_driver", "drive: drive step at st_drive has no driver"),
     ("feeder_never_drawn_from", "feeder fd_spare: no active step draws from it"),
     ("buffer_never_drawn_from", "buffer buf_spare: no active step draws from it"),
@@ -364,6 +369,14 @@ def test_each_actor_rule_fails_for_its_own_reason(pass_raw, case, message):
     assert any(message in m for lvl, m in r.findings if lvl == "FAIL"), r.findings
 
 
+def test_a_gang_head_fastening_what_the_gantry_placed_shares_its_station(pass_raw):
+    """D-011: a gantry places, the gang head mounted at that station screws it down."""
+    _drive_at_place(pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])["actors"]
+    assert r.status == "PASS", r.findings
+    assert r.info["station_actors"]["st_place"] == "gantry + gh_top"
+
+
 def test_a_sub_line_loader_needs_no_gantry(pass_raw):
     """st_load as a sub-line loader fed from buf_plate: actors passes and gantry_1 loses load."""
     _sub_line_loader("buf_plate")(pass_raw)
@@ -371,7 +384,7 @@ def test_a_sub_line_loader_needs_no_gantry(pass_raw):
     results, passed = check_line.run_checks(pass_raw)
     got = by_name(results)
     assert got["actors"].status == "PASS", got["actors"].findings
-    assert got["actors"].info["station_actors"]["st_load"] == ["sub_line"]
+    assert got["actors"].info["station_actors"]["st_load"] == "sub_line"
     assert passed
 
 

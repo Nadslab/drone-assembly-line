@@ -219,6 +219,8 @@ gantries:
     tools:
       tool_plate:
         dims: [0.12, 0.12, 0.02]         # PLACEHOLDER
+      side_plate_pair:
+        dims: [0.12, 0.14, 0.02]         # PLACEHOLDER (two 0.10 x 0.05 plates side by side)
     mount: [4.1, -0.5, 0.0]              # PLACEHOLDER
 gantry_defaults:
   grip_s: 0.2                            # PLACEHOLDER
@@ -231,21 +233,25 @@ gang_heads:
     stroke: 0.05                         # PLACEHOLDER
     v_max: 0.10                          # PLACEHOLDER (m/s, ram)
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
+    drive_s: 3.0                         # PLACEHOLDER (s per pass)
   gh_side_plates:
     spindles: 4                          # PLACEHOLDER
     stroke: 0.05                         # PLACEHOLDER
     v_max: 0.10                          # PLACEHOLDER (m/s, ram)
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
+    drive_s: 3.0                         # PLACEHOLDER (s per pass)
   gh_seat_esc:
     spindles: 4                          # PLACEHOLDER (one per screw, seat_esc qty)
     stroke: 0.05                         # PLACEHOLDER
     v_max: 0.10                          # PLACEHOLDER (m/s, ram)
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
+    drive_s: 3.0                         # PLACEHOLDER (s per pass)
   gh_top_plate:
     spindles: 5                          # PLACEHOLDER (one per screw, drive_top_plate qty)
     stroke: 0.05                         # PLACEHOLDER
     v_max: 0.10                          # PLACEHOLDER (m/s, ram)
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
+    drive_s: 3.0                         # PLACEHOLDER (s per pass)
 
 conveyor:
   pitch: 0.6                             # PLACEHOLDER
@@ -287,7 +293,7 @@ layout:
     width: 1.0                           # PLACEHOLDER
   guard_offset: 0.3                      # PLACEHOLDER
 stations:
-  st_pallet_loader:
+  st_load_pallet:
     pose: [0.0, 0.0, 0.0, null]          # PLACEHOLDER
   st_place_spider:
     pose: [0.6, 0.0, 0.0, null]          # PLACEHOLDER
@@ -335,7 +341,7 @@ sequence:
   - id: place_pod
     duration_s: 9.0                      # PLACEHOLDER
   - id: place_side_plates
-    duration_s: 4.0                      # PLACEHOLDER (2 picks, like place_top_plate)
+    duration_s: 4.0                      # PLACEHOLDER (one pair pick, like place_top_plate)
   - id: fit_side_plates
     duration_s: 14.0                     # PLACEHOLDER
     qty: 8                               # PLACEHOLDER

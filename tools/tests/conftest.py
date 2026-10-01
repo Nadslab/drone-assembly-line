@@ -39,8 +39,33 @@ def _null_durations(s):
 
 
 def _drive_at_place(s):
-    """A gang head drives at a station a gantry places at: two actor types at one station."""
+    """gh_top screws down the mid plate gantry_1 just placed, at st_place: a gantry plus the gang
+    head that fastens what it placed. Allowed (D-011). st_drive is left empty, so it goes."""
     _seq(s, "drive")["station"] = "st_place"
+    del s["stations"]["st_drive"]
+
+
+def _second_head(station, requires):
+    """A second gang head, gh_two, driving at `station`."""
+    def mutate(s):
+        s["gang_heads"]["gh_two"] = dict(s["gang_heads"]["gh_top"], pattern_from=None, spindles=2)
+        s["sequence"].append({"id": "drive_two", "station": station, "capability": "drive",
+                              "head": "gh_two", "fastener": "m3_x8", "qty": 2, "duration_s": 1.0,
+                              "requires": requires})
+    return mutate
+
+
+def _drive_at_place_after(requires):
+    def mutate(s):
+        _drive_at_place(s)
+        _seq(s, "drive")["requires"] = requires
+    return mutate
+
+
+def _gh_top_at_two_stations(s):
+    s["sequence"].append({"id": "drive_again", "station": "st_place", "capability": "drive",
+                          "head": "gh_top", "fastener": "m3_x8", "qty": 8, "duration_s": 1.0,
+                          "requires": ["place"]})
 
 
 def _sub_line_loader(source):
@@ -81,7 +106,13 @@ FAILING = [
     ("actors", "undecided_actor_is_unresolved",
      lambda s: (_set(["sequence", 3, "capability"], "inspect")(s),
                 _set(["stations", "st_test", "actor"], None)(s)), "WARN"),
-    ("actors", "two_actor_types_at_one_station", _drive_at_place, "FAIL"),
+    ("actors", "two_primary_actors", _set(["sequence", 3, "station"], "st_place"), "FAIL"),
+    ("actors", "gang_head_not_fastening_what_the_gantry_placed",
+     _drive_at_place_after(["load"]), "FAIL"),
+    ("actors", "gang_head_named_at_two_stations", _gh_top_at_two_stations, "FAIL"),
+    ("actors", "two_gang_heads_at_a_gantry_station",
+     lambda s: (_drive_at_place(s), _second_head("st_place", ["place"])(s)), "FAIL"),
+    ("actors", "two_drivers_at_a_driver_station", _second_head("st_drive", ["drive"]), "FAIL"),
     ("actors", "drive_step_without_driver", lambda s: _seq(s, "drive").pop("head"), "FAIL"),
     ("actors", "drive_step_without_fastener", _second_drive_without_fastener, "WARN"),
     ("actors", "feeder_never_drawn_from",
@@ -96,6 +127,10 @@ FAILING = [
     ("actors", "part_from_nowhere", lambda s: _seq(s, "place").pop("from"), "FAIL"),
     ("actors", "sub_line_source_does_not_exist", _sub_line_loader("buf_nope"), "FAIL"),
     ("actors", "sub_line_without_source", _sub_line_loader(None), "FAIL"),
+    # station_time (D-011): gh_top 1 pass x 19 s + index 0.5/0.3 s > takt 20 s.
+    ("station_time", "drive_pass_too_long", _set(["gang_heads", "gh_top", "drive_s"], 19.0),
+     "FAIL"),
+    ("station_time", "null_drive_s", _set(["gang_heads", "gh_top", "drive_s"], None), "WARN"),
     ("unresolved", "null_mass", _set(["parts", "mid_plate", "mass"], None), "WARN"),
     ("precedence", "cycle", _cycle, "FAIL"),
     ("precedence", "requires_later_step", _requires_later, "FAIL"),

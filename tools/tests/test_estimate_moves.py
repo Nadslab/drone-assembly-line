@@ -141,6 +141,35 @@ def test_a_safe_z_the_gantry_cannot_reach_is_a_failure(pass_raw):
     assert any("outside its travel" in e for e in doc["errors"])
 
 
+# ---------------------------------------------------------------- station time (D-011)
+
+def test_station_time_is_gantry_steps_plus_drive_passes_plus_index(pass_raw):
+    spec = spec_mod.parse_spec(pass_raw)
+    doc = est(pass_raw)
+    rows = em.station_times(spec, doc)
+    idx = 0.5 / 0.3
+    place = next(s for s in doc["gantries"]["gantry_1"]["steps"] if s["id"] == "place")
+    assert rows["st_place"]["total_s"] == pytest.approx(place["time_s"] + idx, abs=1e-3)
+    assert rows["st_drive"]["drive_s"] == pytest.approx(3.0)          # 8 screws / 8 spindles
+    assert rows["st_drive"]["total_s"] == pytest.approx(3.0 + idx, abs=1e-3)
+    assert "st_test" not in rows                                      # no gantry or drive step
+
+
+def test_more_screws_than_spindles_take_more_passes(pass_raw):
+    pass_raw["gang_heads"]["gh_top"].update(spindles=3, pattern_from=None)
+    rows = em.station_times(spec_mod.parse_spec(pass_raw), est(pass_raw))
+    step = rows["st_drive"]["steps"][0]
+    assert step["passes"] == 3                                        # ceil(8 / 3)
+    assert rows["st_drive"]["drive_s"] == pytest.approx(9.0)
+
+
+def test_station_time_over_takt_names_its_parts(pass_raw):
+    import check_line
+    pass_raw["gang_heads"]["gh_top"]["drive_s"] = 19.0
+    r = next(r for r in check_line.run_checks(pass_raw)[0] if r.name == "station_time")
+    assert r.findings == [("FAIL", "st_drive: 20.67 s (drive 19.00, index 1.67) > takt 20 s")]
+
+
 # ---------------------------------------------------------------- CLI
 
 def test_cli_writes_the_report_and_exits_on_overload(tmp_path, pass_raw):

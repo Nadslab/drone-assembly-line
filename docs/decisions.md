@@ -483,3 +483,80 @@ the station each take 0.84 s, including settle. Candidate fixes, none applied:
   overlaps. Before D-010 there were 0 interferences. Fix: one shared guard around adjacent
   gantries (layout.py), or a free station between their zones. The clearances were not reduced.
 - **F. FAIL, `gantry_load`:** gantry_3, above.
+
+## D-011 — Gantry plus gang head at one station, station time, paired side-plate pick, merged guards
+
+**Date:** 2026-10-01
+
+**Context:** D-010 left three FAILs (open gaps D, E, F). `actors` failed on the two stations where
+a gantry places and a gang head drives. gantry_3 was over budget at 106.2%. layout.py found 9
+interferences between gantry_2's and gantry_3's guards.
+
+**Decision — one primary actor, plus the gang head that fastens what the gantry placed**
+(replaces D-010's "exactly one actor type"). A station has exactly one primary actor: gantry,
+driver, operator, sub_line or test. A gantry station may also have one gang head, if:
+- it is mounted at that station: every step that names it stands there;
+- its drive step `requires` a gantry step at the same station.
+
+Any other drive step at a gantry station counts as a second primary actor and FAILs. Also FAIL:
+- two gang heads at a gantry station;
+- two heads at a driver station;
+- a gang head named at two stations.
+
+`st_fit_side_plates` is now gantry + gh_side_plates, and `st_fit_top_plate` is gantry +
+gh_top_plate. This closes open gap D. The actors fixtures were updated: the old two-actor-types
+case is now a passing test, and 5 new failing cases were added.
+
+**Decision — check `station_time`** (`check_line.py`, computed by
+`estimate_moves.station_times`). For each station with a gantry or drive step:
+`station_time = its gantry step times + drive time + index_s`.
+- A gantry step time is the estimate's per-step time at `plan_speed_scale`. It includes the tour
+  leg that brings the gantry to the station.
+- Drive time is `gang_heads.<id>.drive_s` (new: base null, dev 3.0 s PLACEHOLDER) ×
+  `ceil(qty / spindles)` passes.
+- index_s is `pitch / belt_speed`.
+
+FAIL above `takt_s`; a null input is UNRESOLVED. As briefed, the stop unit's
+`stop_unit_cycle_s` is not in the sum, though `gantry_load`'s budget includes it. Stations with
+no gantry or drive step (the sub_line loader, operator stations, test) are not in the table.
+`takt` still covers their `duration_s`.
+
+**Decision — paired side-plate pick.**
+- New tool `side_plate_pair` on gantry_3 (vacuum). It has two pockets and picks the left and right
+  side plate together. Its dims are null in base; dev is [0.12, 0.14, 0.02] PLACEHOLDER.
+  docs/naming.md adds **pair gripper**, `<part>_pair`.
+- `fd_side_plate` is now a paired magazine, `per_pick: 2`: one left and one right plate per pick.
+- `place_side_plates` is qty 1 and uses `side_plate_pair`.
+- Not modelled, as with `standoff_gang` in D-009: tools/cad/tools.py builds the pair as its generic
+  vacuum tool (2 cups). tools/cad/magazine.py still builds one 40-plate stack and ignores
+  `per_pick`.
+
+**Decision — merged guards** (`tools/cad/layout.py`). Two gantries' guards overlap or touch when
+their outer faces (envelope + `guard_offset` + wall) meet in x and y. They are then replaced by
+one guard around the bounding box of both travel envelopes, plus `guard_offset`, with the
+conveyor tunnel kept. It is named `Guard_Gantry_<a>_Gantry_<b>`. Grouping is transitive, so a
+chain of three gantries gets one guard. `guard_offset` itself is unchanged. Dev:
+`Guard_Gantry_2_Gantry_3` replaces the two guards that crossed each other's posts. This closes
+open gap E.
+
+**Decision — `st_load_pallet` again.** D-010's `st_pallet_loader` is renamed back so the station id
+keeps the verb rule. It is still `actor: sub_line, source: buf_plate`. layout.py's two references
+already said `st_load_pallet`.
+
+**Result (dev, budget 17.2 s):**
+
+| gantry | @0.5 | @1.0 | load @0.5 | status |
+|---|---|---|---|---|
+| gantry_1 | 12.23 s | 8.72 s | 71.1% | PASS |
+| gantry_2 | 14.73 s | 9.97 s | 85.6% | PASS |
+| gantry_3 | 13.53 s (side pair 6.54 + top plate 6.99) | 9.17 s | 78.7% | PASS |
+
+This closes open gap F. The busiest station is `st_fit_side_plates` at 14.54 s of 20.2 s: pair
+pick 6.54, plus 2 passes of `gh_side_plates` (8 screws, 4 spindles) at 6.0 s, plus index 2.0.
+layout.py --dev has 0 interferences.
+
+**Open gaps** (carried from D-010; still open):
+- **A.** Who works `st_audit_torque` and `st_pack`: `actor: null` (WARN). Dev says `operator`,
+  PLACEHOLDER.
+- **B.** No fastener is chosen for `seat_esc`, `fit_side_plates` or `drive_top_plate` (WARN).
+- **C.** `mount_servo` (parked) has no driver.

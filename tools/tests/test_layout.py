@@ -139,6 +139,40 @@ def test_a_guard_closer_than_the_posts_cuts_through_them(tmp_path, pass_raw):
                for f in doc["interference"]["failures"])
 
 
+def test_two_adjacent_gantries_share_one_guard_and_nothing_interferes(tmp_path, pass_raw):
+    """D-011: gantry_2 moved to x 1.0-1.7, 0.4 m after gantry_1's 0.0-0.6. Each guard stands
+    guard_offset 0.3 outside its envelope, so the two walls would cross each other's posts; they
+    become one guard around both envelopes, and the layout is clean."""
+    raw = layout_raw(pass_raw)
+    raw["gantries"]["gantry_2"]["mount"][0] = 1.0
+    code, doc = run(tmp_path, raw)
+    guards = [n for n in names(doc) if n.startswith("Guard_")]
+    assert guards == ["Guard_Gantry_1_Gantry_2"]
+    assert doc["interference"]["result"] == "PASS", doc["interference"]["failures"]
+    assert doc["interference"]["failures"] == []
+    assert code == 0
+    g = next(s for s in doc["solids"] if s["name"] == "Guard_Gantry_1_Gantry_2")
+    wall = layout.GUARD_T * 1000.0
+    # x: gantry_1's lower envelope edge to gantry_2's upper one, plus offset and wall each side.
+    assert g["bbox_mm"]["min"][0] == pytest.approx(0.0 - 300.0 - wall, abs=1e-6)
+    assert g["bbox_mm"]["max"][0] == pytest.approx(1700.0 + 300.0 + wall, abs=1e-6)
+
+
+def test_guards_that_do_not_touch_stay_separate(clean):
+    _, _, doc = clean
+    assert sorted(n for n in names(doc) if n.startswith("Guard_")) == ["Guard_Gantry_1",
+                                                                      "Guard_Gantry_2"]
+
+
+def test_a_chain_of_touching_guards_is_one_group():
+    d = layout.Dim
+    env = {g: [(d(x0), d(x0 + 0.5)), (d(0.0), d(0.5))]
+           for g, x0 in (("gantry_1", 0.0), ("gantry_2", 1.0), ("gantry_3", 2.0),
+                         ("gantry_4", 9.0))}
+    assert layout.guard_groups(env, d(0.3), d(0.01)) == [["gantry_1", "gantry_2", "gantry_3"],
+                                                          ["gantry_4"]]
+
+
 def test_a_placeholder_solid_is_suffixed_but_keeps_its_category_colour(tmp_path, pass_raw):
     raw = layout_raw(pass_raw)
     raw["layout"]["guard_offset"] = None
