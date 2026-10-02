@@ -17,15 +17,15 @@ import yaml
 import gen_controllers as gc
 from checks import descriptions_check as dc
 
-# One prismatic axis, exactly as urdf/gantry.urdf.xacro writes it for the fixture spec.
-AXIS = """<joint name="gantry_1_y" type="prismatic">
-  <parent link="Gantry_1_x"/><child link="Gantry_1_y"/>
+# One prismatic joint, the way urdf/scara.urdf.xacro writes one (values are the test's own).
+AXIS = """<joint name="scara_place_j3" type="prismatic">
+  <parent link="Scara_Place_link2"/><child link="Scara_Place_quill"/>
   <origin xyz="0 0 0" rpy="0 0 0"/><axis xyz="0 1 0"/>
   <limit effort="62.0" lower="-0.5" upper="0.5" velocity="1.0"/>
   <dynamics damping="5.0" friction="0.5"/>
 </joint>"""
 
-WANT = {"type": "prismatic", "spec_path": "gantries.gantry_1.axes.y", "min": -0.5, "max": 0.5,
+WANT = {"type": "prismatic", "spec_path": "scaras.scara_place", "min": -0.5, "max": 0.5,
         "v_max": 1.0, "a_max": 2.0, "damping": 5.0, "friction": 0.5}
 
 
@@ -40,16 +40,16 @@ def joint(xml=AXIS, **replace):
 # ---------------------------------------------------------------- one joint against the spec
 
 def test_a_joint_that_says_what_the_spec_says_passes():
-    row = dc.compare_joint("gantry_1_y", WANT, joint())
+    row = dc.compare_joint("scara_place_j3", WANT, joint())
     assert row["ok"], row["errors"]
     assert row["actual"]["effort"] == 62.0        # derived, so recorded rather than asserted
 
 
 def test_a_joint_whose_velocity_is_not_the_specs_fails():
-    row = dc.compare_joint("gantry_1_y", WANT, joint(velocity=0.42))
+    row = dc.compare_joint("scara_place_j3", WANT, joint(velocity=0.42))
     assert not row["ok"]
-    assert row["errors"] == ["gantry_1_y: velocity=0.42, spec says 1.0 "
-                             "(gantries.gantry_1.axes.y)"]
+    assert row["errors"] == ["scara_place_j3: velocity=0.42, spec says 1.0 "
+                             "(scaras.scara_place)"]
 
 
 @pytest.mark.parametrize("key, value", [("lower", -0.4), ("upper", 0.6), ("damping", 1.0),
@@ -58,20 +58,20 @@ def test_every_limit_the_spec_gives_is_compared(key, value):
     element = ET.fromstring(AXIS)
     target = element.find("limit" if key in ("lower", "upper") else "dynamics")
     target.set(key, str(value))
-    row = dc.compare_joint("gantry_1_y", WANT, element)
+    row = dc.compare_joint("scara_place_j3", WANT, element)
     assert not row["ok"]
     assert any(f"{key}={value}" in e for e in row["errors"])
 
 
 def test_a_joint_the_description_does_not_have_fails():
-    row = dc.compare_joint("gantry_1_c", dict(WANT, spec_path="gantries.gantry_1.axes.c"), None)
+    row = dc.compare_joint("scara_place_j4", dict(WANT, spec_path="scaras.scara_place"), None)
     assert not row["ok"]
-    assert row["errors"] == ["gantry_1_c: the description has no such joint"]
+    assert row["errors"] == ["scara_place_j4: the description has no such joint"]
 
 
 def test_a_joint_with_no_effort_fails():
     """A zero-effort joint parses and then cannot hold its own weight up."""
-    row = dc.compare_joint("gantry_1_y", WANT, joint(effort=0.0))
+    row = dc.compare_joint("scara_place_j3", WANT, joint(effort=0.0))
     assert not row["ok"]
     assert any("expected a positive force" in e for e in row["errors"])
 
@@ -79,7 +79,7 @@ def test_a_joint_with_no_effort_fails():
 def test_a_prismatic_joint_where_the_spec_wants_a_revolute_one_fails():
     element = joint()
     element.set("type", "revolute")
-    row = dc.compare_joint("gantry_1_y", WANT, element)
+    row = dc.compare_joint("scara_place_j3", WANT, element)
     assert not row["ok"]
     assert any("spec says prismatic" in e for e in row["errors"])
 
@@ -127,25 +127,28 @@ def mount(joint_name, xyz):
                                       f'<origin xyz="{xyz}" rpy="0 0 0"/></joint>')}
 
 
-GANTRIES = mount("gantry_1_mount", "0 0 0") | mount("gantry_2_mount", "1.9 0 0")
+# The fixture's SCARA bases: station x, 0.24 m out on +y, station z (spec.scara_base).
+SCARAS = (mount("scara_load_mount", "0 0.24 0.1") | mount("scara_place_mount", "0.5 0.24 0.1")
+          | mount("scara_spider_mount", "2.0 0.24 0.1") | mount("scara_pod_mount", "2.5 0.24 0.1"))
 
 
-def test_every_gantry_is_bolted_at_its_spec_mount(pass_raw):
-    joints = GANTRIES | mount("gh_top_mount", "1.0 0.0 0.16")
+def test_every_scara_is_bolted_at_its_spec_base(pass_raw):
+    joints = SCARAS | mount("gh_top_mount", "1.0 0.0 0.16")
     rows = dc.compare_mounts(pass_raw, joints)
     assert all(r["ok"] for r in rows), [e for r in rows for e in r["errors"]]
 
 
-def test_a_gantry_mounted_somewhere_else_fails(pass_raw):
-    joints = GANTRIES | mount("gantry_1_mount", "0.5 0 0") | mount("gh_top_mount", "1.0 0.0 0.16")
+def test_a_scara_mounted_somewhere_else_fails(pass_raw):
+    joints = SCARAS | mount("scara_load_mount", "0 -0.24 0.1") | mount("gh_top_mount",
+                                                                     "1.0 0.0 0.16")
     rows = dc.compare_mounts(pass_raw, joints)
-    assert [r["what"] for r in rows if not r["ok"]] == ["gantry_1"]
-    assert "gantries.gantry_1.mount is [0.0, 0.0, 0.0]" in rows[0]["errors"][0]
+    assert [r["what"] for r in rows if not r["ok"]] == ["scara_load"]
+    assert "the spec puts the base at [0.0, 0.24, 0.1]" in rows[0]["errors"][0]
 
 
 def test_a_head_standing_over_the_wrong_station_fails(pass_raw):
     """z is the head's own stand-off, so only x and y are the station's to give."""
-    joints = GANTRIES | mount("gh_top_mount", "1.0 0.3 0.16")
+    joints = SCARAS | mount("gh_top_mount", "1.0 0.3 0.16")
     rows = dc.compare_mounts(pass_raw, joints)
     head = next(r for r in rows if r["what"] == "gh_top")
     assert not head["ok"]
@@ -158,17 +161,17 @@ def test_only_a_robot_with_a_name_is_expanded():
     """A macro library is not a description: expanding it alone proves nothing."""
     robots, libraries = dc.top_level_xacros(dc.URDF_DIR)
     assert [p.name for p in robots] == ["line.urdf.xacro", "spike_axis.urdf.xacro"]
-    assert sorted(libraries) == ["gang_head.urdf.xacro", "gantry.urdf.xacro",
-                                 "inertia.urdf.xacro"]
+    assert sorted(libraries) == ["gang_head.urdf.xacro", "inertia.urdf.xacro",
+                                 "scara.urdf.xacro"]
 
 
 def test_the_configured_joints_are_read_back_from_the_generated_yaml(tmp_path, pass_raw):
     limits = gc.joint_limits(gc.Values(pass_raw))
     config = tmp_path / "controllers.yaml"
     config.write_text(gc.render(gc.controllers_of(pass_raw), limits))
-    assert dc.controller_joints(config) == ["gantry_1_x", "gantry_1_y", "gantry_1_z",
-                                            "gantry_1_c", "gantry_2_x", "gantry_2_y",
-                                            "gantry_2_z", "gantry_2_c", "gh_top_stroke"]
+    assert dc.controller_joints(config) == [f"{sid}_j{k}" for sid in (
+        "scara_load", "scara_place", "scara_spider", "scara_pod") for k in (1, 2, 3, 4)] \
+        + ["gh_top_stroke"]
     # Every joint the description has is configured exactly once: that is the pairing the check
     # makes, and tools/gen_controllers.py is the other half of it.
     assert sorted(dc.controller_joints(config)) == sorted(limits)

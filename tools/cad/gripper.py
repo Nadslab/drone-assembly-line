@@ -1,8 +1,8 @@
-r"""The pick feature the gantry's carrier tool grips, and the space it must be left (plan P4 B3).
+r"""The pick feature the SCARA's carrier tool grips, and the space it must be left (plan P4 B3).
 
-Every returnable fixture the gantry lifts — spider carrier, pod tray — presents the same feature:
+Every returnable fixture a SCARA lifts — spider carrier, pod tray — presents the same feature:
 a cylindrical **pick boss** standing proud of the fixture's top structure, which the tool's jaws
-close on. Two things have to be true, and both are decided by `gantries.<id>.tools.<tool>.dims`, not by
+close on. Two things have to be true, and both are decided by `scaras.<id>.tools.<tool>.dims`, not by
 the fixture:
 
     jaws close across the boss          jaws reach down the boss, not past it
@@ -38,9 +38,9 @@ class GripDims:
 
     boss_d: float       # fabrication choice, local to the fixture
     boss_h: float       # fabrication choice: how far the boss stands above the structure
-    jaw_x: float        # gantries.<id>.tools.<tool>.dims[0]
-    jaw_y: float        # gantries.<id>.tools.<tool>.dims[1]
-    reach: float        # gantries.<id>.tools.<tool>.dims[2]: how far the jaws come down
+    jaw_x: float        # scaras.<id>.tools.<tool>.dims[0]
+    jaw_y: float        # scaras.<id>.tools.<tool>.dims[1]
+    reach: float        # scaras.<id>.tools.<tool>.dims[2]: how far the jaws come down
     clearance: float    # gap the jaws need, per side and at the tips
 
 
@@ -49,10 +49,10 @@ def problems(d: GripDims, tool: str) -> list[str]:
     out = []
     jaw = min(d.jaw_x, d.jaw_y)
     if d.boss_d + 2.0 * d.clearance > jaw:
-        out.append(f"gantries.*.tools.{tool}.dims: jaws open {jaw:.1f} mm but the pick boss is "
+        out.append(f"scaras.*.tools.{tool}.dims: jaws open {jaw:.1f} mm but the pick boss is "
                    f"Ø{d.boss_d:.1f} mm and needs {d.clearance:g} mm per side")
     if d.reach + d.clearance > d.boss_h:
-        out.append(f"gantries.*.tools.{tool}.dims[2]: jaws reach {d.reach:.1f} mm down but the pick "
+        out.append(f"scaras.*.tools.{tool}.dims[2]: jaws reach {d.reach:.1f} mm down but the pick "
                    f"boss is only {d.boss_h:.1f} mm tall, so the jaw tips would foul the "
                    f"structure it stands on")
     return out

@@ -1,8 +1,8 @@
-r"""Gantry end-effectors, one per tool id in `gantries.<id>.tools` (plan P4 B7).
+r"""SCARA end-effectors, one per tool id in `scaras.<id>.tools` (plan P4 B7).
 
     tools/.venv/bin/python tools/cad/tools.py [--out DIR] [--spec PATH] [--dev]
 
-`gantries.<id>.tools.<tool>.dims` is the envelope a tool needs at a pick feature — [x, y, reach] — and the
+`scaras.<id>.tools.<tool>.dims` is the envelope a tool needs at a pick feature — [x, y, reach] — and the
 fixtures already size their pick features against it (tools/cad/gripper.py). This generator builds
 the other half: the tool that envelope belongs to, in the two grips the spec allows.
 
@@ -15,7 +15,7 @@ the other half: the tool that envelope belongs to, in the two grips the spec all
 
 Everything is derived:
 
-  * which tools exist, and their footprint and reach, are `gantries.<id>.tools` (one id is one tool on every gantry);
+  * which tools exist, and their footprint and reach, are `scaras.<id>.tools` (one id is one tool on every SCARA);
   * a vacuum tool's cups are laid out inside the **smallest part that tool picks** — read off the
     `sequence` steps that name it — so the cups always land on the part and never overhang it;
   * a vacuum tool is checked against the **heaviest** part it picks: cup area x working vacuum,
@@ -25,7 +25,7 @@ Everything is derived:
 
 Frame: the tool's own frame — origin at the tool centre point, z = 0 at the pick plane (the face
 that meets the part, or the plane the jaw tips reach). The tool is entirely above it, so a
-generated model hangs off the gantry z axis with no offset.
+generated model hangs off the SCARA's z axis (quill) with no offset.
 
 Outputs (`--out`, default `cad_out/`): `<tool>.step` for review in SolidWorks and `<tool>.stl` in
 millimetres, through mesh_pipeline.py so the committed mesh obeys the 5 MB rule. Writes
@@ -59,7 +59,7 @@ G = 9.80665                   # m/s2
 
 # ---- fabrication choices, millimetres unless said otherwise. Local to the end-effectors. ----
 BODY_T = 18.0         # manifold / gripper body above the pick feature
-FLANGE_D = 63.0       # mount flange to the gantry z axis (ISO 9409-1-50-4-M6 spigot)
+FLANGE_D = 63.0       # mount flange to the SCARA quill (ISO 9409-1-50-4-M6 spigot)
 FLANGE_T = 10.0
 CUP_D = 25.0          # suction cup, bellows type
 CUP_GAP = 8.0         # least gap between two cups
@@ -71,7 +71,7 @@ GRIP_CLEAR = 2.0      # gap the jaws need around a boss, per side (matches the f
 VACUUM_KPA = 60.0     # working vacuum a shop ejector holds, not the pump's peak
 LIFT_SAFETY = 3.0     # vacuum lifting is a 3x business: seals leak and parts swing
 DENSITY = 2710.0      # kg/m3, 6061-T6
-MATERIAL = "6061-T6 aluminium: gantry end-effector (plan P4 B7)"
+MATERIAL = "6061-T6 aluminium: SCARA end-effector (plan P4 B7)"
 
 
 # ---------------------------------------------------------------- layout
@@ -187,7 +187,7 @@ def layout(v: Values, tid: str) -> Layout | None:
 # ---------------------------------------------------------------- geometry
 
 def flange(lo: Layout):
-    """The mount to the gantry z axis, on top of everything else."""
+    """The mount to the SCARA quill, on top of everything else."""
     disc = Pos(0.0, 0.0, lo.reach + BODY_T) * Cylinder(
         FLANGE_D / 2.0, FLANGE_T, align=(Align.CENTER, Align.CENTER, Align.MIN))
     disc.label = f"{lo.name}_Flange"
@@ -239,7 +239,7 @@ def build(lo: Layout) -> Compound:
 def derived(lo: Layout) -> dict:
     """Numbers another tool can check against the spec, in millimetres unless named otherwise."""
     doc = {
-        "frame": f"gantries.*.tools.{lo.tool}; z=0 at the pick plane (the face that meets the part)",
+        "frame": f"scaras.*.tools.{lo.tool}; z=0 at the pick plane (the face that meets the part)",
         "model_name": lo.name,
         "grip": lo.grip,
         "dims_mm": [round(c, 6) for c in lo.dims],
@@ -271,7 +271,7 @@ def check(lo: Layout, item: dict) -> None:
     if not lo.handles:
         item["warnings"].append(
             f"no sequence step picks anything with '{lo.tool}': it is sized by "
-            f"gantries.*.tools.{lo.tool}.dims alone")
+            f"scaras.*.tools.{lo.tool}.dims alone")
     if lo.grip == "vacuum":
         if min(lo.smallest) - 2.0 * CUP_INSET < CUP_D:
             smallest = min(lo.handles, key=lambda h: min(h.foot) if h.foot else 1e9, default=None)
@@ -289,7 +289,7 @@ def check(lo: Layout, item: dict) -> None:
                 f"({lift['demand_n']:.1f} N)")
     elif lo.jaw_opening < MIN_BOSS_D:
         item["errors"].append(
-            f"gantries.*.tools.{lo.tool}.dims open {min(lo.dims[0], lo.dims[1]):.1f} mm, so with "
+            f"scaras.*.tools.{lo.tool}.dims open {min(lo.dims[0], lo.dims[1]):.1f} mm, so with "
             f"{GRIP_CLEAR:g} mm of clearance per side the jaws close on a Ø{lo.jaw_opening:.1f} mm "
             f"boss: below Ø{MIN_BOSS_D:g} mm that is a pin, not a pick boss")
 
@@ -314,7 +314,7 @@ def one(tid: str, raw: dict, overlay: set[str]) -> tuple[dict, Values, Compound 
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Generate one end-effector per gantry tool")
+    ap = argparse.ArgumentParser(description="Generate one end-effector per SCARA tool")
     ap.add_argument("--spec", type=Path, default=DEFAULT_SPEC)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help=f"default {DEFAULT_OUT}")
     ap.add_argument("--max-faces", type=int, default=50000)
@@ -345,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
     overlay = {p["path"] for p in merged.placeholders}
     tools = all_tools(merged.raw)
     if not tools:
-        print("tools: OK — no gantry carries a tool; nothing to build")
+        print("tools: OK — no SCARA carries a tool; nothing to build")
         return finish(0)
 
     built = []

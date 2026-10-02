@@ -89,7 +89,7 @@ def test_capacity_is_what_makes_the_magazine_deep(run, pass_raw):
 
 
 def test_the_pick_plane_is_the_rim(run):
-    """The gantry goes to `feeders.<id>.pose` every cycle (§16): nothing may stand above it."""
+    """The SCARA goes to `feeders.<id>.pose` every cycle (§16): nothing may stand above it."""
     code, doc = run()
     assert code == 0, doc["errors"]
     item = doc["items"]["fd_mid_plate"]

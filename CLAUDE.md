@@ -38,13 +38,15 @@ colcon list
 tools/.venv/bin/python tools/check_line.py
 tools/.venv/bin/python tools/spec.py
 tools/.venv/bin/python tools/check_line.py --dev   # merge line_spec.dev.yaml placeholders
-tools/.venv/bin/python tools/estimate_moves.py --dev   # per-gantry pick-and-place time vs takt
+tools/.venv/bin/python tools/check_line.py --dev --milestone frame   # one milestone only
+tools/.venv/bin/python tools/estimate_moves.py --dev   # per-SCARA pick-and-place time vs takt
 tools/.venv/bin/python tools/gen_sw_params.py      # spec -> cad_params.txt (SolidWorks variables)
 tools/.venv/bin/python tools/mesh_pipeline.py      # raw SolidWorks STL -> checked Gazebo meshes
 tools/.venv/bin/python tools/cad/pallet.py --dev   # build123d pallet + pins -> cad_out/
 tools/.venv/bin/python tools/cad/build_all.py --dev  # every generator + mesh_pipeline, < 30 s
 tools/.venv/bin/python tools/cad/layout.py --dev   # line layout STEP + top SVG + interference check
                                                    # -> C:\Users\Admin\Documents\drone-line-cad\60_layout\dev\
+tools/.venv/bin/python tools/cad/layout.py --dev --milestone frame   # -> 60_layout\dev\frame\
 tools/.venv/bin/python tools/gen_models.py --dev   # spec + cad reports -> models/<id>/model.sdf
 tools/.venv/bin/python tools/gen_world.py --dev    # spec -> worlds/main_line.sdf
 tools/.venv/bin/python tools/gen_controllers.py --dev   # spec -> config/controllers.yaml
@@ -57,7 +59,7 @@ tools/.venv/bin/python -m pytest tools/tests/
 tools/checks/spike.sh
 tools/checks/world_smoke.sh
 tools/checks/descriptions.sh    # xacro + check_urdf + joint limits vs spec (no Gazebo)
-tools/checks/line_smoke.sh      # launch line.launch.py headless, controllers active, gantry at 3 stations
+tools/checks/line_smoke.sh      # launch line.launch.py headless, controllers active, SCARAs at 3 stations
 ```
 
 ## Naming conventions
@@ -74,22 +76,24 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | Returnable fixture carrying a subassembly | **carrier** | `carrier_spider`, `carrier_pod` | `Carrier_Spider` |
 | Part source at a fixed pick pose | **feeder** | `fd_mid_plate` | `Feeder_MidPlate` |
 | WIP between a sub-line and the main line | **buffer** | `buf_spider` | `Buffer_Spider` |
-| Pick-and-place robot | **gantry** | `gantry_<n>` (`gantry_1`) | `Gantry_<n>` (`Gantry_1`) |
-| Region served by one gantry | **zone** | zone list inside `gantries.<id>` | — |
-| Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich` |
-| Screwdriving unit (variable position) | **scara** | `scara_1` | `Scara_1` |
-| Interchangeable gantry tooling | **tool** | `tool_plate` | `Tool_Plate` |
-| Gantry tool taking a whole set in one pick | **gang gripper** | `<part>_gang` (`standoff_gang`) | `Tool_StandoffGang` |
+| Pick-and-place robot, one per station | **scara** | `scara_<station without st_>` (`scara_place_spider`) | `Scara_<Name>` (`Scara_PlaceSpider`); layout `Scara_<Name>_Base`, `Scara_<Name>_Envelope` |
+| Run of consecutive stations built, checked and guarded together | **milestone** | `milestones.<name>` (`frame`) | `Guard_<Milestone>` (`Guard_Frame`) |
+| Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich`; on a slide, `GangHead_<Name>_Slide` |
+| Interchangeable SCARA tooling | **tool** | `tool_plate` | `Tool_Plate` |
+| SCARA tool taking a whole set in one pick | **gang gripper** | `<part>_gang` (`standoff_gang`) | `Tool_StandoffGang` |
+| SCARA tool lifting the 4 arms out of their carrier in their X pattern | **spider gripper** | `spider_gripper` | `Tool_SpiderGripper` |
 | Named frame on a part used for grasp | **pick frame** | `pick` | `<Part>_pick` |
 | Named datum on a plate/pallet | **datum** | `datum_round`, `datum_diamond` | `<Part>_datum_round` |
+| Pallet pin locating one arm through its tooling hole | **arm pin** | `drone.arm_tooling_holes` | `Pin_Arm_<n>` |
 | An operation the sequencer can request | **capability** | `place`, `drive`, `advance`, `test` | — |
 
 Rules:
 - Station IDs use the **verb** of what happens there (`st_drive_arm_sandwich`), not the equipment.
 - yaml/topic IDs are `snake_case`; Gazebo model/link names are `PascalCase` derived mechanically.
-- "Arm" means the drone arm only. Robots are "gantry", "gang head", "scara". Never "robot arm".
-- A gantry's joints are `gantry_<n>_<axis>`, its links `Gantry_<n>_<axis>` / `Gantry_<n>_Tcp`,
-  its controller `gantry_<n>_controller` (docs/naming.md).
+- "Arm" means the drone arm only. Robots are "scara" and "gang head". Never "robot arm" (a
+  SCARA's own segments are "links").
+- A SCARA's joints are `scara_<station>_j1..j4`, its links `Scara_<Name>_*` / `Scara_<Name>_Tcp`,
+  its controller `scara_<station>_controller` (docs/naming.md).
 
 ## P0 rules (apply throughout the project)
 
@@ -108,7 +112,7 @@ Rules:
   `tools/cad/layout.py`; edits happen in the spec, never in SolidWorks. A change made in the
   SolidWorks file is lost on the next run and never reaches the checks. `layout.py` also writes
   `line_layout_physical.step` next to it — the same assembly without the `Reference` group
-  (travel envelopes, guard walls, the operator aisle, the floor); `--no-reference` drops
+  (reach and slide envelopes, guard walls, the operator aisle, the floor); `--no-reference` drops
   `Reference` from `line_layout.step` too. Every check (interference, straddle, opacity) and
   `reports/layout.json` stay in the spec/line frame (Z up). Only the exported STEP is rotated:
   SolidWorks is Y-up, so the assembly is rotated -90° about X right before writing, mapping spec

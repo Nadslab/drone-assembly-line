@@ -1,0 +1,49 @@
+# Deferred end-of-line stations (D-012). NOT LOADED BY ANY TOOL.
+#
+# These blocks were cut from drone_line_sim/config/line_spec.yaml and line_spec.dev.yaml when the
+# line was shortened to end at st_fit_top_plate. They are kept here verbatim so they can be put
+# back: paste each block into the same section of the spec (and the `dev_overlay` values into
+# line_spec.dev.yaml), restore the indices after st_fit_top_plate (10), add the stations to a
+# milestone, and re-run tools/check_line.py.
+#
+# Nothing in tools/ reads this file. The pallet return path to st_load_pallet is NOT deferred: it
+# stays in the spec (st_load_pallet is where returned pallets re-enter the line).
+#
+# Open gap A (D-010/D-011, who works st_audit_torque and st_pack) moved here with them.
+
+base:
+  stations:
+    st_audit_torque:         {index: 11, count: 1, pose: [null,null,null,0], actor: null}
+    st_test:                 {index: 12, count: 5, pose: [null,null,null,0], cell_pitch: null}
+    st_pack:                 {index: 13, count: 1, pose: [null,null,null,0], actor: null}
+  sequence:
+    - {id: audit_torque,      station: st_audit_torque,       capability: inspect, duration_s: null, requires: [drive_top_plate]}
+    - {id: test,              station: st_test,               capability: test,    duration_s: 90,  requires: [audit_torque]}
+    - {id: pack,              station: st_pack,               capability: pack,    duration_s: null, requires: [test]}
+  feeders: {}            # none of the three stations draws from a feeder or a buffer
+  layout:
+    # The test divert: st_test's cells branch off the line in y (layout.py draws them).
+    test_branch: {offset_y: null, cell_w: null, cell_d: null}     # cells step away from the line in y
+
+dev_overlay:
+  layout:
+    test_branch:
+      offset_y: -1.0                       # PLACEHOLDER
+      cell_w: 0.35                         # PLACEHOLDER
+      cell_d: 0.35                         # PLACEHOLDER
+  stations:
+    st_audit_torque:
+      pose: [6.0, 0.0, 0.0, null]          # PLACEHOLDER
+      actor: operator                      # PLACEHOLDER (or an automated audit: not decided)
+    st_test:
+      pose: [6.6, 0.0, 0.0, null]          # PLACEHOLDER
+      cell_pitch: 0.4                      # PLACEHOLDER
+    st_pack:
+      pose: [7.2, 0.0, 0.0, null]          # PLACEHOLDER
+      actor: operator                      # PLACEHOLDER (not decided)
+  sequence:
+    - id: audit_torque
+      duration_s: 8.0                      # PLACEHOLDER
+    - id: test
+    - id: pack
+      duration_s: 6.0                      # PLACEHOLDER

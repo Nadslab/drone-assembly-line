@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<!--
+  One SCARA: revolute shoulder (j1), revolute elbow (j2), prismatic Z (j3), revolute wrist (j4),
+  from line_spec.yaml (D-012). Macro library: no <robot name>, so this file is never expanded on
+  its own — urdf/line.urdf.xacro instantiates the macro once per `scaras` entry, as
+  `Scara_<Name>` with joints `scara_<station>_j1..j4` (namespaced by the SCARA id).
+
+  **Kinematics.** The base frame sits on the datum plane (z = 0) at `spec.scara_base()`: the
+  station's x, `base_offset_y` out on `base_side`. j1 turns about z there; link 1 is r_max / 2 long,
+  j2 turns about z at its end; link 2 is r_max / 2 long, and j3 slides along z at its end, so the
+  j3 value *is* the TCP's z above the datum plane (0 .. `z_stroke`); j4 turns the tool about z with
+  no offset, and `Scara_<Name>_Tcp` sits on it. So the TCP is at
+      base + R(j1) (L1 + R(j2) L2),  z = j3,
+  with L1 = L2 = reach.r_max / 2 — the 50/50 split is a PLACEHOLDER until a real arm is chosen.
+
+  **Limits, all from the spec** (tools/gen_controllers.py `scara_limits` derives the same numbers,
+  and descriptions.sh fails if the two disagree):
+  * j1, j4: [-pi, pi];
+  * j2: |j2| <= acos((r_min^2 - L1^2 - L2^2) / (2 L1 L2)), the fold at which the TCP comes in to
+    reach.r_min;
+  * j3: [0, z_stroke];
+  * velocity: motion.v_max on j3; motion.v_max / L on the revolute joints, the rate that moves a
+    link's tip at v_max (motion is the TCP's Cartesian limit, so this is a stand-in, not a spec).
+
+  Numbers typed in this file are **envelopes**: link masses and the boxes the arm is drawn as. The
+  efforts are derived from them (moved mass x lever x a_max, plus gravity on j3), as on the old
+  gantry; no deliverable number comes from here. No collision geometry: position-commanded joints
+  fight a contact instead of stopping (D-002). The quill and the wrist hang on a vertical driven
+  axis, so they are gravity-free in Gazebo (D-007).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- envelopes, metres and kilograms: the moving structure, not the spec -->
+  <xacro:property name="s_g" value="9.81"/>
+  <xacro:property name="s_m_base" value="20.0"/>
+  <xacro:property name="s_m_link1" value="6.0"/>
+  <xacro:property name="s_m_link2" value="4.0"/>
+  <xacro:property name="s_m_quill" value="1.5"/>
+  <xacro:property name="s_m_wrist" value="0.5"/>
+  <xacro:property name="s_base_xy" value="0.20"/>
+  <xacro:property name="s_link_w" value="0.10"/>
+  <xacro:property name="s_link_h" value="0.08"/>
+  <xacro:property name="s_arm_over" value="0.15"/>   <!-- arm plane above the top of the z stroke -->
+  <xacro:property name="s_quill_d" value="0.03"/>
+  <xacro:property name="s_wrist_xy" value="0.05"/>
+  <xacro:property name="s_wrist_z" value="0.04"/>
+
+  <xacro:property name="s_colour_base" value="0.00 0.55 0.55 1"/>
+  <xacro:property name="s_colour_arm" value="0.10 0.70 0.70 1"/>
+
+  <xacro:macro name="scara" params="parent name prefix r_min r_max z_stroke v_max a_max payload
+                                    *origin">
+    <xacro:property name="L1" value="${r_max / 2.0}"/>
+    <xacro:property name="L2" value="${r_max / 2.0}"/>
+    <xacro:property name="elbow"
+                    value="${acos((r_min * r_min - L1 * L1 - L2 * L2) / (2.0 * L1 * L2))}"/>
+    <xacro:property name="arm_z" value="${z_stroke + s_arm_over}"/>
+    <xacro:property name="w_rev" value="${v_max / L1}"/>
+
+    <!-- base: welded to the parent at the base pose, the column drawn up to the arm plane -->
+    <xacro:box_link name="${name}_base" m="${s_m_base}" x="${s_base_xy}" y="${s_base_xy}"
+                    z="${arm_z}" colour="${s_colour_base}" cz="${arm_z / 2.0}"/>
+    <joint name="${prefix}mount" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${name}_base"/>
+      <xacro:insert_block name="origin"/>
+    </joint>
+
+    <!-- j1: shoulder -->
+    <xacro:box_link name="${name}_link1" m="${s_m_link1}" x="${L1}" y="${s_link_w}"
+                    z="${s_link_h}" colour="${s_colour_arm}" cx="${L1 / 2.0}"
+                    cz="${arm_z + s_link_h / 2.0}"/>
+    <joint name="${prefix}j1" type="revolute">
+      <parent link="${name}_base"/>
+      <child link="${name}_link1"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${-pi}" upper="${pi}" velocity="${w_rev}"
+             effort="${(s_m_link1 * L1 / 2.0
+                        + (s_m_link2 + s_m_quill + s_m_wrist + payload) * r_max) * a_max}"/>
+    </joint>
+
+    <!-- j2: elbow -->
+    <xacro:box_link name="${name}_link2" m="${s_m_link2}" x="${L2}" y="${s_link_w}"
+                    z="${s_link_h}" colour="${s_colour_arm}" cx="${L2 / 2.0}"
+                    cz="${arm_z - s_link_h / 2.0}"/>
+    <joint name="${prefix}j2" type="revolute">
+      <parent link="${name}_link1"/>
+      <child link="${name}_link2"/>
+      <origin xyz="${L1} 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${-elbow}" upper="${elbow}" velocity="${w_rev}"
+             effort="${(s_m_link2 * L2 / 2.0
+                        + (s_m_quill + s_m_wrist + payload) * L2) * a_max}"/>
+    </joint>
+
+    <!-- j3: the quill. Its frame is the TCP height, so the quill is drawn above it. -->
+    <xacro:box_link name="${name}_quill" m="${s_m_quill}" x="${s_quill_d}" y="${s_quill_d}"
+                    z="${arm_z}" colour="${s_colour_arm}" cz="${arm_z / 2.0}"/>
+    <xacro:no_gravity link="${name}_quill"/>
+    <joint name="${prefix}j3" type="prismatic">
+      <parent link="${name}_link2"/>
+      <child link="${name}_quill"/>
+      <origin xyz="${L2} 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="0" upper="${z_stroke}" velocity="${v_max}"
+             effort="${(s_m_quill + s_m_wrist + payload) * (a_max + s_g)}"/>
+    </joint>
+
+    <!-- j4: wrist -->
+    <xacro:box_link name="${name}_wrist" m="${s_m_wrist}" x="${s_wrist_xy}" y="${s_wrist_xy}"
+                    z="${s_wrist_z}" colour="${s_colour_arm}" cz="${s_wrist_z / 2.0}"/>
+    <xacro:no_gravity link="${name}_wrist"/>
+    <joint name="${prefix}j4" type="revolute">
+      <parent link="${name}_quill"/>
+      <child link="${name}_wrist"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${-pi}" upper="${pi}" velocity="${w_rev}"
+             effort="${(s_m_wrist + payload) * s_wrist_xy * a_max}"/>
+    </joint>
+
+    <!-- TCP: where a tool's pick frame meets the SCARA. No offset (see the header). -->
+    <link name="${name}_Tcp"/>
+    <joint name="${prefix}tcp" type="fixed">
+      <parent link="${name}_wrist"/>
+      <child link="${name}_Tcp"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+</robot>

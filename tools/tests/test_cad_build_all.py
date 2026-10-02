@@ -81,9 +81,9 @@ def test_no_output_breaks_the_5_mb_rule(run):
 # ---------------------------------------------------------------- how it is allowed to fail
 
 def test_a_failing_generator_fails_the_build_and_names_it(run, pass_raw):
-    """A carrier the gantry cannot lift clear: spider_carrier fails, the build reports which."""
+    """A carrier its SCARA cannot lift clear: spider_carrier fails, the build reports which."""
     raw = copy.deepcopy(pass_raw)
-    raw["gantries"]["gantry_2"]["axes"]["z"]["max"] = 0.05   # the gantry placing the carriers
+    raw["scaras"]["scara_spider"]["z_stroke"] = 0.05     # the SCARA placing the spider carrier
     code, doc = run(raw)
     assert code == 1
     assert any("spider_carrier" in e for e in doc["errors"])

@@ -3,8 +3,8 @@
 The load-bearing assertions are in `test_every_pocket_centre_comes_from_its_own_holes`: each arm
 pocket is measured off the cutter the build actually used, and pinned to the arm's own screw holes
 in `parts.bottom_plate.arm_holes` to 0.01 mm — by geometry (distance, collinearity, which way is
-outboard), not by re-running the generator's arithmetic. `test_carrier_fits_the_gantry_z_travel`
-is the other one: a fixture the gantry cannot lift clear is not a fixture.
+outboard), not by re-running the generator's arithmetic. `test_carrier_fits_the_scara_z_stroke`
+is the other one: a fixture its SCARA cannot lift clear is not a fixture.
 """
 
 import copy
@@ -165,20 +165,21 @@ def test_holes_on_the_plate_centre_fail_instead_of_guessing_a_direction(tmp_path
 
 # ---------------------------------------------------------------- what the carrier must clear
 
-def test_carrier_fits_the_gantry_z_travel(work):
+def test_carrier_fits_the_scara_z_stroke(work):
     write, run, report = work
     assert run() == 0
     doc = report()
-    assert doc["bbox_mm"]["size"][2] <= doc["derived"]["gantry_z_travel_mm"]
+    assert doc["bbox_mm"]["size"][2] <= doc["derived"]["scara_z_stroke_mm"]
 
 
 @pytest.mark.parametrize("part", ["carrier_spider", "carrier_pod"])
 def test_a_fixture_taller_than_the_z_travel_fails(tmp_path, pass_raw, part):
     raw = copy.deepcopy(pass_raw)
-    raw["gantries"]["gantry_2"]["axes"]["z"]["max"] = 0.05   # 50 mm on the gantry placing it
+    sid = {"carrier_spider": "scara_spider", "carrier_pod": "scara_pod"}[part]
+    raw["scaras"][sid]["z_stroke"] = 0.05                    # 50 mm on the SCARA placing it
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
-    assert "gantries.gantry_2.axes.z" in doc["errors"][-1]
+    assert f"scaras.{sid}.z_stroke" in doc["errors"][-1]
 
 
 def test_the_arms_are_carried_on_ring_material_not_thin_air(work):
@@ -226,10 +227,11 @@ def test_nothing_sits_where_the_jaws_go(work, part):
 def test_a_tool_that_cannot_grip_the_boss_fails_naming_the_tool(tmp_path, pass_raw, part, dims,
                                                                 wanted):
     raw = copy.deepcopy(pass_raw)
-    raw["gantries"]["gantry_2"]["tools"]["tool_carrier"]["dims"] = dims
+    for sid in ("scara_spider", "scara_pod"):              # one tool id is one design
+        raw["scaras"][sid]["tools"]["tool_carrier"]["dims"] = dims
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
-    assert wanted in doc["errors"][0] and "gantries.*.tools.tool_carrier" in doc["errors"][0]
+    assert wanted in doc["errors"][0] and "scaras.*.tools.tool_carrier" in doc["errors"][0]
 
 
 def test_the_keep_out_volume_is_measured_not_assumed():
@@ -338,6 +340,18 @@ def test_a_sequence_that_places_the_fixture_with_no_tool_fails(tmp_path, pass_ra
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
     assert any(part in m for m in doc["missing"])
+
+
+def test_option_b_carrier_no_robot_lifts_builds_with_a_warning(tmp_path, pass_raw):
+    """D-012 option B: no step places carrier_spider (the arms are lifted out of it), so there is
+    no tool to size the boss against and no z stroke to fit: built, and the report says so."""
+    raw = copy.deepcopy(pass_raw)
+    raw["sequence"] = [s for s in raw["sequence"] if s.get("part") != "carrier_spider"]
+    code, doc = run_raw(tmp_path, raw, "carrier_spider")
+    assert code == 0, doc["errors"]
+    assert doc["derived"]["pick"]["tool"] is None
+    assert doc["derived"]["scara_z_stroke_mm"] is None
+    assert any("option B" in w for w in doc["warnings"])
 
 
 @pytest.mark.parametrize("part, stem", [("carrier_spider", "spider_carrier"),

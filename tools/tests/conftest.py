@@ -39,10 +39,21 @@ def _null_durations(s):
 
 
 def _drive_at_place(s):
-    """gh_top screws down the mid plate gantry_1 just placed, at st_place: a gantry plus the gang
-    head that fastens what it placed. Allowed (D-011). st_drive is left empty, so it goes."""
+    """gh_top screws down the mid plate scara_place just placed, at st_place: a SCARA plus the gang
+    head that fastens what it placed. Allowed (D-011, D-012). st_drive is left empty, so it goes
+    (from its milestone too)."""
     _seq(s, "drive")["station"] = "st_place"
     del s["stations"]["st_drive"]
+    s["milestones"]["front"].remove("st_drive")
+
+
+def _slide_at_place(t_in, t_out):
+    """gh_top at st_place, on a slide (it shares the station with scara_place, D-012)."""
+    def mutate(s):
+        _drive_at_place(s)
+        _seq(s, "drive")["duration_s"] = 5.0          # place 6 + drive 5: inside the 20 s takt
+        s["gang_heads"]["gh_top"]["slide"] = {"stroke": 0.25, "t_in": t_in, "t_out": t_out}
+    return mutate
 
 
 def _second_head(station, requires):
@@ -81,10 +92,14 @@ def _second_drive_without_fastener(s):
                           "head": "gh_top", "qty": 2, "duration_s": 1.0, "requires": ["drive"]})
 
 
-def _rename_gantry(old, new):
+def _rename_scara(old, new):
     def mutate(s):
-        s["gantries"][new] = s["gantries"].pop(old)
+        s["scaras"][new] = s["scaras"].pop(old)
     return mutate
+
+
+def _drop_tooling_hole(s):
+    s["drone"]["arm_tooling_holes"].pop()
 
 
 def _set(path, value):
@@ -107,10 +122,10 @@ FAILING = [
      lambda s: (_set(["sequence", 3, "capability"], "inspect")(s),
                 _set(["stations", "st_test", "actor"], None)(s)), "WARN"),
     ("actors", "two_primary_actors", _set(["sequence", 3, "station"], "st_place"), "FAIL"),
-    ("actors", "gang_head_not_fastening_what_the_gantry_placed",
+    ("actors", "gang_head_not_fastening_what_the_scara_placed",
      _drive_at_place_after(["load"]), "FAIL"),
     ("actors", "gang_head_named_at_two_stations", _gh_top_at_two_stations, "FAIL"),
-    ("actors", "two_gang_heads_at_a_gantry_station",
+    ("actors", "two_gang_heads_at_a_scara_station",
      lambda s: (_drive_at_place(s), _second_head("st_place", ["place"])(s)), "FAIL"),
     ("actors", "two_drivers_at_a_driver_station", _second_head("st_drive", ["drive"]), "FAIL"),
     ("actors", "drive_step_without_driver", lambda s: _seq(s, "drive").pop("head"), "FAIL"),
@@ -137,43 +152,63 @@ FAILING = [
     ("takt", "test_bank_too_slow", _set(["sequence", 3, "duration_s"], 150.0), "FAIL"),
     ("takt", "unknown_duration", _null_durations, "WARN"),
     ("line_balance", "partial_durations", _null_durations, "WARN"),
-    ("reach", "feeder_outside_x", _set(["feeders", "fd_mid_plate", "pose"], [9.0, 0.3, 0.1, 0.0]),
-     "FAIL"),
-    ("reach", "null_axis_limit", _set(["gantries", "gantry_1", "axes", "x", "max"], None), "WARN"),
-    # Outside gantry_1's travel, and st_place (which draws from it) is gantry_1's.
-    ("reach", "feeder_outside_its_zone_gantry",
-     _set(["feeders", "fd_mid_plate", "pose"], [1.0, 0.3, 0.15, 0.0]), "FAIL"),
-    # Zone rules (pydantic): a failure there fails the parse, so it surfaces as `schema`.
-    ("schema", "zone_names_unknown_station",
-     _set(["gantries", "gantry_1", "zone"], ["st_load", "st_place", "st_nowhere"]), "FAIL"),
-    ("schema", "station_in_two_zones",
-     _set(["gantries", "gantry_2", "zone"], ["st_spider", "st_pod", "st_place"]), "FAIL"),
-    ("schema", "gantry_step_in_no_zone", _set(["gantries", "gantry_1", "zone"], ["st_load"]),
-     "FAIL"),
-    ("schema", "gantry_id_not_numbered", _rename_gantry("gantry_2", "gantry_b"), "FAIL"),
+    # One SCARA per pick-and-place station (D-012). Structural rules fail the parse: `schema`.
+    ("schema", "scara_id_is_not_its_station", _rename_scara("scara_place", "scara_put"), "FAIL"),
+    ("schema", "scara_station_does_not_exist",
+     _set(["scaras", "scara_place", "station"], "st_nowhere"), "FAIL"),
+    ("schema", "robot_step_at_a_station_without_scara",
+     lambda s: s["scaras"].pop("scara_place"), "FAIL"),
     ("schema", "one_tool_id_two_designs",
-     _set(["gantries", "gantry_2", "tools", "tool_plate"],
-          {"grip": "vacuum", "dims": [0.10, 0.10, 0.02]}), "FAIL"),
-    ("schema", "tool_not_on_the_zone_gantry", _set(["sequence", 1, "tool"], "tool_carrier"),
-     "FAIL"),
-    ("gantry_load", "gantry_2_over_takt",
-     _set(["gantries", "gantry_2", "axes", "x", "v_max"], 0.1), "FAIL"),
-    ("gantry_load", "null_grip_time", _set(["gantry_defaults", "grip_s"], None), "WARN"),
-    # D-009: the pallet is moving for pitch/belt_speed + stop_unit_cycle_s of every takt.
-    ("gantry_load", "transfer_eats_the_budget", _set(["layout", "stop_unit_cycle_s"], 15.0),
+     _set(["scaras", "scara_pod", "tools", "tool_carrier"],
+          {"grip": "finger", "dims": [0.05, 0.05, 0.03]}), "FAIL"),
+    ("schema", "tool_not_on_the_station_scara", _set(["sequence", 1, "tool"], "tool_carrier"),
      "FAIL"),
     ("schema", "place_and_drive_in_one_step", _set(["sequence", 1, "fastener"], "m3_x8"), "FAIL"),
-    # D-009 frame rule: the conveyor is +-0.15; gantry_1's -y posts stand at y.min - 0.10.
-    ("gantry_straddle", "post_in_the_conveyor",
-     _set(["gantries", "gantry_1", "axes", "y", "min"], -0.1), "FAIL"),
-    ("gantry_straddle", "post_inside_the_clearance",
-     _set(["gantries", "gantry_1", "axes", "y", "min"], -0.2), "FAIL"),
-    ("gantry_straddle", "null_clearance",
-     _set(["layout", "gantry_frame", "conveyor_clearance"], None), "WARN"),
-    # gantry_2's safe_z is 0.372 (pod tray 0.2365 + spider carrier hanging 0.1054 + 0.03).
-    ("safe_z", "safe_z_above_the_z_travel",
-     _set(["gantries", "gantry_2", "axes", "z", "max"], 0.3), "FAIL"),
-    ("safe_z", "null_margin", _set(["gantry_defaults", "z_margin"], None), "WARN"),
+    ("schema", "source_returns_an_unknown_part",
+     _set(["sources", "src_plate", "returns"], "carrier_nope"), "FAIL"),
+    # Milestones (D-012).
+    ("schema", "station_in_no_milestone",
+     _set(["milestones", "back"], ["st_test", "st_spider"]), "FAIL"),
+    ("schema", "station_in_two_milestones",
+     _set(["milestones", "back"], ["st_drive", "st_test", "st_spider", "st_pod"]), "FAIL"),
+    ("schema", "milestones_out_of_line_order",
+     _set(["milestones", "front"], ["st_place", "st_load", "st_drive"]), "FAIL"),
+    # scara_reach: pick and place inside [r_min, r_max] about the base.
+    ("scara_reach", "pick_beyond_r_max",
+     _set(["feeders", "fd_mid_plate", "pose"], [0.3, 0.6, 0.15, 0.0]), "FAIL"),
+    ("scara_reach", "pick_inside_r_min", _set(["scaras", "scara_place", "reach", "r_min"], 0.22),
+     "FAIL"),
+    ("scara_reach", "null_r_max", _set(["scaras", "scara_place", "reach", "r_max"], None), "WARN"),
+    # scara_clearance: a base footprint stands clear; shared reach is a WARN.
+    ("scara_clearance", "base_in_the_conveyor",
+     _set(["scaras", "scara_place", "base_offset_y"], 0.15), "FAIL"),
+    ("scara_clearance", "base_on_a_buffer",
+     _set(["buffers", "buf_plate", "pose"], [0.45, 0.3, 0.1, 0.0]), "FAIL"),
+    ("scara_clearance", "two_bases_overlap", _set(["layout", "scara_base", "diameter"], 0.55),
+     "FAIL"),
+    ("scara_clearance", "envelopes_overlap", _set(["scaras", "scara_place", "reach", "r_max"], 0.3),
+     "WARN"),
+    ("scara_clearance", "null_base_diameter", _set(["layout", "scara_base", "diameter"], None),
+     "WARN"),
+    # safe_z: scara_pod's is 0.314 (spider carrier at st_pod 0.204 + pod tray 0.080 + 0.03).
+    ("safe_z", "safe_z_above_the_z_stroke", _set(["scaras", "scara_pod", "z_stroke"], 0.3),
+     "FAIL"),
+    ("safe_z", "null_margin", _set(["scara_defaults", "z_margin"], None), "WARN"),
+    ("robot_load", "scara_pod_over_budget",
+     _set(["scaras", "scara_pod", "motion", "v_max"], 0.02), "FAIL"),
+    ("robot_load", "null_grip_time", _set(["scara_defaults", "grip_s"], None), "WARN"),
+    # D-009: the pallet is moving for pitch/belt_speed + stop_unit_cycle_s of every takt.
+    ("robot_load", "transfer_eats_the_budget", _set(["layout", "stop_unit_cycle_s"], 16.0),
+     "FAIL"),
+    # station_time with a slide (D-012): place + 1 pass x 3 s + 9 + 9 s of slide + index > 20 s.
+    ("station_time", "slide_too_slow", _slide_at_place(9.0, 9.0), "FAIL"),
+    ("station_time", "null_slide_time", _slide_at_place(None, 0.5), "WARN"),
+    # arm_pin_clearance (D-012): a tooling hole 2 x M3 clear of every arm screw, one per arm.
+    ("arm_pin_clearance", "tooling_hole_next_to_a_screw",
+     _set(["drone", "arm_tooling_holes", 0], [0.090, 0.040]), "FAIL"),
+    ("arm_pin_clearance", "not_one_pin_per_arm", _drop_tooling_hole, "FAIL"),
+    ("arm_pin_clearance", "screw_diameter_unknown", _set(["fasteners", "m3_x8", "d"], None),
+     "WARN"),
     ("feeder_rate", "nest_set_outruns_its_refill",
      _set(["feeders", "fd_mid_plate", "per_pick"], 10), "FAIL"),
     ("feeder_rate", "screws_too_slow", _set(["feeders", "fd_screw", "feed_s"], 5.0), "FAIL"),
@@ -194,8 +229,8 @@ def cad_fixture_reports(monkeypatch):
     """safe_z reads build123d part heights from cad_<part>.json: use the fixture copies, so a
     test never depends on what tools/cad last built in reports/. A test that wants the real ones
     passes the directory explicitly."""
-    import gantry_geometry
-    monkeypatch.setattr(gantry_geometry, "CAD_REPORTS", FIXTURES / "cad")
+    import robot_geometry
+    monkeypatch.setattr(robot_geometry, "CAD_REPORTS", FIXTURES / "cad")
 
 
 @pytest.fixture

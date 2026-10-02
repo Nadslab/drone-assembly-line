@@ -180,7 +180,8 @@ def compare_spindles(raw: dict, hid: str, joints: dict[str, ET.Element]) -> dict
 
 
 def compare_mounts(raw: dict, joints: dict[str, ET.Element]) -> list[dict]:
-    """Where the machines are bolted: each gantry at its `mount`, a head over its station.
+    """Where the machines are bolted: each SCARA at its base (spec.scara_base), a head over its
+    station.
 
     A head stands off along z by its own stroke (urdf/gang_head.urdf.xacro), so only x and y are
     the station's to give; z is recorded, not asserted.
@@ -193,15 +194,21 @@ def compare_mounts(raw: dict, joints: dict[str, ET.Element]) -> list[dict]:
             return None
         return [float(c) for c in (origin.get("xyz") or "").split()[:3]]
 
-    for gid in gc.gantry_ids(raw):
-        path = f"gantries.{gid}.mount"
-        mount = gc.lookup(raw, path)
-        put = xyz_of(f"{gid}_mount")
-        rows.append({"what": gid, "joint": f"{gid}_mount", "spec_path": path,
-                     "expected": list(mount or []), "actual": put, "axes": "xyz",
-                     "errors": [] if (put and mount and all(close(a, float(b), POSE_TOL)
-                                                            for a, b in zip(put, mount)))
-                     else [f"{gid}_mount at {put}, {path} is {mount}"]})
+    for sid in gc.scara_ids(raw):
+        sc = gc.lookup(raw, f"scaras.{sid}") or {}
+        pose = gc.lookup(raw, f"stations.{sc.get('station')}.pose") or [None] * 3
+        sign = 1.0 if sc.get("base_side") == "+y" else -1.0
+        try:
+            base = [pose[0], pose[1] + sign * sc["base_offset_y"], pose[2]]
+        except (TypeError, KeyError):
+            base = None
+        put = xyz_of(f"{sid}_mount")
+        path = f"scaras.{sid} (station {sc.get('station')} pose, base_side, base_offset_y)"
+        rows.append({"what": sid, "joint": f"{sid}_mount", "spec_path": path,
+                     "expected": base, "actual": put, "axes": "xyz",
+                     "errors": [] if (put and base and all(close(a, float(b), POSE_TOL)
+                                                           for a, b in zip(put, base)))
+                     else [f"{sid}_mount at {put}, the spec puts the base at {base}"]})
     for hid in sorted(raw.get("gang_heads") or {}):
         station = gc.head_station(raw, hid)
         pose = gc.lookup(raw, f"stations.{station}.pose") or []

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <!--
   The line's machines as one description, from line_spec.yaml (plan P5.3):
-  one gantry per `gantries` entry at its `mount` (D-008), and one gang head per `gang_heads` entry
-  at the station the sequence gives it. Expand it with
+  one SCARA per `scaras` entry at its base beside its station (D-012), and one gang head per
+  `gang_heads` entry at the station the sequence gives it. Expand it with
 
       xacro drone_line_sim/urdf/line.urdf.xacro \
             spec_file:=<merged spec> controllers_file:=<controllers.yaml>
@@ -12,7 +12,7 @@
 
   **Why one robot and not three.** `gz_ros2_control` starts a controller manager per model, and
   one controller manager reads one parameter file. `config/controllers.yaml` holds one controller
-  per gantry *and* one per head (plan P5.3), so they have to share a manager — which means one
+  per SCARA *and* one per head (plan P5.3), so they have to share a manager — which means one
   model, one `<ros2_control>` component, one `robot_description`. The machines are welded to the
   world and never touch each other, so nothing is lost by describing them together.
 
@@ -20,9 +20,10 @@
   fixed joint from a link named `world` into an attachment to the world, which is what a machine
   frame bolted to the floor is.
 
-  Joint names are the spec's ids: `gantry_<n>_<axis>` and `<head_id>_stroke` (`_1`/`_2` for the
-  two banks of an opposed head); gantry links are `Gantry_<n>_<axis>` and `Gantry_<n>_Tcp`. tools/gen_controllers.py builds the same names from the same spec, and
-  descriptions.sh fails if the two ever disagree.
+  Joint names are the spec's ids: `scara_<station>_j1..j4` and `<head_id>_stroke` (`_1`/`_2` for
+  the two banks of an opposed head); SCARA links are `Scara_<Name>_*` and `Scara_<Name>_Tcp`.
+  tools/gen_controllers.py builds the same names from the same spec, and descriptions.sh fails if
+  the two ever disagree.
 -->
 <robot name="line" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -30,11 +31,10 @@
   <xacro:arg name="controllers_file" default="$(find drone_line_sim)/config/controllers.yaml"/>
 
   <xacro:include filename="inertia.urdf.xacro"/>
-  <xacro:include filename="gantry.urdf.xacro"/>
+  <xacro:include filename="scara.urdf.xacro"/>
   <xacro:include filename="gang_head.urdf.xacro"/>
 
   <xacro:property name="spec" value="${xacro.load_yaml('$(arg spec_file)')}"/>
-  <xacro:property name="dyn" value="${spec['gantry_defaults']}"/>
   <xacro:property name="head_gap" value="0.01"/>   <!-- envelope: gap left when a ram is out -->
 
   <!-- the line frame: welded to the world at the spec's origin -->
@@ -46,20 +46,31 @@
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <!-- a gantry per spec entry: gantry_<n> -> Gantry_<n>, joints gantry_<n>_* -->
-  <xacro:macro name="gantries_from_spec" params="parent ids">
+  <!-- a SCARA per spec entry: scara_<station> -> Scara_<Name>, joints scara_<station>_j1..j4.
+       The base: the station's x, base_offset_y out on base_side, on the datum plane
+       (spec.scara_base). -->
+  <xacro:macro name="scaras_from_spec" params="parent ids">
     <xacro:if value="${len(ids) > 0}">
-      <xacro:property name="gid" value="${ids[0]}"/>
-      <xacro:property name="g" value="${spec['gantries'][gid]}"/>
-      <xacro:gantry parent="${parent}" name="${'Gantry_' + gid.removeprefix('gantry_')}"
-                    prefix="${gid}_" axes="${g['axes']}" dyn="${dyn}">
-        <origin xyz="${g['mount'][0]} ${g['mount'][1]} ${g['mount'][2]}" rpy="0 0 0"/>
-      </xacro:gantry>
-      <xacro:gantries_from_spec parent="${parent}" ids="${ids[1:]}"/>
+      <xacro:property name="sid" value="${ids[0]}"/>
+      <xacro:property name="sc" value="${spec['scaras'][sid]}"/>
+      <xacro:property name="pose" value="${spec['stations'][sc['station']]['pose']}"/>
+      <xacro:property name="by"
+                      value="${pose[1] + (1.0 if sc['base_side'] == '+y' else -1.0)
+                                         * sc['base_offset_y']}"/>
+      <xacro:scara parent="${parent}"
+                   name="${'Scara_' + ''.join(w.capitalize()
+                            for w in sid.removeprefix('scara_').split('_'))}"
+                   prefix="${sid}_" r_min="${sc['reach']['r_min']}"
+                   r_max="${sc['reach']['r_max']}" z_stroke="${sc['z_stroke']}"
+                   v_max="${sc['motion']['v_max']}" a_max="${sc['motion']['a_max']}"
+                   payload="${sc['payload_kg']}">
+        <origin xyz="${pose[0]} ${by} ${pose[2]}" rpy="0 0 0"/>
+      </xacro:scara>
+      <xacro:scaras_from_spec parent="${parent}" ids="${ids[1:]}"/>
     </xacro:if>
   </xacro:macro>
 
-  <xacro:gantries_from_spec parent="Line_base" ids="${python.sorted(spec['gantries'])}"/>
+  <xacro:scaras_from_spec parent="Line_base" ids="${python.sorted(spec['scaras'])}"/>
 
   <!-- a gang head per spec entry, at the station its sequence step names -->
   <xacro:macro name="heads_from_spec" params="parent ids">
@@ -94,9 +105,9 @@
   <xacro:heads_from_spec parent="Line_base" ids="${python.sorted(spec['gang_heads'])}"/>
 
   <!-- ros2_control: one system, every joint on a position interface
-       `position_proportional_gain` is the gz_ros2_control gain from D-002, a spec field
-       (`gantries.<id>.axes.<axis>.position_gain`); an axis without one keeps the plugin's default.
-       `initial_value` is 0 where 0 is inside the travel, the nearest limit otherwise. -->
+       No joint states a `position_proportional_gain` (the gantry axes' D-002 field went with
+       them, D-012), so every joint keeps the plugin's default. `initial_value` is 0, which is
+       inside every SCARA and ram travel. -->
   <xacro:macro name="control_joint" params="name initial gain:=''">
     <joint name="${name}">
       <command_interface name="position">
@@ -120,13 +131,8 @@
   </xacro:macro>
 
   <xacro:property name="control_items"
-                  value="${[[gid + '_' + a,
-                             min(max(0.0, ax[a]['min']), ax[a]['max']),
-                             ax[a]['position_gain'] if ax[a].get('position_gain') is not None
-                             else '']
-                            for gid in python.sorted(spec['gantries'])
-                            for ax in [spec['gantries'][gid]['axes']]
-                            for a in ['x', 'y', 'z', 'c'] if ax.get(a) is not None]
+                  value="${[[sid + '_j' + str(k), 0.0, '']
+                            for sid in python.sorted(spec['scaras']) for k in [1, 2, 3, 4]]
                            + [[hid + s, 0.0, '']
                               for hid in python.sorted(spec['gang_heads'])
                               for s in (['_stroke_1', '_stroke_2']

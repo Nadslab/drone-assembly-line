@@ -7,8 +7,8 @@
 # this file (see CLAUDE.md). `null` inside a list means "no opinion for this element".
 #
 # Layout assumptions: stations on a straight line along +x at 0.6 m pitch from station 1 (the
-# origin, y = 0); feeders 0.3 m to +y of their station, buffers 0.3 m to -y; each gantry is
-# mounted at y = -0.5, so the line is y = 0.5 in its frame. Every pose below is on the datum plane,
+# origin, y = 0); feeders 0.3 m to +y of their station, buffers 0.3 m to -y; each SCARA base
+# stands 0.55 m out on its source's side (D-012). Every pose below is on the datum plane,
 # so a station is z = 0 and `line.work_height` alone says how high off the floor the line stands.
 
 line:
@@ -83,6 +83,18 @@ parts:
 cad:
   press_nut_hole_d: 0.004                # PLACEHOLDER
 
+# One tooling hole per arm at its root, on the arm axis 48 mm from the plate centre: the arm's
+# inboard end is at 45 mm (holes at 55/75, hole_inset 20), and the nearest screw is 7 mm away,
+# more than 2 x M3 (arm_pin_clearance).
+drone:
+  arm_tooling_holes:
+    - [0.078941, 0.033941]               # PLACEHOLDER
+    - [0.011059, 0.033941]               # PLACEHOLDER
+    - [0.011059, -0.033941]              # PLACEHOLDER
+    - [0.078941, -0.033941]              # PLACEHOLDER
+  tooling_pin_d: 0.003                   # PLACEHOLDER
+  pin_engagement: 0.002                  # PLACEHOLDER
+
 feeders:
   fd_mid_plate:
     pose: [1.2, 0.3, 0.1, null]          # PLACEHOLDER
@@ -114,120 +126,108 @@ buffers:
   buf_plate:
     pose: [0.0, -0.3, 0.1, null]         # PLACEHOLDER
 
-# Frame rule (D-009), in each gantry's own frame (pose - mount): x covers its zone's stations,
-# feeders and buffers plus 0.1 m (mount x = the zone's lowest x - 0.1, so x starts at 0); y covers
-# those items plus 0.1 m AND the whole conveyor (+-layout.conveyor.width/2 + 0.1 m), so the posts
-# outside the travel clear the belt by gantry_frame.conveyor_clearance. x/y/z joints take
-# damping/friction from gantry_defaults; C keeps its own rotary values.
-gantries:
-  # x 0.6-1.2 m (line frame): spider, mid plate (D-010: the pallet loader took load_pallet)
-  gantry_1:
-    zone: [st_place_spider, st_place_mid_plate]   # PLACEHOLDER
-    axes:
-      x:
-        min: 0.0                         # PLACEHOLDER
-        max: 0.8                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      y:
-        min: 0.1                         # PLACEHOLDER
-        max: 0.9                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      z:
-        min: 0.0                         # PLACEHOLDER
-        max: 0.3                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      c:
-        v_max: 3.0                       # PLACEHOLDER (rad/s)
-        a_max: 10.0                      # PLACEHOLDER (rad/s^2)
-        damping: 0.5                     # PLACEHOLDER (D-002, rotary: N*m*s/rad)
-        friction: 0.05                   # PLACEHOLDER (D-002, rotary: N*m)
-        position_gain: 0.1               # PLACEHOLDER (D-002)
+# SCARAs (D-012): one per pick-and-place station. Each base stands at its station's x, on the
+# side of its part source, 0.55 m out: the feeders/buffers sit 0.3 m out with footprints up to
+# 0.194 m, so a 0.2 m base fits only beyond them, and 0.55 m keeps the place pose inside r_max.
+scaras:
+  # spider from buf_spider (-y)
+  scara_place_spider:
+    base_side: "-y"                    # PLACEHOLDER (the side of its part source)
+    base_offset_y: 0.55                  # PLACEHOLDER (beyond its feeder/buffer footprint)
+    reach:
+      r_min: 0.15                        # PLACEHOLDER
+      r_max: 0.6                         # PLACEHOLDER
+    z_stroke: 0.2                        # PLACEHOLDER
+    payload_kg: 3.0                      # PLACEHOLDER
+    tools:
+      spider_gripper:
+        dims: [0.20, 0.20, 0.02]         # PLACEHOLDER (4 fingers on the arm X)
+    motion:
+      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
+      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+  # mid plate from fd_mid_plate (+y)
+  scara_place_mid_plate:
+    base_side: "+y"                    # PLACEHOLDER (the side of its part source)
+    base_offset_y: 0.55                  # PLACEHOLDER (beyond its feeder/buffer footprint)
+    reach:
+      r_min: 0.15                        # PLACEHOLDER
+      r_max: 0.6                         # PLACEHOLDER
+    z_stroke: 0.2                        # PLACEHOLDER
+    payload_kg: 3.0                      # PLACEHOLDER
     tools:
       tool_plate:
         dims: [0.12, 0.12, 0.02]         # PLACEHOLDER
-      tool_carrier:
-        dims: [0.06, 0.06, 0.03]         # PLACEHOLDER
-    mount: [0.5, -0.5, 0.0]              # PLACEHOLDER
-  # x 2.4-3.6 m: standoffs, pod
-  gantry_2:
-    zone: [st_install_standoffs, st_place_pod]   # PLACEHOLDER
-    axes:
-      x:
-        min: 0.0                         # PLACEHOLDER
-        max: 1.4                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      y:
-        min: 0.1                         # PLACEHOLDER
-        max: 0.9                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      z:
-        min: 0.0                         # PLACEHOLDER
-        max: 0.3                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      c:
-        v_max: 3.0                       # PLACEHOLDER (rad/s)
-        a_max: 10.0                      # PLACEHOLDER (rad/s^2)
-        damping: 0.5                     # PLACEHOLDER (D-002, rotary: N*m*s/rad)
-        friction: 0.05                   # PLACEHOLDER (D-002, rotary: N*m)
-        position_gain: 0.1               # PLACEHOLDER (D-002)
+    motion:
+      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
+      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+  # standoffs from fd_standoff (+y)
+  scara_install_standoffs:
+    base_side: "+y"                    # PLACEHOLDER (the side of its part source)
+    base_offset_y: 0.55                  # PLACEHOLDER (beyond its feeder/buffer footprint)
+    reach:
+      r_min: 0.15                        # PLACEHOLDER
+      r_max: 0.6                         # PLACEHOLDER
+    z_stroke: 0.2                        # PLACEHOLDER
+    payload_kg: 3.0                      # PLACEHOLDER
     tools:
-      tool_carrier:
-        dims: [0.06, 0.06, 0.03]         # PLACEHOLDER
       standoff_gang:
         dims: [0.10, 0.10, 0.015]        # PLACEHOLDER (4-finger gang over the standoff square)
-    mount: [2.3, -0.5, 0.0]              # PLACEHOLDER
-  # x 4.2-5.4 m: side plates, top plate (D-010)
-  gantry_3:
-    zone: [st_fit_side_plates, st_fit_top_plate]   # PLACEHOLDER
-    axes:
-      x:
-        min: 0.0                         # PLACEHOLDER
-        max: 1.4                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      y:
-        min: 0.25                        # PLACEHOLDER (conveyor -0.15 - 0.1, D-009)
-        max: 0.9                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      z:
-        min: 0.0                         # PLACEHOLDER
-        max: 0.3                         # PLACEHOLDER
-        v_max: 1.0                       # PLACEHOLDER
-        a_max: 3.0                       # PLACEHOLDER
-        position_gain: 0.1               # PLACEHOLDER (D-002)
-      c:
-        v_max: 3.0                       # PLACEHOLDER (rad/s)
-        a_max: 10.0                      # PLACEHOLDER (rad/s^2)
-        damping: 0.5                     # PLACEHOLDER (D-002, rotary: N*m*s/rad)
-        friction: 0.05                   # PLACEHOLDER (D-002, rotary: N*m)
-        position_gain: 0.1               # PLACEHOLDER (D-002)
+    motion:
+      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
+      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+  # pod tray from buf_pod (-y)
+  scara_place_pod:
+    base_side: "-y"                    # PLACEHOLDER (the side of its part source)
+    base_offset_y: 0.55                  # PLACEHOLDER (beyond its feeder/buffer footprint)
+    reach:
+      r_min: 0.15                        # PLACEHOLDER
+      r_max: 0.6                         # PLACEHOLDER
+    z_stroke: 0.2                        # PLACEHOLDER
+    payload_kg: 3.0                      # PLACEHOLDER
+    tools:
+      tool_carrier:
+        dims: [0.06, 0.06, 0.03]         # PLACEHOLDER
+    motion:
+      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
+      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+  # side plate pair from fd_side_plate (+y)
+  scara_fit_side_plates:
+    base_side: "+y"                    # PLACEHOLDER (the side of its part source)
+    base_offset_y: 0.55                  # PLACEHOLDER (beyond its feeder/buffer footprint)
+    reach:
+      r_min: 0.15                        # PLACEHOLDER
+      r_max: 0.6                         # PLACEHOLDER
+    z_stroke: 0.2                        # PLACEHOLDER
+    payload_kg: 3.0                      # PLACEHOLDER
+    tools:
+      side_plate_pair:
+        dims: [0.12, 0.14, 0.02]         # PLACEHOLDER (two 0.10 x 0.05 plates side by side)
+    motion:
+      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
+      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+  # top plate from fd_top_plate (+y)
+  scara_fit_top_plate:
+    base_side: "+y"                    # PLACEHOLDER (the side of its part source)
+    base_offset_y: 0.55                  # PLACEHOLDER (beyond its feeder/buffer footprint)
+    reach:
+      r_min: 0.15                        # PLACEHOLDER
+      r_max: 0.6                         # PLACEHOLDER
+    z_stroke: 0.2                        # PLACEHOLDER
+    payload_kg: 3.0                      # PLACEHOLDER
     tools:
       tool_plate:
         dims: [0.12, 0.12, 0.02]         # PLACEHOLDER
-      side_plate_pair:
-        dims: [0.12, 0.14, 0.02]         # PLACEHOLDER (two 0.10 x 0.05 plates side by side)
-    mount: [4.1, -0.5, 0.0]              # PLACEHOLDER
-gantry_defaults:
+    motion:
+      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
+      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+scara_defaults:
   grip_s: 0.2                            # PLACEHOLDER
   release_s: 0.2                         # PLACEHOLDER
   settle_s: 0.1                          # PLACEHOLDER
   z_margin: 0.03                         # PLACEHOLDER
-  plan_speed_scale: 0.5                  # PLACEHOLDER (D-007: plan at half of v_max/a_max)
+  # From the gantry spike (D-007: a 50 kg X axis lagged above half of a_max). It says nothing
+  # about a SCARA's arm and must be re-derived for one before any time here is trusted (D-012).
+  plan_speed_scale: 0.5                  # PLACEHOLDER
 gang_heads:
   gh_arm_sandwich:
     stroke: 0.05                         # PLACEHOLDER
@@ -240,6 +240,10 @@ gang_heads:
     v_max: 0.10                          # PLACEHOLDER (m/s, ram)
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
     drive_s: 3.0                         # PLACEHOLDER (s per pass)
+    slide:
+      stroke: 0.25                       # PLACEHOLDER
+      t_in: 0.5                          # PLACEHOLDER
+      t_out: 0.5                         # PLACEHOLDER
   gh_seat_esc:
     spindles: 4                          # PLACEHOLDER (one per screw, seat_esc qty)
     stroke: 0.05                         # PLACEHOLDER
@@ -252,6 +256,10 @@ gang_heads:
     v_max: 0.10                          # PLACEHOLDER (m/s, ram)
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
     drive_s: 3.0                         # PLACEHOLDER (s per pass)
+    slide:
+      stroke: 0.25                       # PLACEHOLDER
+      t_in: 0.5                          # PLACEHOLDER
+      t_out: 0.5                         # PLACEHOLDER
 
 conveyor:
   pitch: 0.6                             # PLACEHOLDER
@@ -271,11 +279,10 @@ layout:
   stop_unit_length: 0.30                 # PLACEHOLDER
   stop_unit_cycle_s: 1.0                 # PLACEHOLDER
   buffer_slots_between_stations: 1       # PLACEHOLDER
-  gantry_frame:
-    post_size: 0.10                      # PLACEHOLDER
-    beam_height: 0.15                    # PLACEHOLDER
-    beam_depth: 0.10                     # PLACEHOLDER
-    conveyor_clearance: 0.10             # PLACEHOLDER
+  scara_base:
+    diameter: 0.20                       # PLACEHOLDER
+    height: 1.25                         # PLACEHOLDER (floor to the shoulder, 0.3 m over the datum)
+  gang_head_box: [0.30, 0.30, 0.20]      # PLACEHOLDER (the xacro's head body envelope)
   feeder_footprints:
     fd_mid_plate: [0.194, 0.194, 1.05]   # PLACEHOLDER
     fd_top_plate: [0.194, 0.194, 1.05]   # PLACEHOLDER
@@ -284,10 +291,6 @@ layout:
     buf_spider: [0.18, 0.18, 1.05]       # PLACEHOLDER
     buf_pod: [0.18, 0.18, 1.05]          # PLACEHOLDER
     buf_plate: [0.18, 0.18, 1.05]        # PLACEHOLDER
-  test_branch:
-    offset_y: -1.0                       # PLACEHOLDER
-    cell_w: 0.35                         # PLACEHOLDER
-    cell_d: 0.35                         # PLACEHOLDER
   operator_aisle:
     side: "+y"                           # PLACEHOLDER (feeders are refilled from +y)
     width: 1.0                           # PLACEHOLDER
@@ -313,15 +316,6 @@ stations:
     pose: [4.8, 0.0, 0.0, null]          # PLACEHOLDER
   st_fit_top_plate:
     pose: [5.4, 0.0, 0.0, null]          # PLACEHOLDER
-  st_audit_torque:
-    pose: [6.0, 0.0, 0.0, null]          # PLACEHOLDER
-    actor: operator                      # PLACEHOLDER (or an automated audit: not decided)
-  st_test:
-    pose: [6.6, 0.0, 0.0, null]          # PLACEHOLDER
-    cell_pitch: 0.4                      # PLACEHOLDER
-  st_pack:
-    pose: [7.2, 0.0, 0.0, null]          # PLACEHOLDER
-    actor: operator                      # PLACEHOLDER (not decided)
 
 # Entries match the base sequence by position (`id` is checked). Every step is alone at its
 # station, so each duration is also the station's load; all are under the 20.2 s takt.
@@ -351,8 +345,3 @@ sequence:
     duration_s: 4.0                      # PLACEHOLDER (was fit_top_plate 14 s, split)
   - id: drive_top_plate
     duration_s: 10.0                     # PLACEHOLDER
-  - id: audit_torque
-    duration_s: 8.0                      # PLACEHOLDER
-  - id: test
-  - id: pack
-    duration_s: 6.0                      # PLACEHOLDER

@@ -317,9 +317,8 @@ def test_minimal_fades_envelopes_but_not_the_conveyor(run):
     code, doc, out = run(None, "--minimal")
     assert code == 0, doc["errors"]
     models = {m.get("name"): m for m in world_of(out).findall("model")}
-    for name in ("Frame", "Rail_Gantry_1", "Rail_Gantry_2", "Station_Drive", "Station_Test_Group",
-                 "Buffer_Plate",
-                "Buffer_Plate_Leg"):
+    for name in ("Frame", "Station_Drive", "Station_Test_Group", "Buffer_Plate",
+                 "Buffer_Plate_Leg"):
         assert alpha_of(models[name]) == pytest.approx(gen_world.MINIMAL_ALPHA, abs=TOL), name
     assert alpha_of(models["Conveyor"]) == pytest.approx(1.0, abs=TOL)
 
@@ -328,7 +327,7 @@ def test_normal_mode_keeps_every_primitive_fully_opaque(run):
     code, doc, out = run()
     assert code == 0, doc["errors"]
     models = {m.get("name"): m for m in world_of(out).findall("model")}
-    for name in ("Frame", "Rail_Gantry_1", "Rail_Gantry_2", "Station_Drive", "Buffer_Plate"):
+    for name in ("Frame", "Station_Drive", "Buffer_Plate"):
         assert alpha_of(models[name]) == pytest.approx(1.0, abs=TOL), name
 
 
@@ -374,8 +373,8 @@ def test_a_spec_with_no_work_height_fails_naming_it(run, pass_raw):
      lambda raw: raw["stations"]["st_drive"]["pose"].__setitem__(0, None)),
     ("buffers.buf_plate.pose[2]",
      lambda raw: raw["buffers"]["buf_plate"]["pose"].__setitem__(2, None)),
-    ("gantries.gantry_2.mount[1]",
-     lambda raw: raw["gantries"]["gantry_2"]["mount"].__setitem__(1, None))])
+    ("buffers.buf_pod.pose[1]",
+     lambda raw: raw["buffers"]["buf_pod"]["pose"].__setitem__(1, None))])
 def test_null_spec_value_fails_and_names_the_key(run, pass_raw, key, blank, capsys):
     raw = copy.deepcopy(pass_raw)
     blank(raw)

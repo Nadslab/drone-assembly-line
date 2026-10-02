@@ -34,47 +34,50 @@ parts:
 
 cad: {datum_d: 0.003, press_nut_hole_d: 0.004}
 
+# One arm tooling hole per arm, on the arm axis 52 mm from the plate centre: 8 mm from the nearest
+# screw (r = 60), more than 2 x M3.
+drone:
+  arm_tooling_holes: [[0.086770, 0.036770], [0.013230, 0.036770], [0.013230, -0.036770],
+                      [0.086770, -0.036770]]
+  tooling_pin_d: 0.003
+  pin_engagement: 0.002
+
 fasteners:
-  m3_x8: {length: 0.008, feeder: fd_screw}
+  m3_x8: {length: 0.008, d: 0.003, feeder: fd_screw}
 
 feeders:
-  fd_mid_plate: {type: magazine, part: mid_plate, pose: [0.2, 0.3, 0.15, 0.0], capacity: 20, refill_s: 60.0}
+  fd_mid_plate: {type: magazine, part: mid_plate, pose: [0.3, 0.3, 0.15, 0.0], capacity: 20, refill_s: 60.0}
   fd_screw: {type: blow, part: m3_x8, target: gh_top, feed_s: 0.5}
 
 sources:
   src_plate: {output: bottom_plate, buffer: buf_plate, interval_s: 20.0, buffer_capacity: 3}
 buffers:
-  buf_plate: {pose: [0.5, 0.3, 0.1, 0.0]}
-  buf_fixture: {pose: [2.25, 0.3, 0.1, 0.0]}   # carriers for gantry_2's zone
+  buf_plate: {pose: [-0.2, 0.3, 0.1, 0.0]}
+  buf_fixture: {pose: [1.8, 0.3, 0.1, 0.0]}    # spider carriers
+  buf_pod: {pose: [2.3, 0.3, 0.1, 0.0]}        # pod trays (a buffer no source fills)
 
-# Two zones, apart: gantry_1 over x 0-0.6, gantry_2 over x 1.9-2.6 (line frame).
-gantries:
-  gantry_1:
-    zone: [st_load, st_place]
-    axes:
-      x: {min: 0.0, max: 0.6, v_max: 1.0, a_max: 2.0}
-      y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
-      z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
-      c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
-    tools:
-      tool_plate: {grip: vacuum, dims: [0.12, 0.12, 0.02]}
-    mount: [0.0, 0.0, 0.0]
-  gantry_2:
-    zone: [st_spider, st_pod]
-    axes:
-      x: {min: 0.0, max: 0.7, v_max: 1.0, a_max: 2.0}
-      y: {min: -0.5, max: 0.5, v_max: 1.0, a_max: 2.0}
-      z: {min: 0.0, max: 0.6, v_max: 0.5, a_max: 2.0}
-      c: {min: -3.1416, max: 3.1416, v_max: 3.0, a_max: 10.0}
-    tools:
-      tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}
-    mount: [1.9, 0.0, 0.0]
-gantry_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03,
-                  plan_speed_scale: 0.5, damping: 5.0, friction: 0.5}
+# One SCARA per pick-and-place station, all on +y, 0.24 m out; each source sits 0.2 m upstream
+# of its station, 0.3 m out. Reach 0.1-0.24 m keeps neighbouring envelopes (0.5 m apart) clear.
+scaras:
+  scara_load:
+    {station: st_load, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
+     z_stroke: 0.6, payload_kg: 3.0, tools: {}, motion: {v_max: 1.0, a_max: 2.0}}
+  scara_place:
+    {station: st_place, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
+     z_stroke: 0.6, payload_kg: 3.0, tools: {tool_plate: {grip: vacuum, dims: [0.12, 0.12, 0.02]}},
+     motion: {v_max: 1.0, a_max: 2.0}}
+  scara_spider:
+    {station: st_spider, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
+     z_stroke: 0.6, payload_kg: 3.0, tools: {tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}},
+     motion: {v_max: 1.0, a_max: 2.0}}
+  scara_pod:
+    {station: st_pod, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
+     z_stroke: 0.6, payload_kg: 3.0, tools: {tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}},
+     motion: {v_max: 1.0, a_max: 2.0}}
+scara_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03, plan_speed_scale: 0.5}
 gang_heads:
   gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05,
            v_max: 0.1, a_max: 0.5, drive_s: 3.0}
-scaras: {}
 
 conveyor: {pitch: 0.5}
 stations:
@@ -87,6 +90,10 @@ stations:
   st_spider: {index: 5, count: 1, pose: [2.0, 0.0, 0.1, 0.0]}
   st_pod:    {index: 6, count: 1, pose: [2.5, 0.0, 0.1, 0.0]}
 
+milestones:
+  front: [st_load, st_place, st_drive]
+  back:  [st_test, st_spider, st_pod]
+
 sequence:
   - {id: load,  station: st_load,  capability: load,  part: bottom_plate, from: buf_plate, duration_s: 5.0, requires: []}
   - {id: place, station: st_place, capability: place, part: mid_plate, from: fd_mid_plate, tool: tool_plate, duration_s: 6.0, requires: [load]}
@@ -94,7 +101,7 @@ sequence:
   - {id: test,  station: st_test,  capability: test,  duration_s: 90.0, requires: [drive]}
   - {id: place_spider, station: st_spider, capability: place, part: carrier_spider, from: buf_fixture,
      tool: tool_carrier, duration_s: 6.0, requires: [load]}
-  - {id: place_pod, station: st_pod, capability: place, part: carrier_pod, from: buf_fixture,
+  - {id: place_pod, station: st_pod, capability: place, part: carrier_pod, from: buf_pod,
      tool: tool_carrier, duration_s: 6.0, requires: [load]}
 
 # Floor plan (tools/cad/layout.py) and the conveyor timing the takt budget needs.
@@ -104,11 +111,13 @@ layout:
   stop_unit_length: 0.20
   stop_unit_cycle_s: 0.5
   buffer_slots_between_stations: 1
-  gantry_frame: {post_size: 0.10, beam_height: 0.12, beam_depth: 0.10, conveyor_clearance: 0.10}
+  scara_base: {diameter: 0.10, height: 1.2}
+  gang_head_box: [0.20, 0.20, 0.15]
   feeder_footprints:
     fd_mid_plate: [0.15, 0.15, 1.05]
     buf_plate: [0.15, 0.15, 1.0]
     buf_fixture: [0.15, 0.15, 1.0]
+    buf_pod: [0.15, 0.15, 1.0]
   test_branch: {offset_y: -1.0, cell_w: 0.30, cell_d: 0.30}
   operator_aisle: {side: "+y", width: 1.0}
   guard_offset: 0.3

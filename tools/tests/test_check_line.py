@@ -65,84 +65,111 @@ def test_parked_steps_are_excluded_from_takt(pass_raw):
     assert by_name(check_line.run_checks(pass_raw)[0])["takt"].status == "PASS"
 
 
-# ------------------------------------------------------------------ zones (D-008)
+# ------------------------------------------------------------------ SCARAs (D-012)
 
-ZONE_CASES = {c[1]: c for c in FAILING if c[0] == "schema"}
+SCHEMA_CASES = {c[1]: c for c in FAILING if c[0] == "schema"}
 
 
 @pytest.mark.parametrize("case, message", [
-    ("zone_names_unknown_station", "gantries.gantry_1.zone: station 'st_nowhere' does not exist"),
-    ("station_in_two_zones", "station 'st_place' is already in gantry_1's zone"),
-    ("gantry_step_in_no_zone", "sequence.place: moves a part with a gantry but station 'st_place' "
-                               "is in no gantry's zone"),
-    ("gantry_id_not_numbered", "gantries.gantry_b: a gantry id is gantry_<n>"),
-    ("one_tool_id_two_designs", "gantries.gantry_2.tools.tool_plate differs from "
-                                "gantries.gantry_1.tools.tool_plate"),
-    ("tool_not_on_the_zone_gantry", "'tool_carrier' is not on gantry_1, which serves st_place"),
-    ("place_and_drive_in_one_step", "sequence.place: moves part 'mid_plate' with a gantry and "
+    ("scara_id_is_not_its_station", "scaras.scara_put: the SCARA at st_place is scara_place"),
+    ("scara_station_does_not_exist", "scaras.scara_place.station: station 'st_nowhere' does not "
+                                     "exist"),
+    ("robot_step_at_a_station_without_scara", "sequence.place: moves a part with a robot but "
+                                              "station 'st_place' has no SCARA (scara_place)"),
+    ("one_tool_id_two_designs", "scaras.scara_pod.tools.tool_carrier differs from "
+                                "scaras.scara_spider.tools.tool_carrier"),
+    ("tool_not_on_the_station_scara", "'tool_carrier' is not on scara_place, the SCARA at "
+                                      "st_place"),
+    ("place_and_drive_in_one_step", "sequence.place: moves part 'mid_plate' with a SCARA and "
                                     "drives fasteners"),
+    ("source_returns_an_unknown_part", "sources.src_plate.returns -> part 'carrier_nope' does "
+                                       "not exist"),
+    ("station_in_no_milestone", "milestones: station 'st_pod' is in no milestone"),
+    ("station_in_two_milestones", "milestones.back: station 'st_drive' is already in milestone "
+                                  "'front'"),
+    ("milestones_out_of_line_order", "milestones: read in order they give"),
 ])
-def test_each_zone_rule_fails_for_its_own_reason(pass_raw, case, message):
+def test_each_schema_rule_fails_for_its_own_reason(pass_raw, case, message):
     raw = copy.deepcopy(pass_raw)
-    ZONE_CASES[case][2](raw)
+    SCHEMA_CASES[case][2](raw)
     schema = by_name(check_line.run_checks(raw)[0])["schema"]
     assert schema.status == "FAIL"
     assert any(message in msg for _, msg in schema.findings), schema.findings
 
 
-def test_a_null_zone_defers_the_coverage_rule(pass_raw):
-    """Until every zone is known, a station outside the known ones may be in the unknown one."""
-    pass_raw["gantries"]["gantry_1"]["zone"] = None
-    results, passed = check_line.run_checks(pass_raw)
-    got = by_name(results)
-    assert passed
-    assert got["schema"].status == "PASS"
-    assert got["reach"].status == "WARN"
-    assert got["gantry_load"].status == "WARN"
-
-
-def test_reach_is_judged_against_the_zone_gantry_only(pass_raw):
-    """buf_plate serves both zones, so it is checked once against each gantry that draws on it."""
-    r = by_name(check_line.run_checks(pass_raw)[0])["reach"]
-    assert r.status == "PASS"
-    pass_raw["feeders"]["fd_mid_plate"]["pose"] = [1.0, 0.3, 0.15, 0.0]
-    r = by_name(check_line.run_checks(pass_raw)[0])["reach"]
-    assert r.findings == [("FAIL", "feeder fd_mid_plate: x=1.000 m (gantry_1 frame) outside "
-                                   "[0, 0.6]")]
-
-
 FIXTURE = {c[1]: c[2] for c in FAILING}
 
 
-@pytest.mark.parametrize("case, message", [
-    ("post_in_the_conveyor", "gantry_1 post 1 at x,y [-0.1, 0.0, -0.2, -0.1] stands in the "
-                             "conveyor (50.0 mm deep)"),
-    ("post_inside_the_clearance", "gantry_1 post 1 is 50.0 mm from the conveyor edge, less than "
-                                  "gantry_frame.conveyor_clearance 100 mm"),
+@pytest.mark.parametrize("check, case, level, message", [
+    ("scara_reach", "pick_beyond_r_max", "FAIL",
+     "scara_place: pick feeder fd_mid_plate is 0.412 m from the base at (0.5, 0.24), outside its "
+     "reach [0.1, 0.24]"),
+    ("scara_reach", "pick_inside_r_min", "FAIL",
+     "scara_place: pick feeder fd_mid_plate is 0.209 m from the base at (0.5, 0.24), outside its "
+     "reach [0.22, 0.24]"),
+    ("scara_clearance", "base_in_the_conveyor", "FAIL",
+     "scara_place: base at (0.5, 0.15) overlaps the conveyor by 50.0 mm"),
+    ("scara_clearance", "base_on_a_buffer", "FAIL",
+     "scara_place: base at (0.5, 0.24) overlaps the buffer buf_plate"),
+    ("scara_clearance", "two_bases_overlap", "FAIL",
+     "scara_load and scara_place: bases overlap by 50.0 mm"),
+    ("scara_clearance", "envelopes_overlap", "WARN",
+     "scara_load and scara_place: reach envelopes overlap by 40 mm; shared zone x"),
+    ("arm_pin_clearance", "tooling_hole_next_to_a_screw", "FAIL",
+     "drone.arm_tooling_holes[0] [0.09, 0.04] is 3.43 mm from arm screw hole 0"),
+    ("arm_pin_clearance", "not_one_pin_per_arm", "FAIL",
+     "drone.arm_tooling_holes has 3 hole(s) for 4 arm(s); one pin per arm"),
 ])
-def test_gantry_straddle_says_which_post_and_why(pass_raw, case, message):
+def test_each_scara_rule_says_what_and_where(pass_raw, check, case, level, message):
     FIXTURE[case](pass_raw)
-    r = by_name(check_line.run_checks(pass_raw)[0])["gantry_straddle"]
-    assert ("FAIL", message) in r.findings, r.findings
+    r = by_name(check_line.run_checks(pass_raw)[0])[check]
+    assert any(lvl == level and message in m for lvl, m in r.findings), r.findings
 
 
-def test_the_old_gantry_3_travel_puts_its_posts_in_the_belt(dev_cad_reports):
-    """The D-008 zone-only y travel (0.4-0.9) is what the layout caught: D-009's frame rule
-    widened it to 0.25. Put it back and gantry_straddle has to fail on gantry_3 alone."""
-    raw = spec_mod.load_raw(dev=True)
-    raw["gantries"]["gantry_3"]["axes"]["y"]["min"] = 0.4
-    r = by_name(check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)[0])[
-        "gantry_straddle"]
-    assert r.status == "FAIL"
-    assert {m.split()[0] for _, m in r.findings} == {"gantry_3"}
+def test_a_shared_reach_zone_names_the_interlock(pass_raw):
+    FIXTURE["envelopes_overlap"](pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])["scara_clearance"]
+    assert [z["scaras"] for z in r.info["shared_zones"]] == [["scara_load", "scara_place"]]
+    assert all("needs an interlock" in m for lvl, m in r.findings if lvl == "WARN")
+
+
+def test_reach_records_every_radius(pass_raw):
+    r = by_name(check_line.run_checks(pass_raw)[0])["scara_reach"]
+    assert r.status == "PASS"
+    assert r.info["radius_m"]["scara_place"] == {"pick feeder fd_mid_plate": 0.2088,
+                                                 "place st_place": 0.24}
 
 
 def test_safe_z_failure_names_what_it_is_made_of(pass_raw):
-    FIXTURE["safe_z_above_the_z_travel"](pass_raw)
+    FIXTURE["safe_z_above_the_z_stroke"](pass_raw)
     r = by_name(check_line.run_checks(pass_raw)[0])["safe_z"]
-    assert r.findings == [("FAIL", "gantry_2: safe_z=0.372 (station st_pod 0.237 + "
-                                   "carrier_spider 0.105 + margin 0.03) is outside its z travel "
-                                   "[0, 0.3]")]
+    assert r.findings == [("FAIL", "scara_pod: safe_z=0.314 (station st_pod (before its place) "
+                                   "0.204 + carrier_pod 0.080 + margin 0.03) exceeds its z_stroke "
+                                   "0.3")]
+
+
+def test_safe_z_counts_a_waiting_gang_head_only_when_it_is_in_reach(pass_raw):
+    """gh_top on a slide at st_place waits slide.stroke out on -y (scara_place is on +y): 0.25 m
+    is out of the SCARA's 0.24 m reach, 0.05 m is not."""
+    import robot_geometry as rg
+    FIXTURE["slide_too_slow"](pass_raw)
+    spec = spec_mod.parse_spec(pass_raw)
+    cad = rg.CadHeights()
+    hb = rg.head_box(spec, "gh_top", cad)
+    assert hb.slide_from == "-y" and hb.rect.y1 == pytest.approx(-0.15)
+    assert not any("gh_top" in n for n, _ in rg.safe_z(spec, "scara_place", cad).items)
+    pass_raw["gang_heads"]["gh_top"]["slide"]["stroke"] = 0.05
+    items = dict(rg.safe_z(spec_mod.parse_spec(pass_raw), "scara_place", cad).items)
+    assert items["gang head gh_top (retracted on its slide)"] == pytest.approx(hb.z1)
+
+
+def test_slide_time_is_part_of_the_station_time(pass_raw):
+    FIXTURE["slide_too_slow"](pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])["station_time"]
+    row = r.info["stations"]["st_place"]
+    assert row["slide_s"] == pytest.approx(18.0)
+    assert row["total_s"] == pytest.approx(row["scara_s"] + 3.0 + 18.0 + 0.5 / 0.3, abs=1e-3)
+    assert r.status == "FAIL" and "slide 18.00" in r.findings[0][1]
 
 
 def test_a_nest_demands_a_whole_set_per_pick(pass_raw):
@@ -152,10 +179,24 @@ def test_a_nest_demands_a_whole_set_per_pick(pass_raw):
         assert by_name(check_line.run_checks(pass_raw)[0])["feeder_rate"].status == status
 
 
-def test_gantry_load_reports_every_gantry_against_takt(pass_raw):
-    r = by_name(check_line.run_checks(pass_raw)[0])["gantry_load"]
-    assert set(r.info["load_pct"]) == {"gantry_1", "gantry_2"}
+def test_robot_load_reports_every_scara_against_takt(pass_raw):
+    r = by_name(check_line.run_checks(pass_raw)[0])["robot_load"]
+    assert set(r.info["load_pct"]) == {"scara_load", "scara_place", "scara_spider", "scara_pod"}
     assert all(0 < p <= 100 for p in r.info["load_pct"].values())
+
+
+def test_a_milestone_is_checked_on_its_own(pass_raw):
+    sub = spec_mod.milestone_subset(pass_raw, "back")
+    assert list(sub["stations"]) == ["st_test", "st_spider", "st_pod"]
+    assert set(sub["scaras"]) == {"scara_spider", "scara_pod"}
+    assert set(sub["buffers"]) == {"buf_fixture", "buf_pod"} and sub["feeders"] == {}
+    assert sub["gang_heads"] == {}
+    # Every step here required one upstream (load, drive): that work is done before the milestone.
+    assert [s["requires"] for s in sub["sequence"]] == [[], [], []]
+    results, passed = check_line.run_checks(sub)
+    assert passed, [(r.name, r.findings) for r in results if r.status != "PASS"]
+    with pytest.raises(spec_mod.SpecError, match="milestone 'nope' does not exist"):
+        spec_mod.milestone_subset(pass_raw, "nope")
 
 
 # ------------------------------------------------------------------ spec.py
@@ -186,8 +227,9 @@ def test_repo_spec_parses_and_lists_unresolved():
     raw = spec_mod.load_raw()
     spec_mod.parse_spec(raw)  # exact §3 example must parse
     paths = list(check_line._walk_nulls(raw))
-    assert "gantries.gantry_1.axes.x.min" in paths
-    assert "gantries.gantry_3.zone" in paths
+    assert "scaras.scara_place_spider.reach.r_min" in paths
+    assert "scaras.scara_fit_top_plate.base_side" in paths
+    assert "drone.arm_tooling_holes[0][0]" in paths
     assert "sequence[0].duration_s" in paths
     assert "parts.bottom_plate.datums.diamond[0]" in paths
 
@@ -301,22 +343,36 @@ def dev_cad_reports():
     return spec_mod.REPO / "reports"
 
 
-def test_repo_dev_overlay_passes_every_check_and_every_gantry_load(dev_cad_reports):
-    """D-011's recorded result: with the paired side-plate pick gantry_3 is back under budget
-    (~13.5 s of 17.2 s), so gantry_load passes on every gantry, and a gang head that fastens what
-    its station's gantry placed is no second actor. The only findings left are open gap B: the
-    three drive steps whose screws are not chosen are UNRESOLVED (WARN), never failures."""
+def test_repo_dev_overlay_records_the_d012_result(dev_cad_reports):
+    """D-012's recorded result on the dev overlay: every SCARA is far inside its budget and every
+    station inside takt, the reach annuli and base footprints are clear, and no two envelopes
+    overlap (neighbours on opposite sides, or touching at exactly 2 x r_max). What fails is
+    safe_z on two SCARAs, both from placeholder geometry: scara_place_pod has gh_side_plates
+    waiting on its slide inside its reach, and scara_fit_side_plates' side-plate magazine pick
+    plane (0.17 m) plus margin is 3 mm over its 0.2 m stroke. actors keeps open gap B (WARN)."""
     results, passed = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
                                             dev=True)
     got = by_name(results)
-    assert passed
-    assert {r.name for r in results if r.status != "PASS"} == {"actors"}
-    assert got["gantry_load"].status == "PASS"
-    assert set(got["gantry_load"].info["load_pct"]) == {"gantry_1", "gantry_2", "gantry_3"}
-    assert all(p <= 100.0 for p in got["gantry_load"].info["load_pct"].values())
-    assert got["station_time"].status == "PASS"
+    assert not passed
+    assert {r.name: r.status for r in results if r.status != "PASS"} == {"actors": "WARN",
+                                                                       "safe_z": "FAIL"}
+    assert sorted(m.split(":")[0] for lvl, m in got["safe_z"].findings if lvl == "FAIL") == \
+        ["scara_fit_side_plates", "scara_place_pod"]
+    assert set(got["robot_load"].info["load_pct"]) == {
+        "scara_place_spider", "scara_place_mid_plate", "scara_install_standoffs",
+        "scara_place_pod", "scara_fit_side_plates", "scara_fit_top_plate"}
+    assert all(p <= 100.0 for p in got["robot_load"].info["load_pct"].values())
+    assert got["scara_clearance"].info["shared_zones"] == []
     assert sorted(m.split()[1].rstrip(":") for lvl, m in got["actors"].findings
                   if lvl == "WARN") == ["drive_top_plate", "fit_side_plates", "seat_esc"]
+
+
+def test_repo_dev_frame_milestone_passes(dev_cad_reports):
+    raw = spec_mod.milestone_subset(spec_mod.load_raw(dev=True), "frame")
+    results, passed = check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)
+    assert passed, [(r.name, r.findings) for r in results if r.status == "FAIL"]
+    assert list(raw["stations"]) == ["st_load_pallet", "st_place_spider", "st_place_mid_plate",
+                                     "st_drive_arm_sandwich"]
 
 
 def test_repo_spec_every_feeder_and_buffer_is_drawn_and_every_drive_has_a_driver():
@@ -327,8 +383,8 @@ def test_repo_spec_every_feeder_and_buffer_is_drawn_and_every_drive_has_a_driver
     actors = by_name(results)["actors"].info["station_actors"]
     assert actors["st_load_pallet"] == "sub_line"
     assert actors["st_mount_servo"] == "parked"
-    assert actors["st_fit_side_plates"] == "gantry + gh_side_plates"
-    assert actors["st_fit_top_plate"] == "gantry + gh_top_plate"
+    assert actors["st_fit_side_plates"] == "scara + gh_side_plates"
+    assert actors["st_fit_top_plate"] == "scara + gh_top_plate"
 
 
 def test_index_time_is_derived_never_stated(pass_raw):
@@ -342,12 +398,12 @@ def test_index_time_is_derived_never_stated(pass_raw):
 
 @pytest.mark.parametrize("case, message", [
     ("station_without_actor", "st_test: no actor for test"),
-    ("two_primary_actors", "st_place: 2 primary actors (gantry, test)"),
-    ("gang_head_not_fastening_what_the_gantry_placed",
-     "st_place: 2 primary actors (driver, gantry); a station has exactly one (a drive step"),
+    ("two_primary_actors", "st_place: 2 primary actors (scara, test)"),
+    ("gang_head_not_fastening_what_the_scara_placed",
+     "st_place: 2 primary actors (driver, scara); a station has exactly one (a drive step"),
     ("gang_head_named_at_two_stations", "gang head gh_top is named at 2 stations (st_drive, "
                                         "st_place)"),
-    ("two_gang_heads_at_a_gantry_station", "st_place: 2 gang heads fasten what the gantry placed "
+    ("two_gang_heads_at_a_scara_station", "st_place: 2 gang heads fasten what the SCARA placed "
                                            "(gh_top, gh_two)"),
     ("two_drivers_at_a_driver_station", "st_drive: 2 drivers (gh_top, gh_two)"),
     ("drive_step_without_driver", "drive: drive step at st_drive has no driver"),
@@ -369,18 +425,18 @@ def test_each_actor_rule_fails_for_its_own_reason(pass_raw, case, message):
     assert any(message in m for lvl, m in r.findings if lvl == "FAIL"), r.findings
 
 
-def test_a_gang_head_fastening_what_the_gantry_placed_shares_its_station(pass_raw):
-    """D-011: a gantry places, the gang head mounted at that station screws it down."""
+def test_a_gang_head_fastening_what_the_scara_placed_shares_its_station(pass_raw):
+    """D-011, D-012: a SCARA places, the gang head mounted at that station screws it down."""
     _drive_at_place(pass_raw)
     r = by_name(check_line.run_checks(pass_raw)[0])["actors"]
     assert r.status == "PASS", r.findings
-    assert r.info["station_actors"]["st_place"] == "gantry + gh_top"
+    assert r.info["station_actors"]["st_place"] == "scara + gh_top"
 
 
-def test_a_sub_line_loader_needs_no_gantry(pass_raw):
-    """st_load as a sub-line loader fed from buf_plate: actors passes and gantry_1 loses load."""
+def test_a_sub_line_loader_needs_no_scara(pass_raw):
+    """st_load as a sub-line loader fed from buf_plate: actors passes, and scara_load goes."""
     _sub_line_loader("buf_plate")(pass_raw)
-    pass_raw["gantries"]["gantry_1"]["zone"] = ["st_place"]
+    del pass_raw["scaras"]["scara_load"]
     results, passed = check_line.run_checks(pass_raw)
     got = by_name(results)
     assert got["actors"].status == "PASS", got["actors"].findings

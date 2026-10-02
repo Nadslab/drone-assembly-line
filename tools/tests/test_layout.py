@@ -11,9 +11,9 @@ import pytest
 import yaml
 
 import check_line
-import gantry_geometry as gg
+import robot_geometry as rg
 import spec as spec_mod
-from conftest import TOOLS
+from conftest import FIXTURES, TOOLS
 
 sys.path.insert(0, str(TOOLS / "cad"))
 import layout  # noqa: E402
@@ -29,8 +29,14 @@ def run(tmp_path, raw, *extra, overlay=None):
     if overlay is not None:
         (tmp_path / "line_spec.dev.yaml").write_text(yaml.safe_dump(overlay))
     report = tmp_path / "layout.json"
+    cad = FIXTURES / "cad"
+    if "--dev" in extra:                    # a dev run reads cad_<part>.dev.json: the same parts
+        cad = tmp_path / "cad"
+        cad.mkdir(exist_ok=True)
+        for f in (FIXTURES / "cad").glob("cad_*.json"):
+            (cad / f"{f.stem}.dev.json").write_text(f.read_text())
     code = layout.main(["--spec", str(spec), "--out", str(tmp_path / "out" / "line_layout.step"),
-                        "--report", str(report), *extra])
+                        "--report", str(report), "--cad-reports", str(cad), *extra])
     return code, json.loads(report.read_text())
 
 
@@ -67,7 +73,11 @@ def test_the_clean_layout_passes(clean):
     assert doc["interference"]["allowed_overlaps"] > 0      # pallets on the belt, at least
 
 
-def test_every_station_feeder_buffer_and_gantry_has_exactly_one_solid(clean):
+def scara_name(sid):
+    return "Scara_" + layout.pascal(sid.removeprefix("scara_"))
+
+
+def test_every_station_feeder_buffer_and_robot_has_exactly_one_solid(clean):
     raw, _, doc = clean
     got = names(doc)
     for sid, st in raw["stations"].items():
@@ -84,36 +94,112 @@ def test_every_station_feeder_buffer_and_gantry_has_exactly_one_solid(clean):
         assert got.count(feeder) == (1 if f.get("pose") else 0), fid   # blow feeder: no pose
     for bid in raw["buffers"]:
         assert got.count("Buffer_" + layout.pascal(bid.removeprefix("buf_"))) == 1, bid
-    for gid in raw["gantries"]:
-        n = gid.removeprefix("gantry_")
-        assert got.count(f"Gantry_{n}_Envelope") == 1
-        assert got.count(f"Guard_Gantry_{n}") == 1
-        assert sorted(x for x in got if x.startswith(f"Gantry_{n}_Post_")) == \
-            [f"Gantry_{n}_Post_{k}" for k in range(1, 5)]
-        assert sorted(x for x in got if x.startswith(f"Gantry_{n}_Beam_")) == \
-            [f"Gantry_{n}_Beam_1", f"Gantry_{n}_Beam_2"]
+    for sid in raw["scaras"]:
+        assert got.count(f"{scara_name(sid)}_Base") == 1
+        assert got.count(f"{scara_name(sid)}_Envelope") == 1
+    assert got.count("GangHead_Top") == 1
+    assert "GangHead_Top_Slide" not in got                     # no SCARA at st_drive: no slide
+    assert sorted(n for n in got if n.startswith("Guard_")) == ["Guard_Back", "Guard_Front"]
+    assert not [n for n in got if n.startswith("Gantry")]
     assert len(got) == len(set(got))
 
 
 def test_the_step_keeps_every_name_and_the_hierarchy(clean):
-    _, _, doc = clean
+    raw, _, doc = clean
     assert doc["verify"]["hierarchy_preserved"] is True
     assert doc["verify"]["reimported_solids"] == doc["counts"]["solids"] == len(doc["solids"])
     back = import_step(doc["outputs"]["step"])
     assert back.label == "Line"
     assert [c.label for c in back.children] == list(layout.GROUPS)
-    gantries = next(c for c in back.children if c.label == "Gantries")
-    assert sorted(c.label for c in gantries.children) == ["Gantry_1", "Gantry_2"]
+    robots = next(c for c in back.children if c.label == "Robots")
+    assert sorted(c.label for c in robots.children) == sorted(
+        [f"{scara_name(s)}_Base" for s in raw["scaras"]] + ["GangHead_Top"])
 
 
 def test_every_dimension_names_its_spec_key(clean):
     _, _, doc = clean
-    post = next(s for s in doc["solids"] if s["name"] == "Gantry_1_Post_1")
-    assert post["dims"]["size_x"]["spec_keys"] == ["layout.gantry_frame.post_size"]
-    assert "gantries.gantry_1.mount[0]" in post["dims"]["centre_x"]["spec_keys"]
-    guard = next(s for s in doc["solids"] if s["name"] == "Guard_Gantry_1")
+    base = next(s for s in doc["solids"] if s["name"] == "Scara_Place_Base")
+    assert base["dims"]["size_x"]["spec_keys"] == ["layout.scara_base.diameter"]
+    assert {"stations.st_place.pose[1]", "scaras.scara_place.base_offset_y",
+            "scaras.scara_place.base_side"} <= set(base["dims"]["centre_y"]["spec_keys"])
+    env = next(s for s in doc["solids"] if s["name"] == "Scara_Place_Envelope")
+    assert env["dims"]["size_x"]["spec_keys"] == ["scaras.scara_place.reach.r_max"]
+    assert env["dims"]["inner_x"]["spec_keys"] == ["scaras.scara_place.reach.r_min"]
+    head = next(s for s in doc["solids"] if s["name"] == "GangHead_Top")
+    assert "gang_heads.gh_top.stroke" in head["dims"]["centre_z"]["spec_keys"]
+    guard = next(s for s in doc["solids"] if s["name"] == "Guard_Front")
     assert "GUARD_H" in guard["dims"]["size_z"]["constants"]
     assert all(not s["placeholder"] for s in doc["solids"])     # no overlay in this run
+
+
+def test_the_base_and_envelope_are_where_the_clearance_check_sees_them(clean):
+    """layout.py draws the base with its own Dim arithmetic; spec.scara_base is what
+    scara_clearance and scara_reach judge. The two must agree."""
+    raw, _, doc = clean
+    spec = spec_mod.parse_spec(raw)
+    r = raw["layout"]["scara_base"]["diameter"] / 2.0
+    for sid in raw["scaras"]:
+        bx, by, _ = spec_mod.scara_base(spec, sid)
+        box = next(s for s in doc["solids"] if s["name"] == f"{scara_name(sid)}_Base")["bbox_mm"]
+        assert [box["min"][0], box["max"][0], box["min"][1], box["max"][1]] == pytest.approx(
+            [(bx - r) * 1000, (bx + r) * 1000, (by - r) * 1000, (by + r) * 1000], abs=1e-2)
+        env = next(s for s in doc["solids"]
+                   if s["name"] == f"{scara_name(sid)}_Envelope")["bbox_mm"]
+        r_max = raw["scaras"][sid]["reach"]["r_max"]
+        assert env["size"][0] == pytest.approx(2 * r_max * 1000, abs=1e-2)
+        assert (env["min"][2], env["max"][2]) == pytest.approx(
+            (0.0, raw["scaras"][sid]["z_stroke"] * 1000), abs=1e-2)
+
+
+def test_the_gang_head_box_is_robot_geometrys(clean):
+    raw, _, doc = clean
+    hb = rg.head_box(spec_mod.parse_spec(raw), "gh_top", rg.CadHeights(FIXTURES / "cad"))
+    box = next(s for s in doc["solids"] if s["name"] == "GangHead_Top")["bbox_mm"]
+    assert (box["min"][2], box["max"][2]) == pytest.approx((hb.z0 * 1000, hb.z1 * 1000), abs=1e-2)
+    assert [box["min"][0], box["max"][0]] == pytest.approx([hb.rect.x0 * 1000, hb.rect.x1 * 1000],
+                                                           abs=1e-2)
+
+
+def test_a_head_on_a_slide_waits_opposite_its_scara_with_a_slide_envelope(tmp_path, pass_raw):
+    from conftest import _slide_at_place
+    raw = layout_raw(pass_raw)
+    _slide_at_place(0.5, 0.5)(raw)
+    code, doc = run(tmp_path, raw)
+    head = next(s for s in doc["solids"] if s["name"] == "GangHead_Top")["bbox_mm"]
+    slide = next(s for s in doc["solids"] if s["name"] == "GangHead_Top_Slide")
+    assert slide["group"] == "Reference" and slide["category"] == "envelope"
+    # scara_place is on +y, so the head waits 0.25 m out on -y: y -0.35 .. -0.15.
+    assert (head["min"][1], head["max"][1]) == pytest.approx((-350.0, -150.0), abs=1e-2)
+    assert (slide["bbox_mm"]["min"][1], slide["bbox_mm"]["max"][1]) == pytest.approx(
+        (-350.0, 100.0), abs=1e-2)
+    assert code == 0, doc["errors"]
+
+
+def test_one_guard_per_milestone_around_its_robots(clean):
+    """Front: scara_load's reach disc (x -0.24) to gh_top's box (x 1.1), plus guard_offset and
+    the wall; back: scara_spider (1.76) to scara_pod (2.74)."""
+    _, _, doc = clean
+    wall = layout.GUARD_T * 1000.0
+    front = next(s for s in doc["solids"] if s["name"] == "Guard_Front")["bbox_mm"]
+    back = next(s for s in doc["solids"] if s["name"] == "Guard_Back")["bbox_mm"]
+    assert (front["min"][0], front["max"][0]) == pytest.approx(
+        (-240.0 - 300.0 - wall, 1100.0 + 300.0 + wall), abs=1e-3)
+    assert (back["min"][0], back["max"][0]) == pytest.approx(
+        (1760.0 - 300.0 - wall, 2740.0 + 300.0 + wall), abs=1e-3)
+
+
+def test_a_milestone_is_drawn_on_its_own(tmp_path, pass_raw):
+    code, doc = run(tmp_path, layout_raw(pass_raw), "--milestone", "back")
+    assert code == 0, doc["errors"]
+    got = names(doc)
+    assert doc["milestone"] == "back" and "/out/back/" in doc["outputs"]["step"]
+    assert {"Scara_Spider_Base", "Scara_Pod_Base", "Buffer_Fixture", "Buffer_Pod",
+            "Guard_Back"} <= set(got)
+    assert not {"Scara_Place_Base", "GangHead_Top", "Feeder_MidPlate", "Guard_Front",
+                "Station_Drive"} & set(got)
+    conveyor = next(s for s in doc["solids"] if s["name"] == "Conveyor")["bbox_mm"]
+    # st_test (1.5) to st_pod (2.5), half a pitch beyond each end.
+    assert (conveyor["min"][0], conveyor["max"][0]) == pytest.approx((1250.0, 2750.0), abs=1e-3)
 
 
 # ---------------------------------------------------------------- what it refuses
@@ -130,47 +216,15 @@ def test_a_feeder_standing_on_the_conveyor_fails_naming_both(tmp_path, pass_raw)
     assert doc["passed"] is False
 
 
-def test_a_guard_closer_than_the_posts_cuts_through_them(tmp_path, pass_raw):
+def test_guards_of_neighbouring_milestones_that_cross_fail_naming_both(tmp_path, pass_raw):
+    """The front guard ends 0.04 m before the back one starts; 0.05 m more offset each and the
+    walls cross (the D-012 dev result: no shared wall between milestones yet)."""
     raw = layout_raw(pass_raw)
-    raw["layout"]["guard_offset"] = 0.05                       # posts are 0.10 wide
+    raw["layout"]["guard_offset"] = 0.35
     code, doc = run(tmp_path, raw)
     assert code == 1
-    assert any("Guard_Gantry_1" in (f["a"], f["b"]) and "Gantry_1_Post_1" in (f["a"], f["b"])
-               for f in doc["interference"]["failures"])
-
-
-def test_two_adjacent_gantries_share_one_guard_and_nothing_interferes(tmp_path, pass_raw):
-    """D-011: gantry_2 moved to x 1.0-1.7, 0.4 m after gantry_1's 0.0-0.6. Each guard stands
-    guard_offset 0.3 outside its envelope, so the two walls would cross each other's posts; they
-    become one guard around both envelopes, and the layout is clean."""
-    raw = layout_raw(pass_raw)
-    raw["gantries"]["gantry_2"]["mount"][0] = 1.0
-    code, doc = run(tmp_path, raw)
-    guards = [n for n in names(doc) if n.startswith("Guard_")]
-    assert guards == ["Guard_Gantry_1_Gantry_2"]
-    assert doc["interference"]["result"] == "PASS", doc["interference"]["failures"]
-    assert doc["interference"]["failures"] == []
-    assert code == 0
-    g = next(s for s in doc["solids"] if s["name"] == "Guard_Gantry_1_Gantry_2")
-    wall = layout.GUARD_T * 1000.0
-    # x: gantry_1's lower envelope edge to gantry_2's upper one, plus offset and wall each side.
-    assert g["bbox_mm"]["min"][0] == pytest.approx(0.0 - 300.0 - wall, abs=1e-6)
-    assert g["bbox_mm"]["max"][0] == pytest.approx(1700.0 + 300.0 + wall, abs=1e-6)
-
-
-def test_guards_that_do_not_touch_stay_separate(clean):
-    _, _, doc = clean
-    assert sorted(n for n in names(doc) if n.startswith("Guard_")) == ["Guard_Gantry_1",
-                                                                      "Guard_Gantry_2"]
-
-
-def test_a_chain_of_touching_guards_is_one_group():
-    d = layout.Dim
-    env = {g: [(d(x0), d(x0 + 0.5)), (d(0.0), d(0.5))]
-           for g, x0 in (("gantry_1", 0.0), ("gantry_2", 1.0), ("gantry_3", 2.0),
-                         ("gantry_4", 9.0))}
-    assert layout.guard_groups(env, d(0.3), d(0.01)) == [["gantry_1", "gantry_2", "gantry_3"],
-                                                          ["gantry_4"]]
+    assert {"Guard_Front", "Guard_Back"} in [{f["a"], f["b"]}
+                                             for f in doc["interference"]["failures"]]
 
 
 def test_a_placeholder_solid_is_suffixed_but_keeps_its_category_colour(tmp_path, pass_raw):
@@ -179,11 +233,11 @@ def test_a_placeholder_solid_is_suffixed_but_keeps_its_category_colour(tmp_path,
     code, doc = run(tmp_path, raw, "--dev", overlay={"layout": {"guard_offset": 0.3}})
     assert code == 0, doc["errors"]
     labels = {s["name"]: s["label"] for s in doc["solids"]}
-    assert labels["Guard_Gantry_1"] == "Guard_Gantry_1_PH"
+    assert labels["Guard_Front"] == "Guard_Front_PH"
     assert labels["Conveyor"] == "Conveyor"
     assert doc["placeholders"] == ["layout.guard_offset"]
     assert "/dev/" in doc["outputs"]["step"]
-    guard = find(import_step(doc["outputs"]["step"]), "Guard_Gantry_1_PH")
+    guard = find(import_step(doc["outputs"]["step"]), "Guard_Front_PH")
     assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) == \
         tuple(round(c, 2) for c in layout.colour_of("guard"))
     assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) != \
@@ -214,19 +268,6 @@ def test_a_footprint_for_no_feeder_or_buffer_is_a_schema_failure(pass_raw):
     assert any("fd_nowhere" in m for _, m in schema.findings)
 
 
-def test_the_layout_posts_are_the_posts_the_straddle_check_sees(clean):
-    """layout.py draws the posts with its own arithmetic; gantry_geometry is what check_line's
-    gantry_straddle judges. The two must be the same rectangles."""
-    raw, _, doc = clean
-    spec = spec_mod.parse_spec(raw)
-    for gid in raw["gantries"]:
-        n = gid.removeprefix("gantry_")
-        for k, rect in enumerate(gg.post_rects(spec, gid), start=1):
-            box = next(s for s in doc["solids"] if s["name"] == f"Gantry_{n}_Post_{k}")["bbox_mm"]
-            assert [box["min"][0], box["max"][0], box["min"][1], box["max"][1]] == \
-                pytest.approx([v * 1000.0 for v in rect.doc()], abs=1e-3)
-
-
 # ---------------------------------------------------------------- opacity
 
 def leaf_alphas(step):
@@ -248,7 +289,7 @@ def test_placeholder_solids_are_opaque_too(tmp_path, pass_raw):
     code, doc = run(tmp_path, raw, "--dev", overlay={"layout": {"guard_offset": 0.3}})
     assert code == 0, doc["errors"]
     alphas = leaf_alphas(doc["outputs"]["step"])
-    assert alphas["Guard_Gantry_1_PH"] == 1.0
+    assert alphas["Guard_Front_PH"] == 1.0
     assert set(alphas.values()) == {1.0}
 
 
@@ -334,15 +375,20 @@ def test_the_reference_group_holds_exactly_the_non_physical_solids(clean):
     back = import_step(doc["outputs"]["step"])
     reference = next(c for c in back.children if c.label == "Reference")
     got = {c.label for c in reference.children}
-    expected = {"Floor", "OperatorAisle"}
-    for gid in raw["gantries"]:
-        n = gid.removeprefix("gantry_")
-        expected.add(f"Guard_Gantry_{n}")
-        expected.add(f"Gantry_{n}_Envelope")
+    expected = {"Floor", "OperatorAisle", "Guard_Front", "Guard_Back"}
+    expected |= {f"{scara_name(sid)}_Envelope" for sid in raw["scaras"]}
     assert got == expected
-    gantries = next(c for c in back.children if c.label == "Gantries")
-    for sub in gantries.children:
-        assert all(not c.label.endswith("_Envelope") for c in sub.children)  # posts/beams only
+    robots = next(c for c in back.children if c.label == "Robots")
+    assert all(not c.label.endswith(("_Envelope", "_Slide")) for c in robots.children)
+
+
+def test_robots_are_teal_and_gang_heads_orange_brown(clean):
+    _, _, doc = clean
+    colours = {s.label: tuple(round(c, 2) for c in tuple(s.color)[:3])
+               for s in layout.leaves(import_step(doc["outputs"]["step"]))}
+    assert colours["Scara_Place_Base"] == tuple(round(c, 2) for c in layout.colour_of("robot"))
+    assert colours["GangHead_Top"] == tuple(round(c, 2) for c in layout.colour_of("gang_head"))
+    assert colours["Scara_Place_Base"] != colours["GangHead_Top"]
 
 
 def test_no_step_solid_is_coloured_orange(clean):

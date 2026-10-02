@@ -3,7 +3,7 @@
     tools/.venv/bin/python tools/cad/build_all.py [--out DIR] [--spec PATH] [--dev]
 
 One command for "make the CAD again": it runs each generator in build order — pallet, the two
-carriers, the magazines, the screw presenters, the gantry tools — and then mesh_pipeline.py, which
+carriers, the magazines, the screw presenters, the SCARA tools — and then mesh_pipeline.py, which
 is what turns the raw SolidWorks exports into committed meshes. Everything runs **in this process**,
 so build123d and OCP are imported once for the whole build instead of once per generator, which is
 most of the plan's 30 s budget.
@@ -36,7 +36,7 @@ import pallet  # noqa: E402
 import pod_tray  # noqa: E402
 import screw_presenter  # noqa: E402
 import spider_carrier  # noqa: E402
-import tools as gantry_tools  # noqa: E402
+import tools as scara_tools  # noqa: E402
 from common import write_report  # noqa: E402
 from spec import DEFAULT_SPEC, REPO, add_dev_argument, report_path  # noqa: E402
 
@@ -51,7 +51,7 @@ GENERATORS = [
     ("pod_tray", "cad_carrier_pod", pod_tray),
     ("magazine", "cad_magazines", magazine),
     ("screw_presenter", "cad_presenters", screw_presenter),
-    ("tools", "cad_tools", gantry_tools),
+    ("tools", "cad_tools", scara_tools),
 ]
 
 

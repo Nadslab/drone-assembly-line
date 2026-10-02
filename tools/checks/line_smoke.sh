@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# P5.4 check: the whole line launches headless, every controller comes up, and the gantry
-# reaches three stations.
+# P5.4 check: the whole line launches headless, every controller comes up, and SCARAs
+# reach three stations.
 #   1. regenerate models, world, controllers and the merged spec, and rebuild drone_line_sim
 #      (the launch reads the *installed* package, so it must never run against a stale one)
 #   2. launch drone_line_sim line.launch.py gui:=false, on a private ROS domain and gz partition
-#   3. tools/checks/line_measure.py: every controller active <= 30 s from launch, then the gantry
-#      visits three stations, TCP error < 1 mm against Gazebo's own link pose
+#   3. tools/checks/line_measure.py: every controller active <= 30 s from launch, then SCARAs
+#      visit three stations, TCP error < 1 mm against Gazebo's own link pose
 #   4. write the report, kill everything the launch started, exit non-zero on failure
 #
 # Runs against the dev overlay by default: the base spec's limits and poses are still null. A dev
@@ -101,7 +101,7 @@ LAUNCH_SID=$(cat "$SID_FILE")
 [[ -n "$LAUNCH_SID" ]] || fail launch "could not start ros2 launch"
 echo "line_smoke: launch session $LAUNCH_SID, ROS_DOMAIN_ID=$ROS_DOMAIN_ID"
 
-# --- 3. controllers, then the gantry ---------------------------------------------------------
+# --- 3. controllers, then the SCARAs ---------------------------------------------------------
 # --spec is the merged overlay spec for a dev run, the base spec otherwise.
 SPEC_ARG="$SPEC_MERGED"; [[ -z "$DEV" ]] && SPEC_ARG="$REPO/drone_line_sim/config/line_spec.yaml"
 EXTRA=$("$PY" -c "import json; print(json.dumps({'dev': '$DEV_ARG' == 'true'}))")

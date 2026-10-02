@@ -1,5 +1,6 @@
-"""tools/estimate_moves.py: the trapezoidal move model, the per-gantry tour, the plan speed scale,
-the takt budget, and the per-gantry safe_z it moves at (D-009)."""
+"""tools/estimate_moves.py: the SCARA pick-and-place model (D-012) — home, pick, place, home on a
+trapezoid over the TCP distance — the plan speed scale, the takt budget, the per-SCARA safe_z it
+moves at, and the station time with a gang head's slide."""
 
 import json
 import math
@@ -10,13 +11,13 @@ import pytest
 import yaml
 
 import estimate_moves as em
-import gantry_geometry as gg
+import robot_geometry as rg
 import spec as spec_mod
 from conftest import FIXTURES, TOOLS
 
 
 def est(raw):
-    return em.estimate(spec_mod.parse_spec(raw), gg.CadHeights(FIXTURES / "cad"))
+    return em.estimate(spec_mod.parse_spec(raw), rg.CadHeights(FIXTURES / "cad"))
 
 
 # ---------------------------------------------------------------- the profile
@@ -43,52 +44,64 @@ def test_no_move_takes_no_time_and_direction_does_not_matter():
 
 
 @pytest.mark.parametrize("scale", [1.0, 0.5])
-def test_one_cycle_is_the_eight_phases_with_four_settles(pass_raw, scale):
+def test_one_cycle_is_home_pick_place_home_with_four_settles(pass_raw, scale):
     spec = spec_mod.parse_spec(pass_raw)
-    g, d = spec.gantries["gantry_1"], spec.gantry_defaults
-    pick, place = (0.5, 0.3, 0.1), (0.5, 0.0, 0.1)
-    c = em.cycle(place, pick, place, g.axes, d, 0.3, scale)
-    xy = em.axis_time(0.3, 1.0 * scale, 2.0 * scale)          # only y moves
-    z = em.axis_time(0.2, 0.5 * scale, 2.0 * scale)           # safe_z 0.3 down to 0.1
-    assert c["xy_to_pick"] == pytest.approx(xy, abs=1e-4)
-    assert c["total"] == pytest.approx(2 * xy + 4 * (z + d.settle_s) + d.grip_s + d.release_s,
-                                       abs=1e-3)
+    sc, d = spec.scaras["scara_place"], spec.scara_defaults
+    home, pick, place = (0.5, 0.14), (0.3, 0.3, 0.15), (0.5, 0.0, 0.1)
+    c = em.cycle(home, pick, place, sc.motion, d, 0.3, scale)
+
+    def t(dist):
+        return em.axis_time(dist, 1.0 * scale, 2.0 * scale)
+
+    assert c["home_to_pick"] == pytest.approx(t(math.hypot(0.2, 0.16)), abs=1e-4)
+    assert c["pick_to_place"] == pytest.approx(t(math.hypot(0.2, 0.3)), abs=1e-4)
+    assert c["place_to_home"] == pytest.approx(t(0.14), abs=1e-4)
+    assert c["z_down_pick"] == pytest.approx(t(0.15) + d.settle_s, abs=1e-4)
+    assert c["z_up_place"] == pytest.approx(t(0.2) + d.settle_s, abs=1e-4)
+    assert c["total"] == pytest.approx(
+        t(math.hypot(0.2, 0.16)) + t(math.hypot(0.2, 0.3)) + t(0.14)
+        + 2 * t(0.15) + 2 * t(0.2) + 4 * d.settle_s + d.grip_s + d.release_s, abs=1e-3)
+
+
+def test_home_is_the_arm_folded_to_r_min_towards_its_station(pass_raw):
+    g = est(pass_raw)["scaras"]["scara_place"]
+    assert g["base"] == [0.5, 0.24, 0.1]
+    assert g["home"] == pytest.approx([0.5, 0.14])              # 0.1 m from the base, towards y 0
 
 
 # ---------------------------------------------------------------- which steps, which scale
 
-def test_qty_repeats_the_cycle_from_the_station(pass_raw):
+def test_qty_repeats_the_whole_cycle(pass_raw):
     pass_raw["sequence"][1]["qty"] = 3             # place: 3 mid plates
     doc = est(pass_raw)
-    step = next(s for s in doc["gantries"]["gantry_1"]["steps"] if s["id"] == "place")
+    step = doc["scaras"]["scara_place"]["steps"][0]
     assert step["qty"] == 3
-    assert step["time_s"] == pytest.approx(step["first_cycle"]["total"]
-                                           + 2 * step["repeat_cycle"]["total"], abs=1e-3)
+    assert step["time_s"] == pytest.approx(3 * step["cycle"]["total"], abs=1e-3)
 
 
-def test_each_gantry_only_counts_the_steps_in_its_zone(pass_raw):
+def test_each_scara_only_counts_the_steps_at_its_station(pass_raw):
     doc = est(pass_raw)
-    assert [s["id"] for s in doc["gantries"]["gantry_1"]["steps"]] == ["load", "place"]
-    assert [s["id"] for s in doc["gantries"]["gantry_2"]["steps"]] == ["place_spider",
-                                                                       "place_pod"]
+    assert {sid: [s["id"] for s in g["steps"]] for sid, g in doc["scaras"].items()} == {
+        "scara_load": ["load"], "scara_place": ["place"], "scara_spider": ["place_spider"],
+        "scara_pod": ["place_pod"]}
     assert doc["passed"] and doc["complete"]
 
 
-def test_a_drive_step_is_the_drivers_and_a_pick_step_is_the_gantrys(pass_raw):
+def test_a_drive_step_is_the_drivers_and_a_pick_step_is_the_scaras(pass_raw):
     pass_raw["sequence"] += [
         {"id": "screw", "station": "st_place", "capability": "drive", "qty": 4,
          "duration_s": 1.0, "requires": ["place"]},
         {"id": "pick_again", "station": "st_place", "capability": "pick", "part": "mid_plate",
          "from": "fd_mid_plate", "tool": "tool_plate", "duration_s": 1.0, "requires": ["place"]}]
-    ids = [s["id"] for s in est(pass_raw)["gantries"]["gantry_1"]["steps"]]
+    ids = [s["id"] for s in est(pass_raw)["scaras"]["scara_place"]["steps"]]
     assert "screw" not in ids and "pick_again" in ids
 
 
 def test_the_plan_scale_is_slower_than_full_speed_and_1_0_is_full_speed(pass_raw):
-    g = est(pass_raw)["gantries"]["gantry_1"]
+    g = est(pass_raw)["scaras"]["scara_place"]
     assert g["total_s"] > g["total_s_at_1"]
-    pass_raw["gantry_defaults"]["plan_speed_scale"] = 1.0
-    g1 = est(pass_raw)["gantries"]["gantry_1"]
+    pass_raw["scara_defaults"]["plan_speed_scale"] = 1.0
+    g1 = est(pass_raw)["scaras"]["scara_place"]
     assert g1["total_s"] == pytest.approx(g1["total_s_at_1"]) == pytest.approx(g["total_s_at_1"])
 
 
@@ -101,58 +114,74 @@ def test_the_budget_is_takt_minus_the_transfer(pass_raw):
         + lay["stop_unit_cycle_s"]
     assert doc["transfer_s"] == pytest.approx(transfer, abs=1e-3)
     assert doc["budget_s"] == pytest.approx(pass_raw["line"]["takt_s"] - transfer, abs=1e-3)
-    g = doc["gantries"]["gantry_2"]
+    g = doc["scaras"]["scara_pod"]
     assert g["load_pct"] == pytest.approx(100.0 * g["total_s"] / doc["budget_s"], abs=0.1)
 
 
 def test_a_load_under_takt_but_over_the_budget_fails(pass_raw):
-    base = est(pass_raw)["gantries"]["gantry_2"]["total_s"]
+    base = est(pass_raw)["scaras"]["scara_pod"]["total_s"]
     takt = pass_raw["line"]["takt_s"]
-    # Leave a budget 1 s short of gantry_2's load, while the load stays under takt.
+    # Leave a budget 1 s short of scara_pod's load, while the load stays under takt.
     pass_raw["layout"]["stop_unit_cycle_s"] = takt - base + 1.0 \
         - pass_raw["conveyor"]["pitch"] / pass_raw["layout"]["conveyor"]["belt_speed"]
     doc = est(pass_raw)
-    assert doc["gantries"]["gantry_2"]["total_s"] < takt
-    assert doc["gantries"]["gantry_2"]["status"] == "FAIL"
+    assert doc["scaras"]["scara_pod"]["total_s"] < takt
+    assert doc["scaras"]["scara_pod"]["status"] == "FAIL"
 
 
-def test_safe_z_is_the_tallest_item_plus_the_tallest_hang_plus_the_margin(pass_raw):
-    g = est(pass_raw)["gantries"]
-    # gantry_1: st_load and st_place stand at 0.1 with the pallet pins (68 mm) the tallest,
-    # and it carries plates 3 mm thick.
-    assert g["gantry_1"]["safe_z"]["safe_z"] == pytest.approx(0.1 + 0.068 + 0.003 + 0.03)
-    # gantry_2: the pod tray at st_pod tops out at 136.5 mm; the spider carrier hangs 105.4 mm.
-    assert g["gantry_2"]["safe_z"]["tallest_item"] == ["station st_pod", pytest.approx(0.2365)]
-    assert g["gantry_2"]["safe_z"]["hang"] == ["carrier_spider", pytest.approx(0.1054)]
-    assert g["gantry_2"]["safe_z"]["safe_z"] == pytest.approx(0.2365 + 0.1054 + 0.03)
+def test_safe_z_is_the_tallest_item_in_reach_plus_the_hang_plus_the_margin(pass_raw):
+    g = est(pass_raw)["scaras"]
+    # scara_pod: its own station before the pod tray lands (the spider carrier, 104.4 mm on a
+    # station at 0.1), plus the pod tray it carries (79.5 mm), plus 0.03.
+    assert g["scara_pod"]["safe_z"]["tallest_item"] == ["station st_pod (before its place)",
+                                                       pytest.approx(0.2044)]
+    assert g["scara_pod"]["safe_z"]["hang"] == ["carrier_pod", pytest.approx(0.0795)]
+    assert g["scara_pod"]["safe_z"]["safe_z"] == pytest.approx(0.2044 + 0.0795 + 0.03)
+    # Nothing outside r_max counts: st_spider's taller stack is 0.5 m away.
+    names = [n for n, _ in g["scara_pod"]["safe_z"]["items"]]
+    assert "station st_spider" not in names and "buffer buf_pod" in names
 
 
 def test_a_missing_cad_report_is_unresolved_not_a_guess(pass_raw, tmp_path):
-    doc = em.estimate(spec_mod.parse_spec(pass_raw), gg.CadHeights(tmp_path))
-    assert doc["gantries"]["gantry_2"]["status"] == "UNRESOLVED"
+    doc = em.estimate(spec_mod.parse_spec(pass_raw), rg.CadHeights(tmp_path))
+    assert doc["scaras"]["scara_pod"]["status"] == "UNRESOLVED"
     assert any("cad_carrier_pod.json" in u for u in doc["unresolved"])
     assert doc["passed"] is True and doc["complete"] is False
 
 
-def test_a_safe_z_the_gantry_cannot_reach_is_a_failure(pass_raw):
-    pass_raw["gantries"]["gantry_2"]["axes"]["z"]["max"] = 0.3
+def test_a_safe_z_above_the_stroke_fails_but_keeps_its_breakdown(pass_raw):
+    pass_raw["scaras"]["scara_pod"]["z_stroke"] = 0.3
     doc = est(pass_raw)
     assert not doc["passed"]
-    assert any("outside its travel" in e for e in doc["errors"])
+    assert any("above its z_stroke" in e for e in doc["errors"])
+    g = doc["scaras"]["scara_pod"]
+    assert g["status"] == "FAIL" and g["total_s"] is not None and g["steps"]
 
 
-# ---------------------------------------------------------------- station time (D-011)
+# ---------------------------------------------------------------- station time (D-011, D-012)
 
-def test_station_time_is_gantry_steps_plus_drive_passes_plus_index(pass_raw):
+def test_station_time_is_scara_steps_plus_drive_passes_plus_index(pass_raw):
     spec = spec_mod.parse_spec(pass_raw)
     doc = est(pass_raw)
     rows = em.station_times(spec, doc)
     idx = 0.5 / 0.3
-    place = next(s for s in doc["gantries"]["gantry_1"]["steps"] if s["id"] == "place")
+    place = doc["scaras"]["scara_place"]["steps"][0]
     assert rows["st_place"]["total_s"] == pytest.approx(place["time_s"] + idx, abs=1e-3)
     assert rows["st_drive"]["drive_s"] == pytest.approx(3.0)          # 8 screws / 8 spindles
+    assert rows["st_drive"]["slide_s"] == 0.0                          # no SCARA there, no slide
     assert rows["st_drive"]["total_s"] == pytest.approx(3.0 + idx, abs=1e-3)
-    assert "st_test" not in rows                                      # no gantry or drive step
+    assert "st_test" not in rows                                      # no SCARA or drive step
+
+
+def test_a_slide_adds_its_in_and_out_once_per_drive_step(pass_raw):
+    """D-012: SCARA places, clears, slide in, drive, slide out."""
+    from conftest import _slide_at_place
+    _slide_at_place(0.5, 0.75)(pass_raw)
+    spec = spec_mod.parse_spec(pass_raw)
+    doc = est(pass_raw)
+    row = em.station_times(spec, doc)["st_place"]
+    assert row["slide_s"] == pytest.approx(1.25)
+    assert row["total_s"] == pytest.approx(row["scara_s"] + 3.0 + 1.25 + 0.5 / 0.3, abs=1e-3)
 
 
 def test_more_screws_than_spindles_take_more_passes(pass_raw):
@@ -185,12 +214,13 @@ def test_cli_writes_the_report_and_exits_on_overload(tmp_path, pass_raw):
     proc, doc = run(pass_raw)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert doc["passed"] is True
-    assert set(doc["gantries"]["gantry_1"]) >= {"steps", "total_s", "total_s_at_1", "load_pct",
-                                                "budget_s", "safe_z", "status"}
+    assert set(doc["scaras"]["scara_place"]) >= {"steps", "total_s", "total_s_at_1", "load_pct",
+                                                 "budget_s", "safe_z", "status", "home"}
+    assert set(doc["station_times"]) == {"st_load", "st_place", "st_drive", "st_spider", "st_pod"}
     assert "step_s @0.5" in proc.stdout and "step_s @1" in proc.stdout
-    assert "budget = takt" in proc.stdout
+    assert "budget = takt" in proc.stdout and "slide_s" in proc.stdout
 
-    pass_raw["gantries"]["gantry_2"]["axes"]["x"]["v_max"] = 0.01
+    pass_raw["scaras"]["scara_pod"]["motion"]["v_max"] = 0.01
     proc, doc = run(pass_raw)
     assert proc.returncode == 1
-    assert doc["passed"] is False and doc["gantries"]["gantry_2"]["status"] == "FAIL"
+    assert doc["passed"] is False and doc["scaras"]["scara_pod"]["status"] == "FAIL"

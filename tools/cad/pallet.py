@@ -18,7 +18,11 @@ Built features:
   * a nest relieved below the rest plane over the whole plate footprint, so there is clearance
     under every screw site and every press-nut flange by construction — no hole pattern needed.
     The plate lands on four rest pads at the corners of its own footprint;
-  * a V-notch in the leading face for the conveyor stop, so the pallet indexes to a hard stop.
+  * a V-notch in the leading face for the conveyor stop, so the pallet indexes to a hard stop;
+  * one arm pin per arm (option B, D-012) at `drone.arm_tooling_holes`: Ø`drone.tooling_pin_d`,
+    pressed through the body, up through the matching hole in the bottom plate (same XY) and
+    `drone.pin_engagement` into the arm, which rests on the bottom plate. The arm screw holes stay
+    free for the gang head; check_line.py `arm_pin_clearance` keeps the two apart.
 
 The plate footprint is centred on the midpoint of the two datums: the spec gives the plate's
 bbox and its datum XY, not the offset between them, and the datums sit on the longest diagonal
@@ -89,6 +93,9 @@ class Layout:
     pitch: float                        # conveyor pitch
     pin: pins.PinDims
     relief_deg: float
+    arm_pins: list[tuple[float, float]]   # XY of each arm pin (= arm tooling hole)
+    arm_pin_d: float
+    arm_pin_top: float                  # above the rest plane: plate thickness + engagement
 
     @property
     def size(self) -> tuple[float, float]:
@@ -105,6 +112,14 @@ def layout(v: Values) -> Layout | None:
     stack_h = v.mm("parts.top_plate.z_in_stack") + v.mm("parts.top_plate.envelope[2]")
     hole_d = v.mm("cad.datum_d")
     pitch = v.mm("conveyor.pitch")
+    holes = lookup(v.raw, "drone.arm_tooling_holes")
+    if holes is None:
+        v.missing.append("drone.arm_tooling_holes")
+        holes = []
+    arm_pins = [(v.mm(f"drone.arm_tooling_holes[{i}][0]"), v.mm(f"drone.arm_tooling_holes[{i}][1]"))
+                for i in range(len(holes))]
+    arm_pin_d = v.mm("drone.tooling_pin_d")
+    arm_pin_top = v.mm(f"{p}.envelope[2]") + v.mm("drone.pin_engagement")
     if v.missing:
         return None
     return Layout(
@@ -114,7 +129,16 @@ def layout(v: Values) -> Layout | None:
         pin=pins.dims(hole_d=hole_d, stack_h=stack_h, fit_clearance=PIN_FIT_CLEARANCE,
                       lead_in=PIN_LEAD_IN, shank_step=PIN_SHANK_STEP, press_depth=THICKNESS,
                       tip_chamfer=PIN_TIP_CHAMFER),
-        relief_deg=pins.relief_angle_deg(round_xy, diamond_xy))
+        relief_deg=pins.relief_angle_deg(round_xy, diamond_xy),
+        arm_pins=arm_pins, arm_pin_d=arm_pin_d, arm_pin_top=arm_pin_top)
+
+
+def arm_pin(lo: Layout, n: int, xy: tuple[float, float]):
+    """A plain dowel from the underside of the body to `arm_pin_top`, pressed through the body."""
+    pin = Pos(*xy, -THICKNESS) * Cylinder(lo.arm_pin_d / 2.0, THICKNESS + lo.arm_pin_top,
+                                          align=(Align.CENTER, Align.CENTER, Align.MIN))
+    pin.label = f"Pin_Arm_{n}"
+    return pin
 
 
 def nest_relief(lo: Layout):
@@ -149,10 +173,14 @@ def build(lo: Layout) -> Compound:
     for x, y in (lo.round_xy, lo.diamond_xy):                      # press-fit bores, through
         body -= Pos(x, y) * Cylinder(lo.pin.shank_d / 2.0, THICKNESS,
                                      align=(Align.CENTER, Align.CENTER, Align.MAX))
+    for x, y in lo.arm_pins:                                       # arm pin bores, through
+        body -= Pos(x, y) * Cylinder(lo.arm_pin_d / 2.0, THICKNESS,
+                                     align=(Align.CENTER, Align.CENTER, Align.MAX))
     body.label = "Pallet_Body"
     pallet = Compound(children=[body,
                                 Pos(*lo.round_xy) * pins.round_pin(lo.pin),
-                                Pos(*lo.diamond_xy) * pins.diamond_pin(lo.pin, lo.relief_deg)])
+                                Pos(*lo.diamond_xy) * pins.diamond_pin(lo.pin, lo.relief_deg)]
+                      + [arm_pin(lo, n, xy) for n, xy in enumerate(lo.arm_pins, 1)])
     pallet.label = "Pallet"
     return pallet
 
@@ -197,6 +225,8 @@ def derived(pallet: Compound, lo: Layout) -> dict:
         "stop_notch": {"face": "+x", "included_angle_deg": 90.0, "depth_mm": STOP_NOTCH_DEPTH,
                        "vertex_mm": [round(cx + lo.size[0] / 2.0 - STOP_NOTCH_DEPTH, 6),
                                      round(cy, 6)]},
+        "arm_pins": {"d_mm": round(lo.arm_pin_d, 6), "top_mm": round(lo.arm_pin_top, 6),
+                     "xy_mm": [axis_xy(f"Pin_Arm_{n}") for n in range(1, len(lo.arm_pins) + 1)]},
         "conveyor_pitch_mm": round(lo.pitch, 6),
         "pallet_gap_mm": round(lo.pitch - lo.size[0], 6),
     }
@@ -269,6 +299,11 @@ def main(argv: list[str] | None = None) -> int:
             f"pin free length {lo.pin.free_length:.1f} mm is {lo.pin.slenderness:.1f}x its "
             f"Ø{lo.pin.locating_d:.2f} mm: too whippy to locate a plate. Retractable pins, or a "
             "shorter pin that only clears the plate being placed")
+    half = (lo.plate[0] / 2.0, lo.plate[1] / 2.0)
+    for n, (x, y) in enumerate(lo.arm_pins, 1):
+        if abs(x - lo.centre[0]) > half[0] or abs(y - lo.centre[1]) > half[1]:
+            doc["warnings"].append(f"arm pin {n} at ({x:.1f}, {y:.1f}) mm is outside the bottom "
+                                   "plate footprint: it has no hole to pass through")
     origin_off = max(abs(c) for c in lo.round_xy)
     if origin_off > 1e-6:
         doc["warnings"].append(

@@ -36,9 +36,15 @@ Built solids, bottom to top:
     (main line step 3) and the carrier lifted off afterwards.
 
 Gripper clearance comes from the spec too: the pick boss is sized against
-`gantries.<id>.tools.<tool>.dims` of whichever tool the sequence uses to place `carrier_spider`, and the
+`scaras.<id>.tools.<tool>.dims` of whichever tool the sequence uses to place `carrier_spider`, and the
 volume the jaws sweep around the boss is checked empty against the rest of the carrier
 (tools/cad/gripper.py).
+
+**Option B (D-012):** when no step places `carrier_spider` at all — the spider_gripper lifts the arms out
+and the carrier stays in its buffer and goes back to sub-line A — no main-line robot lifts the
+carrier. The boss is still built (sub-line A handles the carrier by it), but there is no tool to
+check it against and no z stroke to fit, and the report says so. Not modelled yet: whether
+spider_gripper's fingers reach the arms past the bridge and the ESC nest.
 
 Material: the carrier is hand-soldered in and wiped with IPA between builds (§7.10), so it is
 aluminium — `MATERIAL` below is written into the STEP header so the note travels with the file.
@@ -67,7 +73,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
 
 import gripper  # noqa: E402
 from common import (Values, bbox_doc, export_solids, fouling, lookup, masses,  # noqa: E402
-                    new_report, pick_xy, pick_z_note, placing_gantry, placing_tool, tool_path, write_report, xyz, z_travel)
+                    new_report, pick_xy, pick_z_note, placing_scara, placing_tool, tool_path, write_report, xyz, z_travel)
 from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
                   parse_spec, report_path)
 
@@ -90,7 +96,7 @@ BEAM_T = 8.0             # bridge beam thickness
 POST_MIN = 10.0          # narrowest bridge post
 BOSS_D = 25.0            # pick boss diameter
 BOSS_H = 35.0            # pick boss height above the bridge
-GRIP_CLEAR = 2.0         # gap the gantry jaws need around the boss, per side and at the tips
+GRIP_CLEAR = 2.0         # gap the tool's jaws need around the boss, per side and at the tips
 PICK_TOL = 0.05          # spec vs. built pick pose
 DENSITY = 2710.0         # kg/m3, 6061-T6
 MATERIAL = "6061-T6 aluminium: survives solder heat and IPA (summary 7.10)"
@@ -174,10 +180,10 @@ class Layout:
     esc: tuple[float, float, float]
     esc_floor: float
     pick_xy: tuple[float, float]
-    tool: str
+    tool: str | None          # None: option B, no main-line robot lifts the carrier (D-012)
     grip: gripper.GripDims
-    travel_z: float
-    gantry: str = ""          # the gantry that places it: travel_z is its z stroke
+    travel_z: float | None
+    scara: str = ""           # the SCARA that places it: travel_z is its z_stroke
 
     @property
     def size(self) -> tuple[float, float]:
@@ -197,7 +203,7 @@ class Layout:
 
     @property
     def bridge_z(self) -> float:
-        """Bridge underside: above the nest roof, and clear of everything the gantry brings in."""
+        """Bridge underside: above the nest roof, and clear of everything brought in under it."""
         return max(self.esc_top + NEST_CLEAR + NEST_ROOF_T, self.mid_top + MID_CLEAR,
                    self.arm_top + MID_CLEAR)
 
@@ -240,11 +246,16 @@ def layout(v: Values) -> Layout | None:
     esc = tuple(v.mm(f"{e}.dims[{i}]") for i in range(3))
     esc_floor = v.mm(f"{e}.z_in_stack")
 
-    tool = placing_tool(v, PART)
-    jaw = (tuple(v.mm(f"{tool_path(v.raw, tool)}.dims[{i}]") for i in range(3)) if tool
-           else (0, 0, 0))
-    gid = placing_gantry(v, PART)
-    travel = z_travel(v, gid)
+    placed = any(isinstance(s, dict) and s.get("part") == PART
+                 for s in v.raw.get("sequence") or [])
+    if placed:
+        tool = placing_tool(v, PART)
+        jaw = (tuple(v.mm(f"{tool_path(v.raw, tool)}.dims[{i}]") for i in range(3)) if tool
+               else (0, 0, 0))
+        gid = placing_scara(v, PART)
+        travel = z_travel(v, gid)
+    else:                       # option B (D-012): the carrier never leaves its buffer
+        tool, jaw, gid, travel = None, (0.0, 0.0, 0.0), "", None
 
     grip_at = pick_xy(v, PART, default=centre)
 
@@ -259,7 +270,7 @@ def layout(v: Values) -> Layout | None:
         pick_xy=grip_at, tool=tool,
         grip=gripper.GripDims(boss_d=BOSS_D, boss_h=BOSS_H, jaw_x=jaw[0], jaw_y=jaw[1],
                               reach=jaw[2], clearance=GRIP_CLEAR),
-        travel_z=travel, gantry=gid)
+        travel_z=travel, scara=gid or "")
 
 
 # ---------------------------------------------------------------- geometry
@@ -401,10 +412,11 @@ def derived(carrier: Compound, lo: Layout) -> dict:
                  "pose_mm": [round(lo.pick_xy[0], 6), round(lo.pick_xy[1], 6),
                              round(lo.boss_base + BOSS_H, 6)],
                  "boss_d_mm": BOSS_D, "boss_h_mm": BOSS_H,
-                 "jaw_mm": [round(lo.grip.jaw_x, 6), round(lo.grip.jaw_y, 6)],
-                 "reach_mm": round(lo.grip.reach, 6),
-                 "keep_out_volume_mm3": round(keep_out_clash(carrier, lo), 4)},
-        "gantry_z_travel_mm": round(lo.travel_z, 6),
+                 "jaw_mm": lo.tool and [round(lo.grip.jaw_x, 6), round(lo.grip.jaw_y, 6)],
+                 "reach_mm": lo.tool and round(lo.grip.reach, 6),
+                 "keep_out_volume_mm3": (round(keep_out_clash(carrier, lo), 4) if lo.tool
+                                         else None)},
+        "scara_z_stroke_mm": lo.travel_z and round(lo.travel_z, 6),
     }
 
 
@@ -470,7 +482,12 @@ def main(argv: list[str] | None = None) -> int:
                     f"rest plane, but the mid plate tops out at {lo.mid_top:.1f} mm: the nest "
                     f"leaves {lo.esc_floor - lo.mid_top:.1f} mm, less than the {MID_CLEAR:g} mm "
                     "the mid plate needs to come in under the suspended ESC")
-    grip_problems = gripper.problems(lo.grip, lo.tool)
+    if lo.tool is None:
+        doc["warnings"].append(
+            "option B (D-012): no step places carrier_spider, so no main-line robot lifts it — "
+            "the pick boss is not checked against a tool and the carrier against no z stroke; "
+            "spider_gripper's reach to the arms past the bridge is not modelled")
+    grip_problems = gripper.problems(lo.grip, lo.tool) if lo.tool else []
     if grip_problems:
         doc["errors"].extend(grip_problems)
         for message in grip_problems:
@@ -487,14 +504,14 @@ def main(argv: list[str] | None = None) -> int:
     doc["derived"] = derived(carrier, lo)
     pick_z_note(v, PART, lo.boss_base + BOSS_H, PICK_TOL, doc)
 
-    clash = doc["derived"]["pick"]["keep_out_volume_mm3"]
+    clash = doc["derived"]["pick"]["keep_out_volume_mm3"] or 0.0
     if clash > 0.0:
         return fail(f"{clash:.1f} mm3 of the carrier sits in the volume tool '{lo.tool}' jaws "
                     "sweep around the pick boss")
     height = doc["bbox_mm"]["size"][2]
-    if height > lo.travel_z:
-        return fail(f"the carrier is {height:.1f} mm tall but gantries.{lo.gantry}.axes.z travels only "
-                    f"{lo.travel_z:.1f} mm: the gantry cannot lift it clear")
+    if lo.travel_z is not None and height > lo.travel_z:
+        return fail(f"the carrier is {height:.1f} mm tall but scaras.{lo.scara}.z_stroke is only "
+                    f"{lo.travel_z:.1f} mm: the SCARA cannot lift it clear")
     if doc["errors"]:
         print(f"{STEM}: FAIL — {doc['errors'][-1]}", file=sys.stderr)
         return finish(1)

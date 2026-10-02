@@ -5,6 +5,7 @@ main line is datumed to, so their XY must equal `parts.bottom_plate.datums` to 0
 off the built solids, not read back from the inputs.
 """
 
+import copy
 import json
 
 import pytest
@@ -206,3 +207,28 @@ def test_dev_run_is_quarantined_in_its_own_folder(work, tmp_path, pass_raw):
     doc = report(tmp_path, dev=True)
     assert doc["dev"] is True and doc["placeholders"] == ["conveyor.pitch"]
     assert not (tmp_path / "cad_pallet.json").exists()
+
+
+# ---------------------------------------------------------------- arm pins (option B, D-012)
+
+def test_one_arm_pin_per_tooling_hole_through_the_plate_into_the_arm(work, tmp_path, pass_raw):
+    """Each arm pin stands at its drone.arm_tooling_holes XY, Ø tooling_pin_d, and tops out at
+    the bottom plate's thickness plus pin_engagement above the rest plane."""
+    assert run(work) == 0
+    doc = report(tmp_path)
+    d = pass_raw["drone"]
+    pins_ = doc["derived"]["arm_pins"]
+    for got, want in zip(pins_["xy_mm"], d["arm_tooling_holes"], strict=True):
+        assert got == pytest.approx([c * 1000.0 for c in want], abs=1e-3)
+    assert pins_["d_mm"] == pytest.approx(d["tooling_pin_d"] * 1000.0)
+    top = (pass_raw["parts"]["bottom_plate"]["envelope"][2] + d["pin_engagement"]) * 1000.0
+    assert pins_["top_mm"] == pytest.approx(top)
+    assert {f"Pin_Arm_{n}" for n in range(1, 5)} <= set(doc["mass_kg"])
+
+
+def test_a_null_tooling_pin_fails_naming_the_key(work, tmp_path, pass_raw):
+    raw = copy.deepcopy(pass_raw)
+    raw["drone"]["tooling_pin_d"] = None
+    work[2](raw)
+    assert run(work) == 1
+    assert "drone.tooling_pin_d" in report(tmp_path)["missing"]

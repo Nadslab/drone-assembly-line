@@ -5,8 +5,8 @@
 Renders `templates/main_line.sdf.j2` to `drone_line_sim/worlds/main_line.sdf`. Every pose in it
 comes from the spec — the generator places nothing of its own:
 
-  * **static geometry as primitives**: the frame envelope under the whole line, the gantry rail
-    envelope over it, the conveyor along the stations, a shelf at every buffer, a pad at every
+  * **static geometry as primitives**: the frame envelope under the whole line, the conveyor
+    along the stations, a shelf at every buffer, a pad at every
     station, and one enclosure per `st_test` cell, laid out at `cell_pitch`;
   * **one `<include>` per feeder that has a model** (the magazines gen_models.py built) at
     `feeders.<id>.pose`, and the pallet at station 1. A feeder with no pose — a blow feeder lives
@@ -39,7 +39,7 @@ line_spec.yaml/line_spec.dev.yaml and never writes to a deliverable report path.
 output can never collide with or be mistaken for a real `main_line[.dev].sdf`. It changes only how
 the world is drawn: `st_test`'s parallel cells collapse into one `Station_..._Group` envelope
 spanning the cell group's full footprint (instead of one enclosure per cell), and every
-envelope-only primitive (Frame, Rail_Gantry_<n>, Station_* pads, the collapsed cell group, and the
+envelope-only primitive (Frame, Station_* pads, the collapsed cell group, and the
 Buffer/Feeder markers and their legs) renders at alpha 0.25. `<include>`s — the real generated
 models — are left fully opaque either way.
 """
@@ -58,8 +58,8 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cad.common import Values, lookup, pascal  # noqa: E402
-from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, gantry_ids,  # noqa: E402
-                  load_merged, parse_spec, report_path)
+from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
+                  parse_spec, report_path)
 
 PKG = REPO / "drone_line_sim"
 TEMPLATES = REPO / "templates"
@@ -72,7 +72,6 @@ PHYSICS = {"name": "default", "type": "ode", "step_s": 0.001, "real_time_factor"
 
 # ---- envelopes, metres. Local to the world: they say where equipment is, not what it is. ----
 FRAME_MARGIN = 0.6        # frame envelope beyond the outermost station, all round
-RAIL_T = 0.10             # gantry rail envelope thickness, above the line
 STATION_PAD = (0.40, 0.40, 0.02)     # work-location pad at a station pose
 CONVEYOR_W = 0.30         # conveyor belt width
 CONVEYOR_T = 0.06         # conveyor bed thickness, below the station pose
@@ -84,13 +83,13 @@ FEEDER_MARKER = (0.25, 0.25, 0.20)   # a feeder with no model of its own is stil
 LEG_SECTION = (0.03, 0.03)           # support post under a floating Buffer/Feeder marker
 MINIMAL_ALPHA = 0.25                 # --minimal: envelope-only primitives render at this alpha
 
-COLOUR = {"frame": "0.45 0.45 0.48 1", "rail": "0.25 0.45 0.65 1",
+COLOUR = {"frame": "0.45 0.45 0.48 1",
           "conveyor": "0.20 0.22 0.25 1", "station": "0.65 0.65 0.35 1",
           "cell": "0.35 0.55 0.40 1", "buffer": "0.60 0.45 0.30 1",
           "feeder": "0.50 0.35 0.55 1"}
 # Kinds --minimal renders faded: every envelope-only primitive except the conveyor, which is
 # drawn heavier because the pallet has to be seen sitting on it.
-MINIMAL_FADED_KINDS = {"frame", "rail", "station", "cell", "buffer", "feeder"}
+MINIMAL_FADED_KINDS = {"frame", "station", "cell", "buffer", "feeder"}
 
 
 @dataclass
@@ -277,25 +276,6 @@ def frame_and_conveyor(v: Values, lo: Layout, poses: list[tuple], extents: list[
              "below the pose (the pallet's own body depth)"))
 
 
-def gantry_rails(v: Values, lo: Layout) -> None:
-    """One rail envelope per gantry: the volume its x/y travel sweeps, above the line."""
-    for gid in gantry_ids(v.raw):
-        g = f"gantries.{gid}"
-        mount = tuple(v.m(f"{g}.mount[{i}]") for i in range(3))
-        span = {}
-        for axis in "xy":
-            span[axis] = (v.m(f"{g}.axes.{axis}.min"), v.m(f"{g}.axes.{axis}.max"))
-        top = v.m(f"{g}.axes.z.max")
-        if v.missing:
-            continue
-        size = (span["x"][1] - span["x"][0], span["y"][1] - span["y"][0], RAIL_T)
-        centre = ((span["x"][0] + span["x"][1]) / 2.0, (span["y"][0] + span["y"][1]) / 2.0,
-                  top + RAIL_T / 2.0)
-        lo.boxes.append(Box(f"Rail_Gantry_{gid.removeprefix('gantry_')}", "rail", mount, size,
-                            centre, f"{g}.mount",
-                            note=f"{g}.axes x/y travel, RAIL_T thick, above {g}.axes.z.max"))
-
-
 def buffers(v: Values, lo: Layout) -> None:
     for bid in v.raw.get("buffers") or {}:
         path = f"buffers.{bid}.pose"
@@ -375,7 +355,6 @@ def layout(v: Values, models_dir: Path, dev: bool, minimal: bool = False) -> Lay
     work_height = v.m("line.work_height")
     poses, extents = stations(v, lo, drop, minimal)
     frame_and_conveyor(v, lo, poses, extents, drop, work_height)
-    gantry_rails(v, lo)
     buffers(v, lo)
     feeders(v, lo, models_dir)
     pallet(v, lo, models_dir, poses)

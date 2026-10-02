@@ -23,7 +23,7 @@ from build123d import Compound
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: mesh_pipeline
 
 import mesh_pipeline as mp  # noqa: E402
-from spec import gantry_ids, station_gantry  # noqa: E402
+from spec import scara_ids, station_scara  # noqa: E402
 
 MM3_PER_M3 = 1e9
 
@@ -94,7 +94,7 @@ class Values:
 # ---------------------------------------------------------------- shared spec reads
 
 def placing_tool(v: Values, part_id: str) -> str | None:
-    """The gantry tool the sequence uses to place `part_id`.
+    """The SCARA tool the sequence uses to place `part_id`.
 
     A fixture's pick feature is sized by the tool that lifts it, and the spec already says which
     tool that is — the sequence step that places the fixture. Reading it here keeps the generator
@@ -114,41 +114,40 @@ def placing_tool(v: Values, part_id: str) -> str | None:
 
 
 def tool_path(raw: dict, tool: str) -> str:
-    """`gantries.<id>.tools.<tool>` on the first gantry that carries it.
+    """`scaras.<id>.tools.<tool>` on the first SCARA that carries it.
 
-    The schema makes one tool id one design on every gantry, so any carrier's entry is the tool.
+    The schema makes one tool id one design on every SCARA, so any carrier's entry is the tool.
     """
-    for gid in gantry_ids(raw):
-        if tool in (lookup(raw, f"gantries.{gid}.tools") or {}):
-            return f"gantries.{gid}.tools.{tool}"
-    return f"gantries.*.tools.{tool}"   # no gantry carries it: reads of this path come up missing
+    for sid in scara_ids(raw):
+        if tool in (lookup(raw, f"scaras.{sid}.tools") or {}):
+            return f"scaras.{sid}.tools.{tool}"
+    return f"scaras.*.tools.{tool}"   # no SCARA carries it: reads of this path come up missing
 
 
 def all_tools(raw: dict) -> list[str]:
-    """Every tool id any gantry carries, once each, in gantry then spec order."""
+    """Every tool id any SCARA carries, once each, in line then spec order."""
     out: list[str] = []
-    for gid in gantry_ids(raw):
-        out += [t for t in (lookup(raw, f"gantries.{gid}.tools") or {}) if t not in out]
+    for sid in scara_ids(raw):
+        out += [t for t in (lookup(raw, f"scaras.{sid}.tools") or {}) if t not in out]
     return out
 
 
-def placing_gantry(v: Values, part_id: str) -> str | None:
-    """The gantry whose zone holds the station where the sequence places `part_id`."""
+def placing_scara(v: Values, part_id: str) -> str | None:
+    """The SCARA at the station where the sequence places `part_id` with a tool."""
     steps = [s for s in v.raw.get("sequence") or []
              if isinstance(s, dict) and s.get("part") == part_id and s.get("tool")]
-    gids = {station_gantry(v.raw, s.get("station")) for s in steps}
-    if len(gids) != 1 or None in gids:
-        v.missing.append(f"gantries.*.zone: no single gantry zone holds the station that "
-                         f"places '{part_id}'")
+    sids = {station_scara(v.raw, s.get("station")) for s in steps}
+    if len(sids) != 1 or None in sids:
+        v.missing.append(f"scaras: no single SCARA places '{part_id}'")
         return None
-    return gids.pop()
+    return sids.pop()
 
 
-def z_travel(v: Values, gid: str | None) -> float:
-    """That gantry's z stroke in millimetres: everything it carries has to fit inside it."""
-    if gid is None:
+def z_travel(v: Values, sid: str | None) -> float:
+    """That SCARA's z stroke in millimetres: everything it carries has to fit inside it."""
+    if sid is None:
         return float("nan")
-    return v.mm(f"gantries.{gid}.axes.z.max") - v.mm(f"gantries.{gid}.axes.z.min")
+    return v.mm(f"scaras.{sid}.z_stroke")
 
 
 def pick_xy(v: Values, part_id: str, default: tuple[float, float]) -> tuple[float, float]:
@@ -185,7 +184,7 @@ def pick_z_note(v: Values, part_id: str, built_z: float, tol: float, doc: dict) 
 
 
 def fouling(assembly: Compound, keep_out, boss_label: str) -> float:
-    """Material of `assembly` inside the volume the gantry jaws sweep, ignoring the boss itself.
+    """Material of `assembly` inside the volume the tool's jaws sweep, ignoring the boss itself.
 
     Anything but zero is an interference: the tool cannot reach the pick feature.
     """

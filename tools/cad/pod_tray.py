@@ -19,7 +19,7 @@ Everything is derived:
   * its **floor sits on top of the ESC** — `parts.esc.z_in_stack + parts.esc.dims[2]` — because
     that is where the pod lands, so the tray presents the pod at its final height with no number
     of its own;
-  * the pick boss is sized against `gantries.<id>.tools.<tool>.dims` of whichever tool the sequence uses
+  * the pick boss is sized against `scaras.<id>.tools.<tool>.dims` of whichever tool the sequence uses
     to place `carrier_pod`, and the volume the jaws sweep around it is checked empty
     (tools/cad/gripper.py).
 
@@ -53,7 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
 
 import gripper  # noqa: E402
 from common import (Values, bbox_doc, export_solids, fouling, lookup, masses,  # noqa: E402
-                    new_report, pick_xy, pick_z_note, placing_gantry, placing_tool, tool_path, write_report, z_travel)
+                    new_report, pick_xy, pick_z_note, placing_scara, placing_tool, tool_path, write_report, z_travel)
 from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
                   parse_spec, report_path)
 
@@ -69,7 +69,7 @@ ROOF_T = 4.0             # tray material above the pod
 MID_CLEAR = 4.0          # clear height between the mid plate's top face and the tray's underside
 BOSS_D = 25.0            # pick boss diameter
 BOSS_H = 35.0            # pick boss height above the roof
-GRIP_CLEAR = 2.0         # gap the gantry jaws need around the boss, per side and at the tips
+GRIP_CLEAR = 2.0         # gap the tool's jaws need around the boss, per side and at the tips
 PICK_TOL = 0.05          # spec vs. built pick pose
 DENSITY = 1010.0         # kg/m3, ESD-safe PA12 (SLS)
 MATERIAL = "ESD-safe PA12 (SLS): carries electronics, never a soldering iron"
@@ -89,7 +89,7 @@ class Layout:
     tool: str
     grip: gripper.GripDims
     travel_z: float
-    gantry: str = ""          # the gantry that places it: travel_z is its z stroke
+    scara: str = ""           # the SCARA that places it: travel_z is its z_stroke
 
     @property
     def pocket(self) -> tuple[float, float, float]:
@@ -120,7 +120,7 @@ def layout(v: Values) -> Layout | None:
     tool = placing_tool(v, PART)
     jaw = (tuple(v.mm(f"{tool_path(v.raw, tool)}.dims[{i}]") for i in range(3)) if tool
            else (0, 0, 0))
-    gid = placing_gantry(v, PART)
+    gid = placing_scara(v, PART)
     travel = z_travel(v, gid)
     grip_at = pick_xy(v, PART, default=centre)
 
@@ -130,7 +130,7 @@ def layout(v: Values) -> Layout | None:
         centre=centre, pod=pod, floor=floor, mid_top=mid_top, pick_xy=grip_at, tool=tool,
         grip=gripper.GripDims(boss_d=BOSS_D, boss_h=BOSS_H, jaw_x=jaw[0], jaw_y=jaw[1],
                               reach=jaw[2], clearance=GRIP_CLEAR),
-        travel_z=travel, gantry=gid)
+        travel_z=travel, scara=gid)
 
 
 # ---------------------------------------------------------------- geometry
@@ -183,7 +183,7 @@ def derived(tray: Compound, lo: Layout) -> dict:
                  "jaw_mm": [round(lo.grip.jaw_x, 6), round(lo.grip.jaw_y, 6)],
                  "reach_mm": round(lo.grip.reach, 6),
                  "keep_out_volume_mm3": round(keep_out_clash(tray, lo), 4)},
-        "gantry_z_travel_mm": round(lo.travel_z, 6),
+        "scara_z_stroke_mm": round(lo.travel_z, 6),
     }
 
 
@@ -259,8 +259,8 @@ def main(argv: list[str] | None = None) -> int:
                     "around the pick boss")
     height = doc["bbox_mm"]["size"][2]
     if height > lo.travel_z:
-        return fail(f"the tray is {height:.1f} mm tall but gantries.{lo.gantry}.axes.z travels only "
-                    f"{lo.travel_z:.1f} mm: the gantry cannot lift it clear")
+        return fail(f"the tray is {height:.1f} mm tall but scaras.{lo.scara}.z_stroke is only "
+                    f"{lo.travel_z:.1f} mm: the SCARA cannot lift it clear")
     if doc["errors"]:
         print(f"{STEM}: FAIL — {doc['errors'][-1]}", file=sys.stderr)
         return finish(1)

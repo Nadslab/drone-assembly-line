@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""P5.4 measurement: every controller comes up, then the gantry visits three stations.
+"""P5.4 measurement: every controller comes up, then SCARAs visit three stations.
 
 Needs rclpy, so it runs on the ROS system python (sourced by line_smoke.sh), not tools/.venv —
 which is also why it reads the spec as plain YAML (the merged file `spec.py --dump` writes) and
@@ -8,11 +8,11 @@ the venv.
 
   1. wait for every controller in the generated controllers yaml to be `active`, <= 30 s from
      the launch start;
-  2. for each of the first three stations the sequence places at with a gantry tool, command the
-     gantry whose zone holds it (`gantries.<id>.zone`, D-008) to that station's pose
-     (pose - mount, yaw on C), wait for it to settle, then read where **Gazebo** says the TCP is —
-     the pose of the Gantry_<n>_c link, which is where Gantry_<n>_Tcp sits (no offset) — and
-     compare it with the station pose from the spec.
+  2. for each of the first three stations the sequence places at with a tool, command that
+     station's SCARA (`scara_<station>`, D-012) to the station's pose — inverse kinematics of
+     urdf/scara.urdf.xacro (L1 = L2 = r_max / 2, j3 = z, j4 = yaw - j1 - j2) — wait for it to
+     settle, then read where **Gazebo** says the TCP is — the pose of the Scara_<Name>_wrist link,
+     which is where Scara_<Name>_Tcp sits (no offset) — and compare it with the station pose.
 
 The error is measured against the physics engine, not against /joint_states: a joint that reports
 its target and a link that is somewhere else would pass the second and fail the first.
@@ -38,9 +38,35 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 N_STATIONS = 3
 
 
-def tcp_link(gid):
-    """Gantry_<n>_Tcp is fixed on Gantry_<n>_c with no offset (gantry.urdf.xacro)."""
-    return f"Gantry_{gid.removeprefix('gantry_')}_c"
+def tcp_link(sid):
+    """Scara_<Name>_Tcp is fixed on Scara_<Name>_wrist with no offset (scara.urdf.xacro)."""
+    return 'Scara_' + ''.join(w.capitalize() for w in sid.removeprefix('scara_').split('_')) \
+        + '_wrist'
+
+
+def scara_base(spec, sid):
+    """The base in the line frame: station x, station y +/- base_offset_y (spec.scara_base)."""
+    sc = spec['scaras'][sid]
+    pose = spec['stations'][sc['station']]['pose']
+    sign = 1.0 if sc['base_side'] == '+y' else -1.0
+    return [pose[0], pose[1] + sign * sc['base_offset_y'], pose[2]]
+
+
+def scara_ik(spec, sid, pose):
+    """Joint targets that put the TCP at `pose` (x, y, z, yaw): two-link planar IK, elbow on the
+    side that keeps j2 >= 0. None when the pose is outside the reach annulus."""
+    sc = spec['scaras'][sid]
+    base = scara_base(spec, sid)
+    link = sc['reach']['r_max'] / 2.0
+    dx, dy = pose[0] - base[0], pose[1] - base[1]
+    c2 = (dx * dx + dy * dy - 2.0 * link * link) / (2.0 * link * link)
+    if not -1.0 <= c2 <= 1.0:
+        return None
+    j2 = math.acos(c2)
+    j1 = math.atan2(dy, dx) - math.atan2(link * math.sin(j2), link + link * math.cos(j2))
+    j4 = (pose[3] or 0.0) - j1 - j2
+    j4 = math.atan2(math.sin(j4), math.cos(j4))
+    return {f'{sid}_j1': j1, f'{sid}_j2': j2, f'{sid}_j3': pose[2] - base[2], f'{sid}_j4': j4}
 
 
 class Probe(Node):
@@ -49,14 +75,14 @@ class Probe(Node):
         super().__init__('line_probe')
         self.positions = {}
         self.create_subscription(JointState, '/joint_states', self._on_js, 50)
-        self.clients_by_gantry = {}
+        self.clients_by_scara = {}
         self.list_cli = self.create_client(ListControllers, '/controller_manager/list_controllers')
 
-    def client(self, gid):
-        if gid not in self.clients_by_gantry:
-            self.clients_by_gantry[gid] = ActionClient(
-                self, FollowJointTrajectory, f'/{gid}_controller/follow_joint_trajectory')
-        return self.clients_by_gantry[gid]
+    def client(self, sid):
+        if sid not in self.clients_by_scara:
+            self.clients_by_scara[sid] = ActionClient(
+                self, FollowJointTrajectory, f'/{sid}_controller/follow_joint_trajectory')
+        return self.clients_by_scara[sid]
 
     def _on_js(self, msg):
         self.positions.update(zip(msg.name, msg.position))
@@ -121,31 +147,41 @@ def expected_controllers(path):
     return [k for k, v in manager.items() if isinstance(v, dict) and 'type' in v]
 
 
-def gantry_stations(spec):
-    """The first N stations the sequence places at with a gantry tool, in sequence order, each
-    with the gantry whose zone holds it."""
-    owner = {st: gid for gid, g in spec['gantries'].items() for st in (g.get('zone') or [])}
+def scara_stations(spec):
+    """The first N stations the sequence places at with a tool, in sequence order, each with the
+    SCARA that stands there (None if the spec has none)."""
     seen = []
     for step in spec['sequence']:
-        if step.get('tool') and step['station'] not in [s for s, _ in seen]:
-            seen.append((step['station'], owner.get(step['station'])))
+        st = step['station']
+        if step.get('tool') and st not in [s for s, _ in seen]:
+            sid = 'scara_' + st.removeprefix('st_')
+            seen.append((st, sid if sid in (spec.get('scaras') or {}) else None))
     return seen[:N_STATIONS]
 
 
-def move_time(delta, axes, fraction):
-    """Seconds for a rest-to-rest move of `delta` on every axis, from the spec's limits.
+def move_time(delta, limits, fraction):
+    """Seconds for a rest-to-rest move of `delta` on every joint, from the joint limits.
 
     The controller interpolates a cubic between the two rest points, whose peaks are
-    v = 1.5 d / t and a = 6 d / t^2, so t is chosen to keep both under `fraction` of the axis's
-    v_max / a_max. Planning at the limit is not a station-reach check: the X axis (moved mass
-    ~50 kg, effort = mass x a_max) fell 5 cm behind a move that asked for 87% of a_max.
+    v = 1.5 d / t and a = 6 d / t^2, so t is chosen to keep both under `fraction` of the joint's
+    v_max / a_max (D-007: a_max is a ceiling, not a planning value).
     """
     t = 1.0
     for name, d in delta.items():
         d = abs(d)
-        v, a = fraction * axes[name]['v_max'], fraction * axes[name]['a_max']
+        v, a = fraction * limits[name]['v_max'], fraction * limits[name]['a_max']
         t = max(t, 1.5 * d / v, math.sqrt(6.0 * d / a))
     return t
+
+
+def scara_joint_limits(spec, sid):
+    """v_max / a_max per joint, the arithmetic of gen_controllers.scara_limits."""
+    sc = spec['scaras'][sid]
+    link = sc['reach']['r_max'] / 2.0
+    v, a = sc['motion']['v_max'], sc['motion']['a_max']
+    rev = {'v_max': v / link, 'a_max': a / link}
+    return {f'{sid}_j1': rev, f'{sid}_j2': rev, f'{sid}_j3': {'v_max': v, 'a_max': a},
+            f'{sid}_j4': rev}
 
 
 def main():
@@ -194,34 +230,33 @@ def main():
                           f'launch: {states or "no controller_manager"}')
         else:
             result['controllers_active_s'] = round(time.time() - launch_start, 2)
-            result['stage'] = 'gantry'
+            result['stage'] = 'scara'
             print(f"line_smoke: {len(wanted)} controllers active after "
                   f"{result['controllers_active_s']} s")
 
-        names = gantry_stations(spec) if not errors else []
+        names = scara_stations(spec) if not errors else []
         if not errors and len(names) < N_STATIONS:
-            errors.append(f'the sequence places at {len(names)} station(s) with a gantry '
-                          f'tool, need {N_STATIONS}')
-        for sid, gid in names if not errors else []:
-            if gid is None:
-                errors.append(f'{sid}: no gantry zone holds it')
-            elif not node.client(gid).wait_for_server(timeout_sec=5.0):
-                errors.append(f'action server /{gid}_controller/follow_joint_trajectory '
+            errors.append(f'the sequence places at {len(names)} station(s) with a tool, '
+                          f'need {N_STATIONS}')
+        for sid, rid in names if not errors else []:
+            if rid is None:
+                errors.append(f'{sid}: no SCARA stands there')
+            elif not node.client(rid).wait_for_server(timeout_sec=5.0):
+                errors.append(f'action server /{rid}_controller/follow_joint_trajectory '
                               'not available')
-            elif not spin_until(node, lambda: f'{gid}_x' in node.positions, 5.0):
-                errors.append(f'no /joint_states for {gid} within 5 s')
+            elif not spin_until(node, lambda: f'{rid}_j1' in node.positions, 5.0):
+                errors.append(f'no /joint_states for {rid} within 5 s')
 
         if not errors:
-            for sid, gid in names:
-                axes = spec['gantries'][gid]['axes']
-                mount = spec['gantries'][gid]['mount']
-                joints = [f'{gid}_{a}' for a in 'xyz'] + ([f'{gid}_c'] if axes.get('c') else [])
+            for sid, rid in names:
+                joints = [f'{rid}_j{k}' for k in (1, 2, 3, 4)]
                 pose = spec['stations'][sid]['pose']
-                target = {f'{gid}_{a}': pose[i] - mount[i] for i, a in enumerate('xyz')}
-                if f'{gid}_c' in joints:
-                    target[f'{gid}_c'] = pose[3] or 0.0
+                target = scara_ik(spec, rid, pose)
+                if target is None:
+                    errors.append(f'{sid}: outside the reach of {rid}')
+                    break
                 delta = {j: target[j] - node.positions[j] for j in joints}
-                t = move_time({j[-1]: d for j, d in delta.items()}, axes, args.speed_fraction)
+                t = move_time(delta, scara_joint_limits(spec, rid), args.speed_fraction)
 
                 goal = FollowJointTrajectory.Goal()
                 goal.trajectory.joint_names = joints
@@ -231,11 +266,11 @@ def main():
                 pt.time_from_start = Duration(sec=int(t), nanosec=int((t % 1) * 1e9))
                 goal.trajectory.points = [pt]
 
-                row = {'station': sid, 'gantry': gid, 'spec_path': f'stations.{sid}.pose',
+                row = {'station': sid, 'scara': rid, 'spec_path': f'stations.{sid}.pose',
                        'target_pose_m': pose[:3], 'target_joints': target,
                        'move_time_s': round(t, 2)}
                 result['stations'].append(row)
-                fut = node.client(gid).send_goal_async(goal)
+                fut = node.client(rid).send_goal_async(goal)
                 spin_until(node, fut.done, 5.0)
                 handle = fut.result() if fut.done() else None
                 if handle is None or not handle.accepted:
@@ -253,10 +288,10 @@ def main():
                     break
                 spin_until(node, lambda: False, args.settle)
 
-                tcp = gz_link_pose(args.world, tcp_link(gid))
+                tcp = gz_link_pose(args.world, tcp_link(rid))
                 row['joint_error_m'] = {j: node.positions[j] - target[j] for j in joints}
                 if tcp is None:
-                    errors.append(f'{sid}: no pose for link {tcp_link(gid)} from gz')
+                    errors.append(f'{sid}: no pose for link {tcp_link(rid)} from gz')
                     break
                 err_mm = math.dist(tcp, pose[:3]) * 1000.0
                 row.update(tcp_gz_m=tcp, tcp_error_mm=round(err_mm, 4),

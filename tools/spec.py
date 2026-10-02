@@ -127,6 +127,7 @@ class Cad(Model):
 class Fastener(Model):
     length: Pos
     feeder: str
+    d: Pos | None = None    # nominal thread diameter (arm_pin_clearance, D-012)
 
 
 class Feeder(Model):
@@ -146,38 +147,17 @@ class Source(Model):
     buffer: str
     interval_s: Pos
     buffer_capacity: NonNegInt | None
+    # A fixture that goes back to this sub-line empty once its load is taken (option B, D-012:
+    # carrier_spider stays in buf_spider). A no-op in every tool; check_line.py checks the name.
+    returns: str | None = None
 
 
 class Buffer(Model):
     pose: Pose
 
 
-class Axis(Model):
-    min: float | None
-    max: float | None
-    v_max: Pos | None
-    a_max: Pos | None
-    # Joint dynamics and controller gain from the P1 spike (docs/decisions.md D-002).
-    damping: NonNeg | None = None
-    friction: NonNeg | None = None
-    position_gain: Pos | None = None
-
-    @model_validator(mode="after")
-    def _ordered(self):
-        if self.min is not None and self.max is not None and self.min >= self.max:
-            raise ValueError(f"axis min {self.min} must be < max {self.max}")
-        return self
-
-
-class GantryAxes(Model):
-    x: Axis
-    y: Axis
-    z: Axis
-    c: Axis | None = None  # absent = no yaw axis
-
-
 class Tool(Model):
-    """A gantry end-effector. `dims` is the envelope it needs at the pick feature, in metres:
+    """A SCARA end-effector. `dims` is the envelope it needs at the pick feature, in metres:
     [x, y, reach] — x,y across the pick point and reach = how far it comes down over it. The
     fixture generators (P4 B3-B4) size their pick features from this."""
 
@@ -185,31 +165,64 @@ class Tool(Model):
     dims: Vec3
 
 
-class Gantry(Model):
-    axes: GantryAxes
+class Reach(Model):
+    """The annulus about the base the TCP can work in, metres."""
+
+    r_min: Pos | None
+    r_max: Pos | None
+
+    @model_validator(mode="after")
+    def _ordered(self):
+        if self.r_min is not None and self.r_max is not None and self.r_min >= self.r_max:
+            raise ValueError(f"reach r_min {self.r_min} must be < r_max {self.r_max}")
+        return self
+
+
+class Motion(Model):
+    """TCP limits, Cartesian: the trapezoid estimate_moves.py plans with (D-012)."""
+
+    v_max: Pos | None
+    a_max: Pos | None
+
+
+class Scara(Model):
+    """One SCARA per pick-and-place station (D-012), keyed `scara_<station without st_>`.
+
+    Its base stands at the station's x, `base_offset_y` out from the station on `base_side` (the
+    side of its part source): `scara_base()` is the one place that arithmetic lives. The TCP works
+    in the annulus [reach.r_min, reach.r_max] about the base and at z 0 .. `z_stroke` above the
+    datum plane."""
+
+    station: str
+    base_side: Literal["+y", "-y"] | None
+    base_offset_y: Pos | None
+    reach: Reach
+    z_stroke: Pos | None
+    payload_kg: Pos | None
     tools: dict[str, Tool]
-    mount: Vec3
-    # The stations this gantry serves (docs/decisions.md D-008). Zones never overlap.
-    zone: list[str] | None
+    motion: Motion
 
 
-class GantryDefaults(Model):
-    """Pick-and-place timing and linear-axis dynamics shared by every gantry.
-
-    `damping`/`friction` are the P1 values (D-002) for the x/y/z axes of every gantry; an axis
-    that states its own wins, and the rotary C axis only ever uses its own (other units).
-    """
+class ScaraDefaults(Model):
+    """Pick-and-place timing shared by every SCARA."""
 
     grip_s: NonNeg | None
     release_s: NonNeg | None
     settle_s: NonNeg | None
-    # safe_z is derived per gantry (tools/gantry_geometry.py, D-009): the tallest thing under it,
-    # plus the tallest part it carries, plus this margin.
+    # safe_z is derived per SCARA (tools/robot_geometry.py): the tallest item in its reach
+    # envelope, plus the part it carries, plus this margin.
     z_margin: NonNeg | None
-    # Moves are planned at this fraction of v_max/a_max (D-007: a_max is a ceiling).
+    # Moves are planned at this fraction of v_max/a_max (D-007's gantry value; re-derive, D-012).
     plan_speed_scale: Annotated[float, Field(gt=0, le=1)] | None
-    damping: NonNeg | None
-    friction: NonNeg | None
+
+
+class Slide(Model):
+    """A gang head that shares its station with a SCARA rides in on a slide from the side
+    opposite the SCARA (D-012): place, SCARA clears, slide in, drive, slide out."""
+
+    stroke: Pos | None      # m, retracted position to the working position, along y
+    t_in: NonNeg | None     # s
+    t_out: NonNeg | None    # s
 
 
 class GangHead(Model):
@@ -224,11 +237,16 @@ class GangHead(Model):
     # One pass: advance, drive every spindle home, retract (D-011). A step with more screws than
     # spindles takes ceil(qty / spindles) passes; check_line.py `station_time` adds them up.
     drive_s: Pos | None = None
+    slide: Slide | None = None
 
 
-class Scara(Model):
-    base: Vec3 | None = None  # in line frame
-    reach: Pos | None = None  # horizontal radius from base
+class Drone(Model):
+    """Features of the drone the line's tooling uses (D-012, option B)."""
+
+    # One per arm, bottom plate frame: the pallet's arm pin passes through it into the arm.
+    arm_tooling_holes: list[Vec2] | None = None
+    tooling_pin_d: Pos | None = None
+    pin_engagement: Pos | None = None
 
 
 class Conveyor(Model):
@@ -237,7 +255,7 @@ class Conveyor(Model):
     pitch: Pos | None
 
 
-ACTORS = ("gantry", "driver", "operator", "sub_line", "test")
+ACTORS = ("scara", "driver", "operator", "sub_line", "test")
 
 
 class Station(Model):
@@ -245,7 +263,7 @@ class Station(Model):
     count: PosInt
     pose: Pose
     cell_pitch: Pos | None = None
-    # Who works here (D-010). Derived from the steps for gantry/driver/test; stated only where a
+    # Who works here (D-010). Derived from the steps for scara/driver/test; stated only where a
     # step cannot say it: an operator, or a sub_line that loads the pallet from `source` (a buffer
     # or a source). check_line.py `actors` holds every station to exactly one actor type.
     actor: Literal[ACTORS] | None = None
@@ -280,11 +298,9 @@ class PalletBlock(Model):
     thickness: Pos | None
 
 
-class GantryFrame(Model):
-    post_size: Pos | None       # square post section
-    beam_height: Pos | None     # beam section, vertical
-    beam_depth: Pos | None      # beam section, horizontal
-    conveyor_clearance: NonNeg | None = None   # post footprint to the conveyor edge, at least
+class ScaraBase(Model):
+    diameter: Pos | None        # floor-standing column under the shoulder
+    height: Pos | None          # floor to its top
 
 
 class TestBranch(Model):
@@ -306,12 +322,15 @@ class Layout(Model):
     stop_unit_length: Pos | None
     stop_unit_cycle_s: NonNeg | None = None    # stop, lift/locate, release: part of each transfer
     buffer_slots_between_stations: NonNegInt | None
-    gantry_frame: GantryFrame
+    scara_base: ScaraBase
+    gang_head_box: Vec3         # [x, y, z] envelope of a gang head body (layout, safe_z)
     # [w (x), d (y), h (floor to top)] keyed by feeder or buffer id: both stand on the floor.
     feeder_footprints: dict[str, Vec3]
-    test_branch: TestBranch
+    # A multi-cell station's cells branch off in y. The end-of-line test bank that needed it is
+    # deferred (docs/deferred_stations.yaml), so it is optional.
+    test_branch: TestBranch | None = None
     operator_aisle: OperatorAisle
-    guard_offset: Pos | None    # gantry travel envelope to the guard line, all round
+    guard_offset: Pos | None    # robot reach envelopes to the guard line, all round
 
 
 class LineSpec(Model):
@@ -319,66 +338,94 @@ class LineSpec(Model):
     line: Line
     parts: dict[str, Part]
     cad: Cad | None = None
+    drone: Drone | None = None
     fasteners: dict[str, Fastener]
     feeders: dict[str, Feeder]
     sources: dict[str, Source]
     buffers: dict[str, Buffer]
-    gantries: Annotated[dict[str, Gantry], Field(min_length=1)]
-    gantry_defaults: GantryDefaults
-    gang_heads: dict[str, GangHead]
     scaras: dict[str, Scara]
+    scara_defaults: ScaraDefaults
+    gang_heads: dict[str, GangHead]
     conveyor: Conveyor
     stations: dict[str, Station]
+    # {name: [station ids]}, in line order (D-012). Every station is in exactly one.
+    milestones: dict[str, list[str]] | None = None
     sequence: list[Step]
     layout: Layout | None = None   # only tools/cad/layout.py needs it
 
     @model_validator(mode="after")
-    def _zones(self):
+    def _scaras(self):
         errors = []
-        for gid in self.gantries:
-            if not GANTRY_ID.fullmatch(gid):
-                errors.append(f"gantries.{gid}: a gantry id is gantry_<n> (docs/naming.md)")
-        owner: dict[str, str] = {}
-        for gid, g in self.gantries.items():
-            for st in g.zone or []:
-                if st not in self.stations:
-                    errors.append(f"gantries.{gid}.zone: station '{st}' does not exist")
-                elif st in owner:
-                    errors.append(f"gantries.{gid}.zone: station '{st}' is already in "
-                                  f"{owner[st]}'s zone; zones may not overlap")
-                else:
-                    owner[st] = gid
-        # With a zone still null, a station missing from the known zones may be in that one.
-        if all(g.zone is not None for g in self.gantries.values()):
-            for s in self.sequence:
-                if gantry_served(s) and s.station in self.stations and s.station not in owner:
-                    errors.append(f"sequence.{s.id}: moves a part with a gantry but station "
-                                  f"'{s.station}' is in no gantry's zone")
-        # A gantry places a part; a driver drives fasteners. One step, one kind of qty (D-009).
+        for sid, sc in self.scaras.items():
+            if sc.station not in self.stations:
+                errors.append(f"scaras.{sid}.station: station '{sc.station}' does not exist")
+            elif sid != scara_id(sc.station):
+                errors.append(f"scaras.{sid}: the SCARA at {sc.station} is "
+                              f"{scara_id(sc.station)} (scara_<station without st_>, "
+                              "docs/naming.md)")
+        # Every step that moves a part with a robot stands where a SCARA is.
         for s in self.sequence:
-            if gantry_served(s) and (s.capability == "drive" or s.fastener is not None):
-                errors.append(f"sequence.{s.id}: moves part '{s.part}' with a gantry and drives "
+            if robot_served(s) and s.station in self.stations \
+                    and scara_id(s.station) not in self.scaras:
+                errors.append(f"sequence.{s.id}: moves a part with a robot but station "
+                              f"'{s.station}' has no SCARA ({scara_id(s.station)})")
+        # A SCARA places a part; a driver drives fasteners. One step, one kind of qty (D-009).
+        for s in self.sequence:
+            if robot_served(s) and (s.capability == "drive" or s.fastener is not None):
+                errors.append(f"sequence.{s.id}: moves part '{s.part}' with a SCARA and drives "
                               f"fasteners ({s.capability}, qty {s.qty}) in one step; split it "
                               "into a place step and a drive step")
         # One tool id is one physical design: the CAD generators build it once.
         first: dict[str, tuple[str, Tool]] = {}
-        for gid, g in self.gantries.items():
-            for tid, tool in g.tools.items():
+        for sid, sc in self.scaras.items():
+            for tid, tool in sc.tools.items():
                 if tid in first and first[tid][1] != tool:
-                    errors.append(f"gantries.{gid}.tools.{tid} differs from "
-                                  f"gantries.{first[tid][0]}.tools.{tid}; one tool id is one "
+                    errors.append(f"scaras.{sid}.tools.{tid} differs from "
+                                  f"scaras.{first[tid][0]}.tools.{tid}; one tool id is one "
                                   "tool")
-                first.setdefault(tid, (gid, tool))
+                first.setdefault(tid, (sid, tool))
+        errors += self._milestone_errors()
         if errors:
             raise ValueError("; ".join(errors))
         return self
 
+    def _milestone_errors(self) -> list[str]:
+        """Every station in exactly one milestone, and the milestones, each read in order and
+        taken by their first station, are the stations in line (index) order: a milestone is a
+        contiguous run of the line. (Mapping order is not relied on: a YAML dump may sort it.)"""
+        if self.milestones is None:
+            return []
+        errors, seen = [], {}
+        for name, members in self.milestones.items():
+            for st in members:
+                if st not in self.stations:
+                    errors.append(f"milestones.{name}: station '{st}' does not exist")
+                elif st in seen:
+                    errors.append(f"milestones.{name}: station '{st}' is already in milestone "
+                                  f"'{seen[st]}'; a station is in exactly one")
+                else:
+                    seen[st] = name
+        for st in self.stations:
+            if st not in seen:
+                errors.append(f"milestones: station '{st}' is in no milestone")
+        if not errors:
+            runs = sorted((m for m in self.milestones.values() if m),
+                          key=lambda m: self.stations[m[0]].index)
+            listed = [st for members in runs for st in members]
+            line = sorted(self.stations, key=lambda s: self.stations[s].index)
+            if listed != line:
+                errors.append(f"milestones: read in order they give {listed}, but the line "
+                              f"order (station index) is {line}")
+        return errors
 
-GANTRY_ID = re.compile(r"gantry_[1-9]\d*")
+
+def scara_id(station: str) -> str:
+    """st_place_spider -> scara_place_spider (D-012, docs/naming.md)."""
+    return f"scara_{station.removeprefix('st_')}"
 
 
-def gantry_served(step: Step | dict) -> bool:
-    """A step the gantry performs: it names a tool, or draws a part `from` a feeder/buffer."""
+def robot_served(step: Step | dict) -> bool:
+    """A step a SCARA performs: it names a tool, or draws a part `from` a feeder/buffer."""
     if isinstance(step, dict):
         tool, part, source = step.get("tool"), step.get("part"), step.get("from")
     else:
@@ -386,17 +433,81 @@ def gantry_served(step: Step | dict) -> bool:
     return tool is not None or (part is not None and source is not None)
 
 
-def zone_owner(spec: LineSpec) -> dict[str, str]:
-    """{station: gantry id} over every known zone."""
-    return {st: gid for gid, g in spec.gantries.items() for st in (g.zone or [])}
+def station_scara(raw: dict, station: str | None) -> str | None:
+    """The SCARA at `station`, from plain spec data (generators, xacro helpers)."""
+    if station is None:
+        return None
+    sid = scara_id(station)
+    return sid if sid in (raw.get("scaras") or {}) else None
 
 
-def station_gantry(raw: dict, station: str | None) -> str | None:
-    """The gantry whose zone holds `station`, from plain spec data (generators, xacro helpers)."""
-    for gid, g in (raw.get("gantries") or {}).items():
-        if isinstance(g, dict) and station in (g.get("zone") or []):
-            return gid
-    return None
+def scara_ids(raw: dict) -> list[str]:
+    """Every SCARA id, in the line order of the station it serves."""
+    stations = raw.get("stations") or {}
+
+    def order(sid):
+        st = ((raw.get("scaras") or {}).get(sid) or {}).get("station")
+        return ((stations.get(st) or {}).get("index") or 0, sid)
+    return sorted(raw.get("scaras") or {}, key=order)
+
+
+def scara_base(spec: LineSpec, sid: str) -> tuple[float, float, float] | None:
+    """The base centre in the line frame: station x, station y +/- base_offset_y, station z.
+    None while any of it is null."""
+    sc = spec.scaras[sid]
+    st = spec.stations.get(sc.station)
+    if st is None or None in st.pose[:3] or sc.base_side is None or sc.base_offset_y is None:
+        return None
+    sign = 1.0 if sc.base_side == "+y" else -1.0
+    return st.pose[0], st.pose[1] + sign * sc.base_offset_y, st.pose[2]
+
+
+def head_station(raw: dict, hid: str) -> str | None:
+    """The one station the sequence drives a gang head at, or None if it names zero or several."""
+    stations = {s.get("station") for s in (raw.get("sequence") or [])
+                if isinstance(s, dict) and s.get("head") == hid}
+    return stations.pop() if len(stations) == 1 else None
+
+
+def milestone_subset(raw: dict, name: str) -> dict:
+    """The spec cut down to one milestone (D-012): its stations, the steps that stand there, their
+    SCARAs and gang heads, the feeders and buffers those steps (and a sub_line station) draw
+    from, the fasteners they drive and the sources that fill those buffers. A `requires` on a step
+    outside the milestone is dropped: that step ran upstream. Raises SpecError for an unknown
+    milestone. Parts, line, layout and defaults are kept whole."""
+    milestones = raw.get("milestones") or {}
+    if name not in milestones:
+        raise SpecError([f"milestone '{name}' does not exist (have: "
+                         f"{', '.join(milestones) or 'none'})"])
+    out = copy.deepcopy(raw)
+    keep = set(milestones[name])
+    out["milestones"] = {name: list(milestones[name])}
+    out["stations"] = {k: v for k, v in (raw.get("stations") or {}).items() if k in keep}
+    steps = [s for s in raw.get("sequence") or [] if s.get("station") in keep]
+    ids = {s["id"] for s in steps}
+    out["sequence"] = []
+    for s in steps:
+        s = copy.deepcopy(s)
+        s["requires"] = [r for r in s.get("requires") or [] if r in ids]
+        out["sequence"].append(s)
+    out["scaras"] = {k: v for k, v in (raw.get("scaras") or {}).items()
+                     if (v or {}).get("station") in keep}
+    out["gang_heads"] = {k: v for k, v in (raw.get("gang_heads") or {}).items()
+                         if head_station(raw, k) in keep}
+    drawn = {s.get("from") for s in steps} | {st.get("source") for st in out["stations"].values()}
+    srcs = raw.get("sources") or {}
+    drawn |= {srcs[d]["buffer"] for d in list(drawn) if d in srcs}
+    fasteners = {s.get("fastener") for s in steps}
+    out["fasteners"] = {k: v for k, v in (raw.get("fasteners") or {}).items() if k in fasteners}
+    drawn |= {v.get("feeder") for v in out["fasteners"].values()}
+    out["feeders"] = {k: v for k, v in (raw.get("feeders") or {}).items() if k in drawn}
+    out["buffers"] = {k: v for k, v in (raw.get("buffers") or {}).items() if k in drawn}
+    out["sources"] = {k: v for k, v in srcs.items() if v.get("buffer") in out["buffers"]}
+    lay = out.get("layout")
+    if isinstance(lay, dict) and isinstance(lay.get("feeder_footprints"), dict):
+        lay["feeder_footprints"] = {k: v for k, v in lay["feeder_footprints"].items()
+                                    if k in out["feeders"] or k in out["buffers"]}
+    return out
 
 
 def index_s(spec: LineSpec) -> float | None:
@@ -406,13 +517,6 @@ def index_s(spec: LineSpec) -> float | None:
     if spec.conveyor.pitch is None or lay is None or lay.conveyor.belt_speed is None:
         return None
     return spec.conveyor.pitch / lay.conveyor.belt_speed
-
-
-def gantry_ids(raw: dict) -> list[str]:
-    """gantry_1, gantry_2, ... in numeric order (gantry_10 after gantry_9)."""
-    ids = list(raw.get("gantries") or {})
-    return sorted(ids, key=lambda g: (int(g.split("_")[-1]) if g.split("_")[-1].isdigit()
-                                      else 0, g))
 
 
 class SpecError(Exception):
@@ -447,7 +551,7 @@ def add_dev_argument(parser: argparse.ArgumentParser) -> None:
 
 # Collections whose keys are entities: the overlay may fill their fields but not add members.
 ENTITY_COLLECTIONS = {"parts", "fasteners", "feeders", "sources", "buffers", "gang_heads",
-                      "scaras", "stations", "gantries", "gantries.*.tools",
+                      "scaras", "scaras.*.tools", "stations", "milestones",
                       "layout.feeder_footprints"}
 
 
@@ -584,7 +688,7 @@ if __name__ == "__main__":
             print(f"  {e}", file=sys.stderr)
         sys.exit(1)
     print(f"spec: OK — {len(s.parts)} parts, {len(s.feeders)} feeders, "
-          f"{len(s.stations)} stations, {len(s.gantries)} gantries, {len(s.sequence)} steps")
+          f"{len(s.stations)} stations, {len(s.scaras)} SCARAs, {len(s.sequence)} steps")
     if args.dump:
         dump_merged(m, args.dump, args.dev)
         print(f"spec: merged spec -> {args.dump}")

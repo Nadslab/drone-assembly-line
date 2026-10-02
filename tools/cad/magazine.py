@@ -8,7 +8,7 @@ about which magazines exist is typed here — the spec's `feeders` decides, and 
 its own part (§16: "Large, asymmetric or fragile -> tray or magazine, oriented by the container,
 not the robot").
 
-          rim = pick plane, z = 0      the gantry always picks here, however full the magazine is
+          rim = pick plane, z = 0      the SCARA always picks here, however full the magazine is
         ==|===================|==
           |  [ part       ]   |        stack of `capacity` parts, `SEPARATION` apart
           |  [ part       ]   |
@@ -19,7 +19,7 @@ Everything is derived:
 
   * the pocket is the part's envelope plus a fit clearance, so the tube tracks the part;
   * the tube is `capacity` parts deep — the spec's own number for how many it holds;
-  * the **pick plane is the rim**, so the tool never reaches inside the tube and the gantry goes to
+  * the **pick plane is the rim**, so the tool never reaches inside the tube and the SCARA goes to
     one fixed coordinate every cycle (§16), which is what `feeders.<id>.pose` means;
   * the poka-yoke key is `parts.<part>.key`, the corner cut at the part's +x,+y corner (§7.5). The
     magazine grows a rib in that corner, and the generator **proves** it works: the part is seated
@@ -137,7 +137,7 @@ def magazine_feeders(raw: dict) -> list[str]:
 
 
 def picking_tool(raw: dict, fid: str) -> str | None:
-    """The gantry tool the sequence takes parts out of this feeder with, if it names one.
+    """The SCARA tool the sequence takes parts out of this feeder with, if it names one.
 
     Optional: a step may draw from a feeder without a tool (a gang head fits the part instead),
     and then there is no tool to leave room for.

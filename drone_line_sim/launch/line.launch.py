@@ -8,7 +8,7 @@
     JointStatePublisher plugin in the description). `/joint_states` is the hardware interface's
     view and comes from joint_state_broadcaster, so the two can be compared.
   * **robot_state_publisher and spawn** for the one robot, `line` (docs/decisions.md D-006: the
-    gantry and the gang heads share a controller manager, so they are one model).
+    SCARAs and the gang heads share a controller manager, so they are one model).
   * **controller spawners**, for exactly the controllers `config/controllers.yaml` defines —
     the generated file is read, so a head added to the spec is spawned with no launch change.
   * `use_sim_time` on every ROS node.

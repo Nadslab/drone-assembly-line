@@ -2,18 +2,19 @@
 
     tools/.venv/bin/python tools/gen_controllers.py [--dev] [--spec PATH]
 
-Writes `drone_line_sim/config/controllers.yaml`: one `joint_trajectory_controller` per gantry
-(`gantry_<n>_controller` over its axes, D-008), one per gang head, and a `joint_state_broadcaster`.
-The joints are named exactly as `urdf/line.urdf.xacro` names them — `gantry_<n>_<axis>` and
-`<head_id>_stroke` (`_1`/`_2` for the two banks of an opposed head) — and `tools/checks/descriptions.sh` fails if the description and this
-file ever disagree, which is the only thing keeping the two derivations honest.
+Writes `drone_line_sim/config/controllers.yaml`: one `joint_trajectory_controller` per SCARA
+(`scara_<station>_controller` over j1..j4, D-012), one per gang head, and a
+`joint_state_broadcaster`. The joints are named exactly as `urdf/line.urdf.xacro` names them —
+`scara_<station>_j1..j4` and `<head_id>_stroke` (`_1`/`_2` for the two banks of an opposed head) —
+and `tools/checks/descriptions.sh` fails if the description and this file ever disagree, which is
+the only thing keeping the two derivations honest.
 
-What comes from the spec: which gantries and axes exist (`gantries.<id>.axes`, C optional), which
-heads exist and how many banks each has (`gang_heads.<id>.opposed`), and every limit
-(`{min,max,v_max,a_max}`, `gang_heads.<id>.{stroke,v_max,a_max}`). An x/y/z axis without its own
-`damping`/`friction` takes `gantry_defaults`; C only ever takes its own (rotary units). What is typed here: the
-controller update rate and the trajectory/goal tolerances, all four from the P1 spike
-(docs/decisions.md D-002), collected at the top.
+What comes from the spec: which SCARAs exist, which heads exist and how many banks each has
+(`gang_heads.<id>.opposed`), and every limit: a SCARA's from `scaras.<id>.{reach, z_stroke,
+motion}` (`scara_limits`, the same arithmetic as urdf/scara.urdf.xacro), a head's from
+`gang_heads.<id>.{stroke,v_max,a_max}`. What is typed here: the controller update rate and the
+trajectory/goal tolerances, all four from the P1 spike (docs/decisions.md D-002), collected at the
+top.
 
 `a_max` is not a `joint_trajectory_controller` parameter in Jazzy — the controller follows the
 trajectory it is handed — so it is not written to the yaml. It goes to `reports/gen_controllers
@@ -37,8 +38,10 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cad.common import Values, lookup  # noqa: E402
-from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, gantry_ids,  # noqa: E402
-                  load_merged, parse_spec, report_path)
+import math  # noqa: E402
+
+from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, head_station,  # noqa: E402
+                  load_merged, parse_spec, report_path, scara_ids)
 
 PKG = REPO / "drone_line_sim"
 HEADER = "# GENERATED from line_spec.yaml by gen_controllers.py — do not edit\n"
@@ -56,21 +59,15 @@ TOLERANCE = {"prismatic": {"trajectory": 0.05, "goal": 0.005},
 
 JTC_TYPE = "joint_trajectory_controller/JointTrajectoryController"
 JSB_TYPE = "joint_state_broadcaster/JointStateBroadcaster"
-GANTRY_AXES = ("x", "y", "z", "c")          # c is optional; the rest are required by the schema
+SCARA_JOINTS = ("j1", "j2", "j3", "j4")      # shoulder, elbow, Z (quill), wrist
 
 
 # ---------------------------------------------------------------- the joints the spec implies
 # Shared with tools/checks/descriptions_check.py: one derivation of "what joints exist", used by
 # the generator that configures them and by the check that compares them with the description.
 
-def gantry_axes(raw: dict, gid: str) -> list[str]:
-    """The axis letters one gantry keeps. `gantries.<id>.axes.c` absent (or null) = no yaw."""
-    axes = lookup(raw, f"gantries.{gid}.axes") or {}
-    return [a for a in GANTRY_AXES if axes.get(a) is not None]
-
-
-def gantry_joints(raw: dict, gid: str) -> list[str]:
-    return [f"{gid}_{a}" for a in gantry_axes(raw, gid)]
+def scara_joints(raw: dict, sid: str) -> list[str]:
+    return [f"{sid}_{j}" for j in SCARA_JOINTS]
 
 
 def head_banks(raw: dict, hid: str) -> list[str]:
@@ -82,13 +79,6 @@ def head_banks(raw: dict, hid: str) -> list[str]:
 
 def head_joints(raw: dict, hid: str) -> list[str]:
     return [f"{hid}{s}" for s in head_banks(raw, hid)]
-
-
-def head_station(raw: dict, hid: str) -> str | None:
-    """The station the sequence drives this head at — where line.urdf.xacro mounts it."""
-    stations = [s.get("station") for s in (raw.get("sequence") or [])
-                if isinstance(s, dict) and s.get("head") == hid]
-    return stations[0] if len(set(stations)) == 1 else None
 
 
 def pattern_positions(raw: dict, hid: str) -> list | None:
@@ -136,6 +126,27 @@ def validate_heads(raw: dict) -> list[str]:
 
 # ---------------------------------------------------------------- limits, read through Values
 
+def scara_limits(v: Values, sid: str) -> dict[str, dict]:
+    """j1..j4 of one SCARA, the arithmetic urdf/scara.urdf.xacro does (D-012):
+    L1 = L2 = r_max / 2 (PLACEHOLDER split); j1, j4 in [-pi, pi]; |j2| <= the fold that brings the
+    TCP in to r_min; j3 in [0, z_stroke]; velocity v_max on j3 and v_max / L on the revolute
+    joints, a_max likewise."""
+    path = f"scaras.{sid}"
+    r_min, r_max = v.plain(f"{path}.reach.r_min"), v.plain(f"{path}.reach.r_max")
+    stroke = v.plain(f"{path}.z_stroke")
+    v_max, a_max = v.plain(f"{path}.motion.v_max"), v.plain(f"{path}.motion.a_max")
+    if None in (r_min, r_max, stroke, v_max, a_max):
+        return {}
+    link = r_max / 2.0
+    elbow = math.acos((r_min * r_min - 2.0 * link * link) / (2.0 * link * link))
+    rev = {"type": "revolute", "spec_path": path, "v_max": v_max / link, "a_max": a_max / link}
+    return {f"{sid}_j1": {**rev, "min": -math.pi, "max": math.pi},
+            f"{sid}_j2": {**rev, "min": -elbow, "max": elbow},
+            f"{sid}_j3": {"type": "prismatic", "spec_path": path, "min": 0.0, "max": stroke,
+                          "v_max": v_max, "a_max": a_max},
+            f"{sid}_j4": {**rev, "min": -math.pi, "max": math.pi}}
+
+
 def joint_limits(v: Values) -> dict:
     """Every movable joint the description has, with the spec values and paths behind it.
 
@@ -143,22 +154,8 @@ def joint_limits(v: Values) -> dict:
     reported as a placeholder — the same contract as every other generator.
     """
     limits: dict[str, dict] = {}
-    for gid in gantry_ids(v.raw):
-        for axis in gantry_axes(v.raw, gid):
-            path = f"gantries.{gid}.axes.{axis}"
-            dyn = {}
-            for key in ("damping", "friction"):
-                dyn[key] = v.plain(f"{path}.{key}", default="")
-                if dyn[key] == "" and axis != "c":
-                    dyn[key] = v.plain(f"gantry_defaults.{key}", default="")
-            limits[f"{gid}_{axis}"] = {
-                "type": "revolute" if axis == "c" else "prismatic",
-                "spec_path": path,
-                "min": v.plain(f"{path}.min"), "max": v.plain(f"{path}.max"),
-                "v_max": v.plain(f"{path}.v_max"), "a_max": v.plain(f"{path}.a_max"),
-                **dyn,
-                "position_gain": v.plain(f"{path}.position_gain", default=""),
-            }
+    for sid in scara_ids(v.raw):
+        limits.update(scara_limits(v, sid))
     for hid in sorted(v.raw.get("gang_heads") or {}):
         path = f"gang_heads.{hid}"
         stroke = v.plain(f"{path}.stroke")
@@ -172,7 +169,7 @@ def joint_limits(v: Values) -> dict:
     # consumer sees "no value in the spec" rather than an empty string.
     for joint in limits.values():
         for key in ("damping", "friction", "position_gain"):
-            if joint[key] == "":
+            if joint.get(key) == "":
                 del joint[key]
     return limits
 
@@ -180,12 +177,10 @@ def joint_limits(v: Values) -> dict:
 # ---------------------------------------------------------------- the controllers
 
 def controllers_of(raw: dict) -> dict[str, dict]:
-    """`{controller_name: {"type", "joints"}}`: the broadcaster, one per gantry, one per head."""
+    """`{controller_name: {"type", "joints"}}`: the broadcaster, one per SCARA, one per head."""
     out = {"joint_state_broadcaster": {"type": JSB_TYPE, "joints": []}}
-    for gid in gantry_ids(raw):
-        axes = gantry_joints(raw, gid)
-        if axes:
-            out[f"{gid}_controller"] = {"type": JTC_TYPE, "joints": axes}
+    for sid in scara_ids(raw):
+        out[f"{sid}_controller"] = {"type": JTC_TYPE, "joints": scara_joints(raw, sid)}
     for hid in sorted(raw.get("gang_heads") or {}):
         out[f"{hid}_controller"] = {"type": JTC_TYPE, "joints": head_joints(raw, hid)}
     return out

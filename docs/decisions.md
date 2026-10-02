@@ -560,3 +560,199 @@ layout.py --dev has 0 interferences.
   PLACEHOLDER.
 - **B.** No fastener is chosen for `seat_esc`, `fit_side_plates` or `drive_top_plate` (WARN).
 - **C.** `mount_servo` (parked) has no driver.
+
+## D-012 — One SCARA per pick-and-place station, option B arm pins, milestones, end of line deferred
+
+**Date:** 2026-10-01
+
+**Context:** two problems with zoned gantries (D-008..D-011).
+- **Too slow.** One gantry could not do the line's picks in a takt (D-008). Zoned, each gantry still
+  toured its zone once per drone, and the tour legs dominated: gantry_2 ran at 85.6% of its
+  17.2 s budget, and gantry_3 only got under budget (78.7%) with a paired side-plate pick.
+- **Gang heads in gantry zones.** D-011 put `gh_side_plates` and `gh_top_plate` at stations inside
+  gantry_3's zone. A head hanging over a station stands in the volume the gantry's Z column
+  travels through, so the two would collide.
+
+**Decision — one SCARA per pick-and-place station.** `gantries:` and `gantry_defaults:` are gone.
+`scaras:` is a map keyed `scara_<station id without st_>`. spec.py enforces the key, so a station
+has at most one SCARA. Each entry has:
+- `station`, `base_side` (+y/-y), `base_offset_y`;
+- `reach {r_min, r_max}`, `z_stroke`, `payload_kg`;
+- `tools`, and `motion {v_max, a_max}` (TCP, Cartesian).
+
+Shared timing moves to `scara_defaults: {grip_s, release_s, settle_s, z_margin,
+plan_speed_scale}`. In the base spec everything is null; dev values are PLACEHOLDERs:
+reach 0.15–0.6 m, z_stroke 0.2 m, payload 3 kg, v_max 2 m/s, a_max 10 m/s², grip/release 0.2 s,
+settle 0.1 s, z_margin 0.03 m, plan_speed_scale 0.5.
+
+Six SCARAs: place_spider, place_mid_plate, install_standoffs, place_pod, fit_side_plates,
+fit_top_plate. st_load_pallet stays `actor: sub_line`. st_drive_arm_sandwich and st_seat_esc are
+gang-head only, and st_mount_servo stays parked.
+
+A base stands at its station's x, `base_offset_y` out on `base_side`, on the datum plane.
+`spec.scara_base()` is the only place that sum is done; the xacro, descriptions_check and
+line_measure repeat it and the descriptions check compares them. Each base is on the side of its
+part source. Dev `base_offset_y` is 0.55 m: the feeders and buffers stand 0.3 m out with
+footprints up to 0.194 m, so a 0.2 m base fits only beyond them, and 0.55 m keeps the place pose
+inside r_max. That puts every pick 0.25 m and every place 0.55 m from its base.
+
+The D-002 `damping`/`friction` defaults went with `gantry_defaults`: no SCARA joint reads them.
+
+**Decision — actors.** A station has at most one SCARA plus at most one gang head, and the gang
+head must fasten what the SCARA placed (D-011's rule, with "gantry" read as "scara"). The actor
+type `gantry` is now `scara`. A drive step's `head` must be a gang head; a SCARA no longer drives
+screws. The actors fixtures were renamed to match.
+
+**Decision — gang-head slide.** At a station with both a SCARA and a gang head (fit_side_plates,
+fit_top_plate), the head rides a slide in from the side opposite the SCARA:
+`gang_heads.<id>.slide {stroke, t_in, t_out}` (dev 0.25 m, 0.5 s, 0.5 s PLACEHOLDER). The sequence
+is: SCARA places, SCARA clears (its return home), slide in, drive, slide out. `station_time` adds
+`t_in + t_out` once per drive step. While the SCARA works, the head waits `slide.stroke` out on
+the far side (`robot_geometry.head_box`).
+
+**Decision — checks** (check_line.py; gantry_straddle, reach and gantry_load are removed):
+
+| check | rule |
+|---|---|
+| `scara_reach` | FAIL if a pick pose (the step's feeder or buffer) or a place pose (the station) is outside [r_min, r_max] of its SCARA's base |
+| `scara_clearance` | FAIL if a base footprint (`layout.scara_base.diameter`) overlaps the conveyor, another base, a feeder or a buffer. WARN if two reach discs overlap; the WARN names the shared zone and what stands in it (needs an interlock) |
+| `safe_z` | per SCARA: tallest item in reach + the part it carries + z_margin. FAIL above `z_stroke` |
+| `robot_load` | each SCARA's per-drone time at plan_speed_scale against takt − transfer |
+| `station_time` | SCARA steps + drive_s × passes + slide t_in + t_out + index_s, against takt |
+| `arm_pin_clearance` | FAIL if a tooling hole is within 2 × screw Ø of an arm screw hole, or there is not one tooling hole per arm |
+
+"In reach" means any part of the item's footprint is within r_max of the base: a pallet block at
+a station, a feeder footprint, or a gang head box. safe_z items:
+- each station's stack;
+- each feeder's or buffer's pick plane;
+- each gang head body where it waits. That is `layout.gang_head_box`, its underside one ram
+  stroke above the finished stack (on the stack for a horizontal head).
+
+**Changed from D-009:** the SCARA's own station counts at its stack *before* its own place. The
+part it brings in is the hang. Counting it twice (on the pallet and on the tool) was wrong, and
+with one SCARA per station it would fail every place by the part's own height.
+
+**Decision — the move model** (estimate_moves.py). One pick-and-place is:
+1. horizontal move, home to pick (straight line);
+2. Z down, grip, Z up;
+3. horizontal move to the place;
+4. Z down, release, Z up;
+5. horizontal move back home.
+
+Every move is a trapezoid on the TCP distance at `motion.v_max`/`a_max` × plan_speed_scale, plus
+`settle_s` after each Z move. qty n is n full cycles. Home is the arm folded in to r_min, pointing
+from the base at its station: the brief names a home and the spec has none, so this is the
+tightest fold the reach allows. The table shows both speed columns, the budget and PASS/FAIL per
+SCARA, then the station_time table.
+
+**Decision — option B for the spider.** `place_spider` now takes `spider` from `buf_spider` with a
+new tool, `spider_gripper` (finger, dev dims [0.20, 0.20, 0.02] PLACEHOLDER). It grips all 4 arms
+in their X pattern and lifts them out of `carrier_spider`. The carrier stays in buf_spider and goes
+back to sub-line A. That is `sources.src_A.returns: carrier_spider`, a no-op in every tool (the
+schema only checks the part exists). seat_esc loses its "releases carrier_spider" note.
+- **Arm pins.** On the pallet the arms are located by one pin each. The pin passes through a
+  dedicated arm tooling hole in the bottom plate and goes `pin_engagement` into the arm. The arm
+  screw holes cannot be used: they must stay free for gh_arm_sandwich's spindles.
+- **Spec.** New section `drone: {arm_tooling_holes, tooling_pin_d, pin_engagement}`: null in base;
+  dev is one hole per arm on the arm axis 48 mm from the plate centre (the arm root is at 45 mm),
+  Ø3.0 and 2.0 mm, PLACEHOLDER. `fasteners.m3_x8.d: 0.003` is real: M3 is 3 mm by definition.
+- **pallet.py** builds `Pin_Arm_1..4`, pressed through the body, up to the bottom plate thickness
+  plus pin_engagement, and reports them under `derived.arm_pins`. Dev: the nearest screw is 7.0 mm
+  away against the 6 mm limit.
+- **spider_carrier.py.** When no step places `carrier_spider`, no main-line robot lifts the
+  carrier. It still builds the pick boss but skips the tool and z-stroke checks, and warns.
+  **Not modelled:** whether spider_gripper's fingers reach the arms past the carrier's bridge and
+  ESC nest. The carrier was designed to be lifted off the spider, not to have the spider lifted
+  out of it. tools.py builds spider_gripper as its generic two-jaw tool.
+
+**Decision — end of line deferred.** st_audit_torque, st_test (5 cells), st_pack, their steps
+(audit_torque, test, pack) and `layout.test_branch` (the test divert) moved verbatim, base and dev
+values, to `docs/deferred_stations.yaml`. No tool loads that file. The line now ends at
+st_fit_top_plate. None of the three drew from a feeder. `layout.test_branch` is optional in the
+schema: layout.py still draws cells for any multi-cell station. **Pallet return path:** the spec
+has no return-path entity to keep. st_load_pallet ("where returned pallets re-enter the line")
+stays as it was.
+
+**Decision — milestones.** Three milestones:
+- `frame`: st_load_pallet, st_place_spider, st_place_mid_plate, st_drive_arm_sandwich;
+- `electronics`: st_install_standoffs, st_seat_esc, st_place_pod;
+- `closeout`: st_fit_side_plates, st_mount_servo, st_fit_top_plate.
+
+spec.py checks that every station is in exactly one milestone and that each milestone is a
+contiguous run in line order. Milestones are taken by their first station, so a YAML dump that
+sorts keys still validates. `spec.milestone_subset()` cuts the spec down to one milestone: its
+stations and their steps, SCARAs and gang heads, plus the feeders, buffers, fasteners and sources
+those steps draw on. A `requires` on an upstream step is dropped. `check_line.py --milestone NAME`
+writes `reports/line_check.<name>[.dev].json`. `layout.py --milestone NAME` draws on a conveyor
+just long enough for those stations, into `60_layout/[dev/]<name>/`.
+
+**Decision — plan_speed_scale needs re-deriving for a SCARA.** The dev 0.5 is D-007's gantry
+finding (a 50 kg X axis lagged above half of a_max). It says nothing about a SCARA's arm, and
+every time below scales with it. Re-measure it on a SCARA in Gazebo before any time is trusted.
+
+**Consequence — descriptions.**
+- **xacro.** `urdf/scara.urdf.xacro` replaces gantry.urdf.xacro. line.urdf.xacro instantiates it
+  once per `scaras` entry as `Scara_<Name>`, with joints `scara_<station>_j1` (shoulder, revolute),
+  `_j2` (elbow, revolute), `_j3` (Z, prismatic, value = TCP z) and `_j4` (wrist, revolute).
+- **Links.** L1 = L2 = r_max/2, a PLACEHOLDER split.
+- **Limits.** j1 and j4: ±π. j2: ±acos((r_min² − 2L²)/2L²), the fold that brings the TCP in to
+  r_min. j3: [0, z_stroke]. Velocity is v_max on j3 and v_max/L on the revolute joints.
+- **Controllers.** gen_controllers.py writes one `scara_<station>_controller` per SCARA
+  (`scara_limits`, the same arithmetic).
+- **World.** gen_world.py drops the `Rail_Gantry_<n>` envelopes: a SCARA base is a link of the robot.
+- **line_measure.py** drives each SCARA to its station by two-link IK and compares Gazebo's pose
+  of `Scara_<Name>_wrist`. The IK was checked against FK for the three dev stations. **It has not
+  run in Gazebo:** line_smoke.sh was not run (headless rule: no Gazebo for this change).
+
+**Consequence — layout.** Gantry solids are gone. New group `Robots`:
+- `Scara_<Name>_Base`, a cylinder from the floor to `layout.scara_base.height` (new, dev 1.25 m);
+- `GangHead_<Name>`, a `layout.gang_head_box` (new, dev [0.30, 0.30, 0.20]), drawn where
+  robot_geometry puts it.
+
+Reference holds:
+- `Scara_<Name>_Envelope`, an annular cylinder r_min..r_max from the datum to z_stroke;
+- `GangHead_<Name>_Slide`, waiting to working position;
+- one `Guard_<Milestone>` per milestone around the union of its robots' envelopes plus
+  guard_offset, with the conveyor tunnel.
+
+Robots are teal, gang heads orange-brown, all opaque. A group with nothing in it is left out of
+the STEP. For example, closeout draws from no buffer, so its STEP has no Buffers group.
+
+**Result (dev, budget 17.2 s = 20.2 − (0.6/0.3 + 1.0)):**
+
+| SCARA | step | @0.5 | @1.0 | load @0.5 | safe_z | status |
+|---|---|---|---|---|---|---|
+| scara_place_spider | place_spider | 3.34 s | 2.56 s | 19.4% | 0.160 | PASS |
+| scara_place_mid_plate | place_mid_plate | 3.16 s | 2.44 s | 18.4% | 0.133 | PASS |
+| scara_install_standoffs | install_standoffs | 3.33 s | 2.56 s | 19.4% | 0.192 | PASS |
+| scara_place_pod | place_pod | 4.57 s | 3.34 s | 26.6% | **0.446** | **FAIL** (safe_z) |
+| scara_fit_side_plates | place_side_plates | 3.31 s | 2.55 s | 19.3% | **0.203** | **FAIL** (safe_z) |
+| scara_fit_top_plate | place_top_plate | 3.39 s | 2.60 s | 19.7% | 0.170 | PASS |
+
+Every station fits takt. The busiest is st_fit_side_plates at 12.31 s of 20.2 s: pair pick 3.31,
+plus 2 drive passes (6.0), plus slide 1.0, plus index 2.0. scara_reach passes.
+scara_clearance passes with **no WARN**: neighbouring SCARAs sit on opposite sides (bases 1.253 m
+apart against 1.2 m of r_max) or on the same side at 1.2 m, where the discs touch without
+overlapping. `check_line.py --dev --milestone frame` passes. `layout.py --dev --milestone frame`
+has 0 interferences.
+
+**Unresolved (not tuned away):**
+- **E. safe_z, scara_place_pod 0.446 > 0.2.** gh_side_plates waits on its slide 0.25 m to −y of
+  st_fit_side_plates (scara_fit_side_plates is on +y). Its box (x 4.05–4.35, y −0.40..−0.10, top
+  0.337) is 0.474 m from scara_place_pod's base at (3.6, −0.55), inside r_max. Fixes:
+  - put place_pod's SCARA on +y, which needs buf_pod moved to +y;
+  - slide gh_side_plates vertically instead;
+  - leave a free station between st_place_pod and st_fit_side_plates.
+- **F. safe_z, scara_fit_side_plates 0.203 > 0.2.** The side-plate magazine's pick plane is 0.17
+  (the 218 mm magazine), plus the 3 mm plate, plus 0.03 margin. Fixes: a z_stroke of at least
+  0.21 m, or a shorter fd_side_plate.
+- **G. layout.py --dev: 2 interferences,** Guard_Frame ∩ Guard_Electronics (30.8e6 mm³) and
+  Guard_Electronics ∩ Guard_Closeout (24.6e6 mm³). With r_max 0.6 and guard_offset 0.3,
+  neighbouring milestones' guard walls run along the same y lines and overlap in x. Fix: neighbours
+  share one partition wall at the boundary (the gang head between them), instead of each having
+  its own closed box. That is a layout.py change to how a guard is drawn; it needs the user's call.
+
+**Open gaps** (carried):
+- **A.** Who works st_audit_torque and st_pack: deferred with them.
+- **B.** No fastener is chosen for seat_esc, fit_side_plates or drive_top_plate (WARN).
+- **C.** mount_servo (parked) has no driver.

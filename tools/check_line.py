@@ -1,16 +1,22 @@
 """Static checks on line_spec.yaml (P2). No ROS, no Gazebo.
 
-    tools/.venv/bin/python tools/check_line.py [--spec PATH] [--report PATH] [-v]
+    tools/.venv/bin/python tools/check_line.py [--spec PATH] [--report PATH] [--dev]
+                                               [--milestone NAME] [-v]
 
 Prints a table, writes reports/line_check.json (`passed: true|false`), and exits non-zero on
 any FAIL. WARN never fails the run: a `null` in the spec is WARN "UNRESOLVED" until the phase
 that needs the value.
+
+`--milestone NAME` checks only that milestone (D-012): its stations, their SCARAs and gang heads,
+and the feeders and buffers they draw from (spec.milestone_subset), and writes
+reports/line_check.<name>.json.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from dataclasses import dataclass, field
@@ -19,9 +25,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import estimate_moves  # noqa: E402
-import gantry_geometry as gg  # noqa: E402
+import robot_geometry as rg  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, LineSpec, Merged, SpecError, add_dev_argument,  # noqa: E402
-                  gantry_served, load_merged, parse_spec, report_path, zone_owner)
+                  load_merged, milestone_subset, parse_spec, report_path, robot_served,
+                  scara_base, scara_id)
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 
@@ -29,6 +36,8 @@ PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 MIN_BUFFER_CAPACITY = 1
 MAX_FASTENER_LENGTHS = 3
 DATUM_TOL_M = 1e-4
+# An arm tooling hole stays this many screw diameters from every arm screw hole (D-012).
+PIN_CLEAR_SCREW_D = 2.0
 # Plates that sit on the pallet pins and must share datum positions (summary §7.2).
 PLATE_STACK = ("bottom_plate", "mid_plate", "top_plate")
 
@@ -73,10 +82,9 @@ def _walk_nulls(node, path=""):
 def check_schema(spec: LineSpec, r: Result) -> None:
     """Parsing already happened (spec.py); here every reference must resolve."""
     parts, feeders, buffers = set(spec.parts), set(spec.feeders), set(spec.buffers)
-    heads = set(spec.gang_heads) | set(spec.scaras)
-    tools = {t for g in spec.gantries.values() for t in g.tools}
+    heads = set(spec.gang_heads)
+    tools = {t for sc in spec.scaras.values() for t in sc.tools}
     stations, steps = set(spec.stations), [s.id for s in spec.sequence]
-    owner = zone_owner(spec)
 
     def ref(where: str, kind: str, value: str | None, valid: set[str]):
         if value is not None and value not in valid:
@@ -92,6 +100,7 @@ def check_schema(spec: LineSpec, r: Result) -> None:
     for name, s in spec.sources.items():
         ref(f"sources.{name}.output", "part", s.output, parts)
         ref(f"sources.{name}.buffer", "buffer", s.buffer, buffers)
+        ref(f"sources.{name}.returns", "part", s.returns, parts)
     for name, h in spec.gang_heads.items():
         # `bottom_plate.arm_holes`: the part must exist; sub-features are not modelled yet.
         if h.pattern_from:
@@ -105,9 +114,9 @@ def check_schema(spec: LineSpec, r: Result) -> None:
         ref(f"{w}.part", "part", s.part, parts)
         ref(f"{w}.from", "feeder/buffer", s.from_, feeders | buffers)
         ref(f"{w}.tool", "tool", s.tool, tools)
-        gid = owner.get(s.station)
-        if s.tool in tools and gid and s.tool not in spec.gantries[gid].tools:
-            r.add(FAIL, f"{w}.tool -> '{s.tool}' is not on {gid}, which serves {s.station}")
+        sid = scara_id(s.station)
+        if s.tool in tools and sid in spec.scaras and s.tool not in spec.scaras[sid].tools:
+            r.add(FAIL, f"{w}.tool -> '{s.tool}' is not on {sid}, the SCARA at {s.station}")
         ref(f"{w}.head", "head", s.head, heads)
         ref(f"{w}.fastener", "fastener", s.fastener, set(spec.fasteners))
         for req in s.requires:
@@ -125,8 +134,8 @@ def _step_actor(spec: LineSpec, s) -> str | None:
     st = spec.stations.get(s.station)
     if st is not None and st.actor == "sub_line":
         return "sub_line"
-    if gantry_served(s):
-        return "gantry"
+    if robot_served(s):
+        return "scara"
     if s.capability == "drive":
         return "driver" if s.head is not None else None
     if s.capability == "test":
@@ -153,16 +162,17 @@ def _head_mounts(spec: LineSpec) -> dict[str, set[str]]:
 
 
 def check_actors(spec: LineSpec, r: Result) -> None:
-    """Who does each station's work, and where each part and fastener comes from (D-010, D-011).
+    """Who does each station's work, and where each part and fastener comes from (D-010..D-012).
 
-    Actors: every station with an active step has exactly one **primary** actor — gantry (a step
-    with a tool, or a part drawn `from` a feeder/buffer), driver (a drive step's `head`: gang head
-    or scara), test (a test step), or the station's stated `actor` (operator, sub_line) — plus, at
-    a gantry station, at most one **gang head that fastens what the gantry placed**: mounted at
-    this station (every step naming it stands here) and driving a step that requires a gantry
-    step at this station. Any other drive step at a gantry station makes "driver" a second
-    primary actor. A driver station has one head. A station with only parked steps is skipped.
-    `actor: null` is UNRESOLVED (not decided yet).
+    Actors: a station has **at most one SCARA plus at most one gang head** (D-012). Every station
+    with an active step has exactly one **primary** actor — scara (a step with a tool, or a part
+    drawn `from` a feeder/buffer; the station's own SCARA, spec.py makes that one per station),
+    driver (a drive step's gang `head`), test (a test step), or the station's stated `actor`
+    (operator, sub_line) — plus, at a SCARA station, at most one **gang head that fastens what the
+    SCARA placed**: mounted at this station (every step naming it stands here) and driving a step
+    that requires a SCARA step at this station. Any other drive step at a SCARA station makes
+    "driver" a second primary actor. A driver station has one head. A station with only parked
+    steps is skipped. `actor: null` is UNRESOLVED (not decided yet).
 
     Material: a step's part comes `from` a feeder that holds it, a buffer a source fills with it
     (or with what it carries), or — at a sub_line station — the station's `source`. A step's
@@ -184,30 +194,29 @@ def check_actors(spec: LineSpec, r: Result) -> None:
             else:
                 r.add(FAIL, f"{sid}: no step stands at this station, so nothing works there")
             continue
-        gantry_here = {s.id for s in steps if _step_actor(spec, s) == "gantry"}
+        scara_here = {s.id for s in steps if _step_actor(spec, s) == "scara"}
         types = {st.actor} if st.actor else set()
         primary_heads: set[str] = set()
         fastening_heads: set[str] = set()
         for s in steps:
             a = _step_actor(spec, s)
             if a == "driver":
-                if s.head in spec.gang_heads and mounts.get(s.head) == {sid} and gantry_here \
-                        and set(s.requires) & gantry_here:
+                if s.head in spec.gang_heads and mounts.get(s.head) == {sid} and scara_here \
+                        and set(s.requires) & scara_here:
                     fastening_heads.add(s.head)
                     continue
                 primary_heads.add(s.head)
             if a is not None:
                 types.add(a)
             elif s.capability == "drive":
-                r.add(FAIL, f"{s.id}: drive step at {sid} has no driver (head: a gang head or "
-                            "scara)")
+                r.add(FAIL, f"{s.id}: drive step at {sid} has no driver (head: a gang head)")
             elif s.capability in ("load", "place", "pick"):
-                r.add(FAIL, f"{s.id}: moves part '{s.part}' but no gantry (tool or `from`) or "
+                r.add(FAIL, f"{s.id}: moves part '{s.part}' but no SCARA (tool or `from`) or "
                             "sub_line station does")
         info[sid] = " + ".join(sorted(types) + sorted(fastening_heads)) or "none"
         if len(types) > 1:
-            why = (" (a drive step here that does not fasten what the gantry placed, with a gang "
-                   "head mounted here, is a second actor)" if {"gantry", "driver"} <= types
+            why = (" (a drive step here that does not fasten what the SCARA placed, with a gang "
+                   "head mounted here, is a second actor)" if {"scara", "driver"} <= types
                    else "")
             r.add(FAIL, f"{sid}: {len(types)} primary actors ({', '.join(sorted(types))}); a "
                         f"station has exactly one{why}")
@@ -216,11 +225,12 @@ def check_actors(spec: LineSpec, r: Result) -> None:
                 r.unresolved(f"stations.{sid}.actor: who does "
                              f"{', '.join(s.id for s in steps)} is not decided")
             else:
-                r.add(FAIL, f"{sid}: no actor for {', '.join(s.id for s in steps)} (no gantry, "
+                r.add(FAIL, f"{sid}: no actor for {', '.join(s.id for s in steps)} (no SCARA, "
                             "driver or test step, and no stated `actor`)")
         if len(fastening_heads) > 1:
-            r.add(FAIL, f"{sid}: {len(fastening_heads)} gang heads fasten what the gantry "
-                        f"placed ({', '.join(sorted(fastening_heads))}); at most one")
+            r.add(FAIL, f"{sid}: {len(fastening_heads)} gang heads fasten what the SCARA "
+                        f"placed ({', '.join(sorted(fastening_heads))}); a station has at most "
+                        "one SCARA plus one gang head")
         if types == {"driver"} and len(primary_heads) > 1:
             r.add(FAIL, f"{sid}: {len(primary_heads)} drivers ({', '.join(sorted(primary_heads))})"
                         "; a station has exactly one primary actor")
@@ -362,81 +372,144 @@ def check_line_balance(spec: LineSpec, r: Result) -> None:
         r.info["bottleneck_pct"] = round(util[bottleneck], 1)
 
 
-def _pose_in_gantry(spec: LineSpec, gid: str, label: str, pose, r: Result) -> None:
-    """Pose in line frame -> that gantry's frame (pose - mount) must be inside its axis limits."""
-    g = spec.gantries[gid]
-    unknown = False
-    for i, ax in enumerate("xyz"):
-        lim, p, m = getattr(g.axes, ax), pose[i], g.mount[i]
-        if p is None or m is None or lim.min is None or lim.max is None:
-            unknown = True
-            continue
-        rel = p - m
-        if not lim.min <= rel <= lim.max:
-            r.add(FAIL, f"{label}: {ax}={rel:.3f} m ({gid} frame) outside "
-                        f"[{lim.min:g}, {lim.max:g}]")
-    yaw = pose[3]
-    if yaw is not None and yaw != 0:
-        c = g.axes.c
-        if c is None:
-            r.add(FAIL, f"{label}: needs yaw {yaw:g} rad but {gid} has no C axis")
-        elif c.min is not None and c.max is not None and not c.min <= yaw <= c.max:
-            r.add(FAIL, f"{label}: yaw {yaw:g} outside {gid} C [{c.min:g}, {c.max:g}]")
-    if unknown:
-        r.unresolved(f"{label}: reach of {gid} not fully evaluable (pose, mount or axis "
-                     "limits null)")
-
-
-def check_reach(spec: LineSpec, r: Result) -> None:
-    """Gantry poses, per zone: every step a gantry performs has its station and its `from`
-    (feeder or buffer) inside the axis limits of the gantry whose zone holds that station. Drive
-    poses: SCARA stations must be within `reach` of the SCARA base; gang heads are fixed-pattern,
-    so only their station pose matters (checked for existence by the schema)."""
-    owner = zone_owner(spec)
+def check_scara_reach(spec: LineSpec, r: Result) -> None:
+    """Every pose a SCARA works at — the pick (its step's `from` feeder or buffer) and the place
+    (the pallet at its station) — lies in the annulus [r_min, r_max] about its base (D-012)."""
     seen: set[tuple[str, str]] = set()
     for s in _active_steps(spec):
-        if gantry_served(s) and s.station in spec.stations:
-            gid = owner.get(s.station)
-            if gid is None:
-                r.unresolved(f"{s.id}: station {s.station} is in no known zone")
-            else:
-                targets = [(f"station {s.station}", spec.stations[s.station].pose)]
-                if s.from_ in spec.feeders and spec.feeders[s.from_].pose is not None:
-                    targets.append((f"feeder {s.from_}", spec.feeders[s.from_].pose))
-                elif s.from_ in spec.buffers:
-                    targets.append((f"buffer {s.from_}", spec.buffers[s.from_].pose))
-                for label, pose in targets:
-                    if (gid, label) not in seen:
-                        seen.add((gid, label))
-                        _pose_in_gantry(spec, gid, label, pose, r)
-        if s.capability == "drive" and s.head in spec.scaras and s.station in spec.stations:
-            sc, pose = spec.scaras[s.head], spec.stations[s.station].pose
-            if sc.base is None or sc.reach is None or None in pose[:2] or None in sc.base[:2]:
-                r.unresolved(f"{s.id}: SCARA {s.head} reach not evaluable")
-            else:
-                d = ((pose[0] - sc.base[0]) ** 2 + (pose[1] - sc.base[1]) ** 2) ** 0.5
-                if d > sc.reach:
-                    r.add(FAIL, f"{s.id}: {s.station} is {d:.3f} m from {s.head}, "
-                                f"reach {sc.reach:g} m")
+        if not robot_served(s) or s.station not in spec.stations:
+            continue
+        sid = scara_id(s.station)
+        if sid not in spec.scaras:
+            continue                            # reported by schema
+        sc, base = spec.scaras[sid], scara_base(spec, sid)
+        targets = [(f"place {s.station}", spec.stations[s.station].pose)]
+        pick = rg.source_pose(spec, s.from_)
+        if pick is not None:
+            kind = "feeder" if s.from_ in spec.feeders else "buffer"
+            targets.insert(0, (f"pick {kind} {s.from_}", pick))
+        for label, pose in targets:
+            if (sid, label) in seen:
+                continue
+            seen.add((sid, label))
+            if base is None or None in (sc.reach.r_min, sc.reach.r_max) or None in pose[:2]:
+                r.unresolved(f"{sid}: {label} not evaluable (base, reach or pose null)")
+                continue
+            d = math.hypot(pose[0] - base[0], pose[1] - base[1])
+            r.info.setdefault("radius_m", {}).setdefault(sid, {})[label] = round(d, 4)
+            if not sc.reach.r_min - rg.EPS <= d <= sc.reach.r_max + rg.EPS:
+                r.add(FAIL, f"{sid}: {label} is {d:.3f} m from the base at "
+                            f"({base[0]:g}, {base[1]:g}), outside its reach "
+                            f"[{sc.reach.r_min:g}, {sc.reach.r_max:g}]")
 
 
-def check_gantry_load(spec: LineSpec, r: Result) -> None:
-    """Each gantry's pick-and-place time per drone (tools/estimate_moves.py), at
+def _circle_rect_gap(cx: float, cy: float, radius: float, rect: rg.Rect) -> float:
+    """Clear distance from a circle to a rectangle; negative when they overlap."""
+    return rect.dist_from(cx, cy) - radius if rect.dist_from(cx, cy) > 0 else \
+        -(radius + min(cx - rect.x0, rect.x1 - cx, cy - rect.y0, rect.y1 - cy))
+
+
+def _lens(a, ra, b, rb) -> tuple[float, float, float, float]:
+    """Bounding box of the intersection of two discs (they do overlap)."""
+    d = math.hypot(b[0] - a[0], b[1] - a[1])
+    x = (d * d + ra * ra - rb * rb) / (2.0 * d)
+    h = math.sqrt(max(ra * ra - x * x, 0.0))
+    ux, uy = (b[0] - a[0]) / d, (b[1] - a[1]) / d
+    mx, my = a[0] + ux * x, a[1] + uy * x
+    pts = [(mx - uy * h, my + ux * h), (mx + uy * h, my - ux * h),
+           (a[0] + ux * ra, a[1] + uy * ra), (b[0] - ux * rb, b[1] - uy * rb)]
+    return (min(p[0] for p in pts), max(p[0] for p in pts),
+            min(p[1] for p in pts), max(p[1] for p in pts))
+
+
+def check_scara_clearance(spec: LineSpec, r: Result) -> None:
+    """FAIL a SCARA base footprint (a `layout.scara_base.diameter` circle) that overlaps the
+    conveyor, another base, a feeder or a buffer. WARN where two SCARAs' reach envelopes (r_max
+    discs) overlap, naming the shared zone and what stands in it: a real line runs an interlock
+    there (D-012)."""
+    radius = rg.base_radius(spec)
+    belt = rg.conveyor_rect(spec)
+    bases = {sid: scara_base(spec, sid) for sid in spec.scaras}
+    if radius is None:
+        r.unresolved("scara_clearance: layout.scara_base.diameter is null")
+    for sid, b in bases.items():
+        if b is None:
+            r.unresolved(f"{sid}: base not evaluable (base_side, base_offset_y or station pose "
+                         "null)")
+    known = {sid: b for sid, b in bases.items() if b is not None}
+    if radius is not None:
+        others = [("conveyor", belt)] if belt is not None else []
+        if belt is None:
+            r.unresolved("scara_clearance: conveyor footprint (layout.conveyor.width, "
+                         "conveyor.pitch, station poses)")
+        for coll, kind in ((spec.feeders, "feeder"), (spec.buffers, "buffer")):
+            for fid in coll:
+                rect = rg.source_rect(spec, fid)
+                if rect is not None:
+                    others.append((f"{kind} {fid}", rect))
+        for sid, b in known.items():
+            for label, rect in others:
+                gap = _circle_rect_gap(b[0], b[1], radius, rect)
+                if gap < -rg.EPS:
+                    r.add(FAIL, f"{sid}: base at ({b[0]:g}, {b[1]:g}) overlaps the {label} "
+                                f"by {-gap * 1000:.1f} mm")
+        ids = list(known)
+        for i, a in enumerate(ids):
+            for c in ids[i + 1:]:
+                gap = math.hypot(known[a][0] - known[c][0], known[a][1] - known[c][1]) \
+                    - 2.0 * radius
+                if gap < -rg.EPS:
+                    r.add(FAIL, f"{a} and {c}: bases overlap by {-gap * 1000:.1f} mm")
+    ids = [sid for sid in known if spec.scaras[sid].reach.r_max is not None]
+    zones = []
+    for i, a in enumerate(ids):
+        for c in ids[i + 1:]:
+            ra, rc = spec.scaras[a].reach.r_max, spec.scaras[c].reach.r_max
+            d = math.hypot(known[a][0] - known[c][0], known[a][1] - known[c][1])
+            if d >= ra + rc - rg.EPS:
+                continue
+            box = _lens(known[a], ra, known[c], rc)
+            inside = []
+            for st in spec.stations:
+                rect = rg.station_rect(spec, st)
+                if rect is not None and rg.in_reach(spec, a, rect) and rg.in_reach(spec, c, rect):
+                    inside.append(st)
+            for coll in (spec.feeders, spec.buffers):
+                for fid in coll:
+                    rect = rg.source_rect(spec, fid)
+                    if rect is not None and rg.in_reach(spec, a, rect) \
+                            and rg.in_reach(spec, c, rect):
+                        inside.append(fid)
+            zones.append({"scaras": [a, c], "overlap_m": round(ra + rc - d, 4),
+                          "zone_xy_m": [round(v, 4) for v in box], "inside_both": inside})
+            r.add(WARN, f"{a} and {c}: reach envelopes overlap by {(ra + rc - d) * 1000:.0f} mm; "
+                        f"shared zone x {box[0]:.3f}..{box[1]:.3f}, y {box[2]:.3f}..{box[3]:.3f}"
+                        + (f" (both reach {', '.join(inside)})" if inside else "")
+                        + " — needs an interlock")
+    r.info["shared_zones"] = zones
+
+
+def check_robot_load(spec: LineSpec, r: Result) -> None:
+    """Each SCARA's pick-and-place time per drone (tools/estimate_moves.py), at
     plan_speed_scale, must fit the budget: takt_s - transfer_s."""
     doc = estimate_moves.estimate(spec, r.cfg["cad"])
-    for msg in doc["errors"]:
-        r.add(FAIL, msg)
-    for msg in doc["unresolved"]:
-        r.unresolved(msg)
-    r.info["load_pct"] = {gid: g["load_pct"] for gid, g in doc["gantries"].items()}
-    r.info["total_s"] = {gid: g["total_s"] for gid, g in doc["gantries"].items()}
+    for sid, row in doc["scaras"].items():
+        for u in row["unresolved"]:
+            r.unresolved(f"{sid}: {u}")
+        if row["total_s"] is not None and row["total_s"] > doc["budget_s"]:
+            r.add(FAIL, f"{sid}: {row['total_s']:.2f} s of moves per drone at scale "
+                        f"{doc['plan_speed_scale']:g} > budget {doc['budget_s']:.2f} s "
+                        f"(takt {doc['takt_s']:g} - transfer {doc['transfer_s']:.2f})")
+    r.info["load_pct"] = {sid: g["load_pct"] for sid, g in doc["scaras"].items()}
+    r.info["total_s"] = {sid: g["total_s"] for sid, g in doc["scaras"].items()}
     r.info["budget_s"] = doc["budget_s"]
     r.info["transfer_s"] = doc["transfer_s"]
 
 
 def check_station_time(spec: LineSpec, r: Result) -> None:
-    """Per station (D-011): its gantry step times + gang head drive_s x passes + the index time
-    (pitch / belt_speed) must fit in takt_s (tools/estimate_moves.py station_times)."""
+    """Per station (D-011, D-012): its SCARA step times + gang head drive_s x passes + slide
+    t_in + t_out + the index time (pitch / belt_speed) must fit in takt_s
+    (tools/estimate_moves.py station_times)."""
     rows = estimate_moves.station_times(spec, estimate_moves.estimate(spec, r.cfg["cad"]))
     r.info["stations"] = rows
     for sid, row in rows.items():
@@ -444,58 +517,29 @@ def check_station_time(spec: LineSpec, r: Result) -> None:
             r.unresolved(f"{sid}: {u}")
         if row["status"] == "FAIL":
             parts = ", ".join(f"{s['id']} {s['time_s']:.2f}" for s in row["steps"])
-            r.add(FAIL, f"{sid}: {row['total_s']:.2f} s ({parts}, index {row['index_s']:.2f}) "
-                        f"> takt {row['takt_s']:g} s")
-
-
-def check_gantry_straddle(spec: LineSpec, r: Result) -> None:
-    """Every gantry post stands clear of the conveyor by gantry_frame.conveyor_clearance
-    (D-009): a post in the belt is a machine that cannot be built."""
-    belt = gg.conveyor_rect(spec)
-    clear = spec.layout.gantry_frame.conveyor_clearance if spec.layout else None
-    if belt is None or clear is None:
-        r.unresolved("gantry_straddle: conveyor footprint or gantry_frame.conveyor_clearance "
-                     "(layout.conveyor.width, conveyor.pitch, station poses)")
-        return
-    r.info["conveyor_mm"] = [round(v * 1000.0, 1) for v in belt.doc()]
-    for gid in spec.gantries:
-        posts = gg.post_rects(spec, gid)
-        if posts is None:
-            r.unresolved(f"{gid}: post footprints (travel limits, mount or post_size null)")
-            continue
-        for k, post in enumerate(posts, start=1):
-            gap = post.gap(belt)
-            if gap < 0:
-                r.add(FAIL, f"{gid} post {k} at x,y {post.doc()} stands in the conveyor "
-                            f"({-gap * 1000:.1f} mm deep)")
-            elif gap < clear - gg.EPS:
-                r.add(FAIL, f"{gid} post {k} is {gap * 1000:.1f} mm from the conveyor edge, "
-                            f"less than gantry_frame.conveyor_clearance {clear * 1000:g} mm")
+            slide = f", slide {row['slide_s']:.2f}" if row["slide_s"] else ""
+            r.add(FAIL, f"{sid}: {row['total_s']:.2f} s ({parts}{slide}, index "
+                        f"{row['index_s']:.2f}) > takt {row['takt_s']:g} s")
 
 
 def check_safe_z(spec: LineSpec, r: Result) -> None:
-    """Per gantry, safe_z = tallest item under it + tallest part it carries + z_margin
-    (tools/gantry_geometry.py). No item under it may reach above safe_z - z_margin, and safe_z
-    has to be inside the gantry's own z travel or it cannot move at that height."""
-    margin = spec.gantry_defaults.z_margin
+    """Per SCARA, safe_z = tallest item in its reach envelope (the retracted gang head on its
+    slide included) + the part it carries + z_margin (tools/robot_geometry.py). FAIL when it
+    exceeds z_stroke: the TCP could not travel over what is in reach."""
     r.info["safe_z"] = {}
-    for gid, g in spec.gantries.items():
-        sz = gg.safe_z(spec, gid, r.cfg["cad"])
-        r.info["safe_z"][gid] = sz.doc()
+    for sid, sc in spec.scaras.items():
+        sz = rg.safe_z(spec, sid, r.cfg["cad"])
+        r.info["safe_z"][sid] = sz.doc()
         for u in sz.unresolved:
             r.unresolved(u)
         if sz.value is None:
             continue
-        for label, top in sz.items:
-            if top > sz.value - margin + gg.EPS:
-                r.add(FAIL, f"{gid}: {label} reaches z={top:.3f}, above safe_z - z_margin "
-                            f"= {sz.value - margin:.3f}")
-        if g.mount[2] is None or g.axes.z.min is None or g.axes.z.max is None:
-            r.unresolved(f"{gid}: z travel null; cannot tell whether safe_z is reachable")
-        elif not g.axes.z.min - gg.EPS <= sz.value - g.mount[2] <= g.axes.z.max + gg.EPS:
-            r.add(FAIL, f"{gid}: safe_z={sz.value:.3f} ({sz.tallest[0]} {sz.tallest[1]:.3f} + "
-                        f"{sz.hang[0]} {sz.hang[1]:.3f} + margin {margin:g}) is outside its z "
-                        f"travel [{g.mount[2] + g.axes.z.min:g}, {g.mount[2] + g.axes.z.max:g}]")
+        if sc.z_stroke is None:
+            r.unresolved(f"{sid}: z_stroke null; cannot tell whether safe_z is reachable")
+        elif sz.value > sc.z_stroke + rg.EPS:
+            r.add(FAIL, f"{sid}: safe_z={sz.value:.3f} ({sz.tallest[0]} {sz.tallest[1]:.3f} + "
+                        f"{sz.hang[0]} {sz.hang[1]:.3f} + margin "
+                        f"{spec.scara_defaults.z_margin:g}) exceeds its z_stroke {sc.z_stroke:g}")
 
 
 def check_feeder_rate(spec: LineSpec, r: Result) -> None:
@@ -589,6 +633,52 @@ def check_datums(spec: LineSpec, r: Result) -> None:
                                 f"{ref[key][0]} ({ref[key][1]:g})")
 
 
+def check_arm_pin_clearance(spec: LineSpec, r: Result) -> None:
+    """Option B (D-012): the pallet's arm pins go through dedicated arm tooling holes, because the
+    screw holes must stay free for the gang head. FAIL a tooling hole within PIN_CLEAR_SCREW_D
+    screw diameters of any arm screw hole, or a count that is not one per arm. The screw is the
+    fastener of the step whose gang head drives the arm-hole pattern."""
+    plate = spec.parts.get("bottom_plate")
+    holes = plate.arm_holes if plate is not None else None
+    tooling = spec.drone.arm_tooling_holes if spec.drone is not None else None
+    if holes is None:
+        r.unresolved("parts.bottom_plate.arm_holes is not defined")
+        return
+    if tooling is None:
+        r.unresolved("drone.arm_tooling_holes is not defined")
+        return
+    arms = len(holes.positions) // holes.per_arm
+    if len(tooling) != arms:
+        r.add(FAIL, f"drone.arm_tooling_holes has {len(tooling)} hole(s) for {arms} arm(s); "
+                    "one pin per arm")
+    pattern_heads = {h for h, gh in spec.gang_heads.items()
+                     if gh.pattern_from == "bottom_plate.arm_holes"}
+    fasteners = {s.fastener for s in spec.sequence if s.head in pattern_heads and s.fastener}
+    ds = [spec.fasteners[f].d for f in fasteners if f in spec.fasteners]
+    if not ds or None in ds:
+        r.unresolved("arm screw diameter: no fastener with `d` is driven into "
+                     "bottom_plate.arm_holes")
+        return
+    limit = PIN_CLEAR_SCREW_D * max(ds)
+    r.info["min_clearance_m"] = limit
+    nearest = None
+    for i, th in enumerate(tooling):
+        if None in th:
+            r.unresolved(f"drone.arm_tooling_holes[{i}]")
+            continue
+        for j, h in enumerate(holes.positions):
+            if None in h:
+                r.unresolved(f"parts.bottom_plate.arm_holes.positions[{j}]")
+                continue
+            d = math.hypot(th[0] - h[0], th[1] - h[1])
+            nearest = d if nearest is None else min(nearest, d)
+            if d < limit - rg.EPS:
+                r.add(FAIL, f"drone.arm_tooling_holes[{i}] {list(th)} is {d * 1000:.2f} mm from "
+                            f"arm screw hole {j} {list(h)}, less than {PIN_CLEAR_SCREW_D:g} x "
+                            f"Ø{max(ds) * 1000:g} = {limit * 1000:g} mm")
+    r.info["nearest_m"] = nearest and round(nearest, 6)
+
+
 CHECKS = [
     ("schema", check_schema),
     ("actors", check_actors),
@@ -596,16 +686,17 @@ CHECKS = [
     ("precedence", check_precedence),
     ("takt", check_takt),
     ("line_balance", check_line_balance),
-    ("reach", check_reach),
-    ("gantry_load", check_gantry_load),
-    ("station_time", check_station_time),
-    ("gantry_straddle", check_gantry_straddle),
+    ("scara_reach", check_scara_reach),
+    ("scara_clearance", check_scara_clearance),
     ("safe_z", check_safe_z),
+    ("robot_load", check_robot_load),
+    ("station_time", check_station_time),
     ("feeder_rate", check_feeder_rate),
     ("buffer", check_buffer),
     ("fastener_lengths", check_fastener_lengths),
     ("no_flip", check_no_flip),
     ("datums", check_datums),
+    ("arm_pin_clearance", check_arm_pin_clearance),
 ]
 
 
@@ -614,9 +705,9 @@ def run_checks(raw: dict, min_buffer: int = MIN_BUFFER_CAPACITY,
                dev: bool = False) -> tuple[list[Result], bool]:
     """Run every check on the raw spec data. Returns (results, passed).
 
-    `cad_dir`/`dev` say where the build123d parts' reports are (gantry_geometry.CadHeights):
-    safe_z and gantry_load read those parts' heights from them."""
-    cad = gg.CadHeights(cad_dir, dev)
+    `cad_dir`/`dev` say where the build123d parts' reports are (robot_geometry.CadHeights):
+    safe_z, robot_load and station_time read those parts' heights from them."""
+    cad = rg.CadHeights(cad_dir, dev)
     results: list[Result] = []
     try:
         spec = parse_spec(raw)
@@ -646,7 +737,7 @@ def _summary(r: Result) -> str:
         return f"{r.info.get('count', 0)} null value(s)"
     if r.name == "line_balance" and "bottleneck" in r.info:
         return f"bottleneck {r.info['bottleneck']} at {r.info['bottleneck_pct']}%"
-    if r.name == "gantry_load" and r.status != WARN and r.info.get("load_pct"):
+    if r.name == "robot_load" and r.status != WARN and r.info.get("load_pct"):
         return (", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None)
                 + f" of {r.info['budget_s']:g} s")
     if r.name == "station_time" and r.status != WARN and r.info.get("stations"):
@@ -656,9 +747,9 @@ def _summary(r: Result) -> str:
             return (f"max {top} {done[top]['total_s']:.2f} s of {done[top]['takt_s']:g} s"
                     + (" — " + _count(r) if r.status == FAIL else ""))
     if r.name == "safe_z" and r.status != WARN and r.info.get("safe_z"):
-        return ", ".join(f"{g} {d['safe_z']:.3f} m" for g, d in r.info["safe_z"].items()
-                         if d["safe_z"] is not None) + (" — " + _count(r) if r.status == FAIL
-                                                        else "")
+        return f"max {max(d['safe_z'] for d in r.info['safe_z'].values() if d['safe_z'] is not None):.3f} m" \
+            + (" — " + _count(r) if r.status == FAIL else "") \
+            if any(d["safe_z"] is not None for d in r.info["safe_z"].values()) else "ok"
     n = {lvl: sum(1 for l, _ in r.findings if l == lvl) for lvl in (FAIL, WARN)}
     if r.status == FAIL:
         return f"{n[FAIL]} failure(s)"
@@ -675,14 +766,19 @@ def print_table(results: list[Result], passed: bool, verbose: bool) -> None:
     print("-" * 60)
     for r in results:
         for lvl, msg in r.findings:
-            if lvl == FAIL or (verbose and lvl in (WARN, SKIP)):
+            # The shared reach zones are always shown: each one needs an interlock (D-012).
+            if lvl == FAIL or (verbose and lvl in (WARN, SKIP)) \
+                    or (r.name == "scara_clearance" and lvl == WARN
+                        and not msg.startswith("UNRESOLVED")):
                 print(f"  [{lvl}] {r.name}: {msg}")
     st = next((r for r in results if r.name == "station_time"), None)
     if st is not None and st.info.get("stations"):
-        print("station_time = gantry steps + drive_s x passes + index (pitch / belt_speed):")
+        print("station_time = SCARA steps + drive_s x passes + slide t_in/t_out + index "
+              "(pitch / belt_speed):")
         estimate_moves.print_station_table(st.info["stations"])
         print("-" * 60)
-    warns = sum(1 for r in results for lvl, _ in r.findings if lvl == WARN)
+    warns = sum(1 for r in results for lvl, m in r.findings
+                if lvl == WARN and (r.name != "scara_clearance" or m.startswith("UNRESOLVED")))
     if warns and not verbose:
         print(f"  ({warns} warning(s) not shown; -v or see the report)")
     print("line_check:", "PASS" if passed else "FAIL")
@@ -728,14 +824,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-fastener-lengths", type=int, default=MAX_FASTENER_LENGTHS,
                     help="WARN above this many distinct lengths (default %(default)s)")
     ap.add_argument("--cad-reports", type=Path, default=None,
-                    help=f"where cad_<part>.json live (default {gg.CAD_REPORTS})")
+                    help=f"where cad_<part>.json live (default {rg.CAD_REPORTS})")
+    ap.add_argument("--milestone", default=None,
+                    help="check only this milestone's stations and their robots, feeders and "
+                         "buffers (D-012); report reports/line_check.<name>[.dev].json")
     ap.add_argument("-v", "--verbose", action="store_true", help="also print warnings")
     args = ap.parse_args(argv)
 
-    report = args.report or report_path("line_check", args.dev)
+    name = f"line_check.{args.milestone}" if args.milestone else "line_check"
+    report = args.report or report_path(name, args.dev)
     t0 = time.monotonic()
     try:
         merged = load_merged(args.spec, args.dev)
+        if args.milestone:
+            merged = Merged(milestone_subset(merged.raw, args.milestone), merged.placeholders,
+                            merged.shadowed)
     except SpecError as exc:
         write_report([Result("schema", [(FAIL, e) for e in exc.errors])], False, args.spec,
                      report, time.monotonic() - t0, dev=args.dev)
@@ -749,6 +852,8 @@ def main(argv: list[str] | None = None) -> int:
               "results are not deliverable")
         for sh in merged.shadowed:
             print(f"  [WARN] overlay {sh['path']}={sh['overlay']!r} ignored: base has {sh['base']!r}")
+    if args.milestone:
+        print(f"MILESTONE {args.milestone}: {', '.join(merged.raw['stations'])}")
     print_table(results, passed, args.verbose)
     return 0 if passed else 1
 

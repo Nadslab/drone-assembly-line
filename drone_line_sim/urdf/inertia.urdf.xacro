@@ -21,7 +21,7 @@
   </xacro:macro>
 
   <!-- A box link: visual and inertial from one envelope, both about the same centre. No
-       collision — see the header of gantry.urdf.xacro. -->
+       collision — see the header of scara.urdf.xacro. -->
   <xacro:macro name="box_link" params="name m x y z colour:='0.5 0.5 0.55 1' cx:=0 cy:=0 cz:=0">
     <link name="${name}">
       <visual>
