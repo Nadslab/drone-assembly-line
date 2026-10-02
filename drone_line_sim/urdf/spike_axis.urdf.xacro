@@ -3,7 +3,7 @@
   P1 spike: one prismatic axis (a cart on a rail) driven by ros2_control in Gazebo.
   Mirrors the gz_ros2_control_demos cart-on-rail example (test_cart_position.xacro.urdf):
   world -> fixed rail -> prismatic cart, GazeboSimSystem hardware, position command interface.
-  The damping/friction/limit values here are the candidates for the gantry-axis defaults in
+  The damping/friction/limit values here are the candidates for linear-axis defaults in
   line_spec.yaml once spike.sh passes.
 -->
 <robot name="spike_axis" xmlns:xacro="http://www.ros.org/wiki/xacro">

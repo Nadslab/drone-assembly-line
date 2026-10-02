@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from build123d import Axis, Compound, GeomType, Location, Pos, Rot, import_step
+from build123d import Axis, Compound, GeomType, Location, Pos, Rot, Shape, import_step
 
 LINK_MIN_MM = 100.0      # a bore this far from J1 belongs to the far end of the J1 link
 BORE_MAX_MM = 100.0      # a joint bore, not a large-radius styling surface
@@ -66,14 +66,23 @@ class Scara:
                                      round(math.degrees(self.j2_step), 2)]}
 
     def posed(self, j1: float, j2: float) -> list[tuple[str, object]]:
-        """The arm at (j1, j2), robot frame, millimetres: [(role, solid)]."""
-        d1, d2 = j1 - self.j1_step, j2 - self.j2_step
-        ax2 = Axis((self.j2_axis[0], self.j2_axis[1], 0.0), (0, 0, 1))
-        out = [(n, copy.deepcopy(s)) for n, s in self.base]
-        out += [(n, copy.deepcopy(s).rotate(Axis.Z, math.degrees(d1))) for n, s in self.link1]
-        out += [(n, copy.deepcopy(s).rotate(ax2, math.degrees(d2)).rotate(Axis.Z, math.degrees(d1)))
-                for n, s in self.link2]
+        """The arm at (j1, j2), robot frame, millimetres: [(role, solid)]. Every solid is the
+        loaded one at a new OCC location over the same geometry, never a copy (build123d's
+        `moved()` deep-copies first): five arms of an 11 MB vendor STEP as copies ran a 7.8 GB
+        machine out of memory (D-013)."""
+        d1, d2 = math.degrees(j1 - self.j1_step), math.degrees(j2 - self.j2_step)
+        r1 = Location((0, 0, 0), (0, 0, d1))
+        jx, jy = self.j2_axis
+        r2 = Location((jx, jy, 0)) * Location((0, 0, 0), (0, 0, d2)) * Location((-jx, -jy, 0))
+        out = [(n, _at(s, Location())) for n, s in self.base]
+        out += [(n, _at(s, r1)) for n, s in self.link1]
+        out += [(n, _at(s, r1 * r2)) for n, s in self.link2]
         return out
+
+
+def _at(shape, loc: Location):
+    """`shape` at `loc`, sharing its geometry (no deep copy)."""
+    return Shape.cast(shape.wrapped.Moved(loc.wrapped))
 
 
 def _to_robot(shape):
@@ -144,7 +153,9 @@ def placed(model: Scara, j1: float, j2: float, x_mm: float, y_mm: float, z_mm: f
            yaw: float) -> list[tuple[str, object]]:
     """The posed arm with its mounting face at (x, y, z) mm, j1 = 0 along `yaw` (rad)."""
     loc = Location((x_mm, y_mm, z_mm), (0, 0, math.degrees(yaw)))
-    return [(n, loc * s) for n, s in model.posed(j1, j2)]
+    # Its own geometry (a parentless copy: ~15 MB, 0.2 s per arm): arms sharing one geometry are
+    # written as instances of one STEP product, and re-import keeps one name for all of them.
+    return [(n, copy.deepcopy(_at(s, loc))) for n, s in model.posed(j1, j2)]
 
 
 if __name__ == "__main__":

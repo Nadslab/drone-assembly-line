@@ -756,3 +756,136 @@ has 0 interferences.
 - **A.** Who works st_audit_torque and st_pack: deferred with them.
 - **B.** No fastener is chosen for seat_esc, fit_side_plates or drive_top_plate (WARN).
 - **C.** mount_servo (parked) has no driver.
+
+## D-013 — Five SCARA stations, Epson LS10-B, anchors, path-based safe_z, carrier returns, fence
+
+**Date:** 2026-10-02 (docs/12_line_architecture_update.md is the source of every decision here)
+
+**Context.** D-012 left six single-step SCARA stations, a per-SCARA reach/stroke typed into every
+entry, absolute poses for every station and source, safe_z judged against everything in a reach
+circle (items E and F failed on equipment the SCARA never passes over), and per-milestone guard
+boxes that overlapped (item G). docs/12 fixes the station plan (loader + A–E), the robot (one
+Epson model everywhere) and the spider handling (the carrier rides along to B).
+
+**Decision — five working stations, not four, not six.** `st_build_frame` (A) merges
+st_place_spider, st_place_mid_plate and st_drive_arm_sandwich: `extend_pins` (actuate) →
+`place_spider` (carrier_spider from buf_spider, tool_carrier_spider) → `place_mid_plate`
+(tool_plate_vacuum) → `drive_arm_sandwich` (gh_arm_sandwich on a slide, 8). `st_seat_esc` (B):
+`install_standoffs` (one gang pick) → `drive_esc` (gh_esc, 4) → `remove_carrier_spider` onto
+`rt_carrier_spider`. `st_fit_pod` (C): `place_pod` (carrier_pod) → `drive_pod` (gh_pod) →
+`remove_carrier_pod` onto `rt_carrier_pod`. `st_fit_side_plates` (D): paired pick → opposed
+heads, 2 passes → `mount_servo` (parked, no actor). `st_fit_top_plate` (E): place → drive 5.
+Milestones: frame [st_load_pallet, st_build_frame], electronics [st_seat_esc, st_fit_pod],
+closeout [st_fit_side_plates, st_fit_top_plate].
+**Why not four:** the first merge put ESC and pod at one station, but it missed three steps of the
+design summary §5 — the pod screws, the spider-carrier removal and the pod-tray removal. With them
+a combined ESC + pod station is ~24.5 s, over the 20.2 s takt. With real SCARA speeds B and C may
+merge again; it is a spec edit and `station_time` will say whether it fits.
+
+**Decision — the carrier rides along to B.** carrier_spider is placed at A (it holds the 4 arms
+and the suspended ESC), stays on the pallet, and is lifted off at B once the ESC is fastened. The
+pod tray is placed and lifted off at C. New capability **`remove`** (a SCARA lifts `part` off the
+pallet and puts it on return path `to`); `robot_geometry.stack_parts` drops a removed part, so
+heights downstream are right. **Return paths** `return_paths.rt_<carrier>`: a chute (or conveyor
+segment) owned by its station, from the put-down point (`offset`) `length` out through the fence
+to `sink`, the sub-line source that refills the carrier. D-012's option B is gone: no
+spider_gripper, no `sources.*.returns` no-op; `drone.arm_tooling_holes` and `arm_pin_clearance`
+stay. The pallet's arm pins are retractable: `actuate` step `extend_pins` (device arm_pins) at A,
+`drone.arm_pins.retract_at: unload` (the end-of-line station, deferred).
+
+**Decision — Epson LS10-B, 700 mm, Z 300 mm.** `robot_models.epson_ls10b_700_z300` carries the
+published values (reach 0.70, z_stroke 0.30, payload 5/10 kg, j1 ±132°, j2 ±150°, j4 ±360°,
+inertia_rated 0.02 kg·m², repeatability 0.02 mm, the vendor STEP path). `link1`/`link2` and
+`motion {v_max, a_max, j4_speed}` are null in base, PLACEHOLDER in dev (0.425/0.275 m, 2 m/s,
+10 m/s², 20 rad/s). Every `scaras` entry names the model; tools are listed once under `tools:`
+(grip, dims, mass, offset_r) and a SCARA lists its end-effector: one tool or a **dual-tool** pair
+(A: carrier gripper + plate vacuum; B: standoff gang + carrier gripper), switched by a 180° J4
+turn timed π / (j4_speed × plan_speed_scale), counted in series (conservative: a real cell turns
+J4 during the travel). **Open item — wrist inertia:** docs/12 §4; the check exists (below) but
+its inputs are placeholders until the carrier and end-effector are modelled.
+**The vendor STEP measures link1/link2 = 0.325/0.375 m** (J2 bore and Z shaft axes,
+tools/cad/vendor.py), not the dev placeholder 0.425/0.275. layout.py WARNs about it; the
+datasheet value should replace both.
+
+**Decision — anchors.** A station is `anchor: {after: <previous station>, gap}` (the first:
+`after: origin`); everything a station owns — SCARA base, gang head working pose, feeders,
+buffers, return paths — is `offset: [dx, dy, dz, yaw]` in that station's frame. spec.py
+`resolve_anchors` derives every `pose` (idempotent; a milestone subset keeps the poses it was cut
+with and records `pallet_in`, what the pallet brings from upstream); every generator reads only
+resolved poses. A `pose` written next to an anchor/offset is refused at load. A resolved pose
+component computed from a placeholder is itself listed as a placeholder (`derived_from`). New
+check `anchors`: FAIL a station without an anchor, an anchor not on the previous station, or an
+owned entity with an absolute pose.
+
+**Decision — path-based safe_z.** A SCARA clears only what lies under the band its tool (and the
+part it carries) sweeps: each leg home → pick → place → home is a joint-space move (j1, j2
+interpolated on the elbow solution valid at both ends), sampled, buffered by the tool's radius
+(offset_r + half-diagonal) or the carried part's; a step that starts with a tool switch also
+clears the end-effector's disc at home. Per step: tallest item under the band + the carried part's
+height + z_margin; estimate_moves times each step at its own. FAIL above the model's stroke top
+(base z + z_stroke). This retires D-012 items E and F.
+
+**Decision — checks added/changed:** `scara_reach` (IK inside the links and the j1/j2 limits,
+j1 measured from the base yaw — not a full circle — and z inside the stroke; radius-only and
+UNRESOLVED while the links are null), `payload` (tool masses + heaviest lifted part with what rides
+in it ≤ payload_rated), `wrist_inertia` (Σ(I_cm + m r²) about J4 for the tools at offset_r and the
+carried part as a plate of its plan size; WARN above inertia_rated, UNRESOLVED on a null mass),
+`station_time` and `robot_load` (tool switches and `actuate` durations included).
+
+**Decision — guards.** One continuous fence guard_offset outside everything worked at (reach
+discs, gang heads and slides, feeders, buffers, return-path put-down ends), tunnelled where the
+conveyor passes each end and where a return chute leaves; one partition wall per milestone
+boundary, half-way between the boundary stations, tunnelled for the conveyor. The sinks stand
+outside. All guard solids stay in the Reference group. This retires D-012 item G.
+
+**Decision — layout.** Each SCARA is its vendor STEP posed folded (j1 = 0, j2 at its limit) on a
+`layout.scara_base` pedestal (falls back to the cylinder with a WARN when the STEP is missing);
+carriers are drawn on the pallet at every station they ride through; return paths and sinks are
+drawn. layout.py renders reports/render/<milestone|line>_{top,iso}.png with pyvista (offscreen).
+
+**Dev layout (PLACEHOLDER).** Every working station is one cell: SCARA base 0.45 m out on −y
+facing the line, sources and the return chute 0.35 m either side in x, 0.25 m out on −y, the gang
+head waiting on its slide (0.40 m) on +y. Gaps 1.4 m inside a milestone (no shared reach zone),
+2.0 m across a milestone boundary (the partition clears both envelopes by guard_offset). The
+slide stroke was sized from safe_z: the spider carrier's band reaches y = 0.21 m on +y, so a
+0.15 m half-width head must wait ≥ 0.36 m out (at 0.35 m safe_z needed 0.49 m > 0.30).
+
+**Layout memory (found while verifying).** build123d's `moved()` / `Location * shape` deep-copy
+the shape first; for a shape already in an assembly that copies the whole tree. With the vendor
+arms that ran the full-line layout past 7.8 GB (twice, taking the session with it). layout.py
+`relocated()` and vendor.py now place shapes at a new OCC location over the same geometry (each
+arm keeps its own copy, ~15 MB, so STEP re-import keeps every name). Frame milestone: 4.5 GB →
+1.0 GB, ~2 min → ~25 s; full line: 1.7 GB, ~2 min.
+
+**Result on the dev overlay (PLACEHOLDER values, not deliverable).** `check_line.py --dev` PASS
+on the full line and on each milestone; `estimate_moves.py --dev` PASS; `descriptions.sh --dev`
+PASS (26 joint limits, 25 spindle frames); 438 pytest pass.
+
+| station | SCARA steps (+ switches) | drive | slide | actuate | index | total / 20.2 s |
+|---|---|---|---|---|---|---|
+| st_build_frame | 7.97 | 3.0 | 1.0 | 0.5 | 2.0 | **14.47** |
+| st_seat_esc | 8.13 | 3.0 | 1.0 | — | 2.0 | **14.13** |
+| st_fit_pod | 7.79 | 3.0 | 1.0 | — | 2.0 | **13.79** |
+| st_fit_side_plates | 3.53 | 6.0 (2 passes) | 1.0 | — | 2.0 | **12.53** |
+| st_fit_top_plate | 3.38 | 3.0 | 1.0 | — | 2.0 | **9.38** |
+
+robot_load (budget 17.2 s): 46.3 / 47.2 / 45.3 / 20.5 / 19.6 %. safe_z (stroke 0.30):
+0.235 / 0.240 / 0.246 / 0.203 / 0.133 m. payload (rated 5 kg): 2.10 / 1.75 / 0.92 / 0.52 /
+0.89 kg. wrist_inertia (rated 0.02): 0.0112 / 0.0091 / 0.0009 / 0.0014 / 0.0045 kg·m² — no WARN,
+on placeholder masses. layout.py --dev: 108 solids, 0 interferences, STEP hierarchy and opacity
+verified.
+
+**Unresolved (not tuned away):**
+- **H. The parked arm at A meets gh_arm_sandwich.** Folded at j1 = 0 (the home the estimate
+  uses), A's link 1 (underside 0.321 m) and J2 housing overlap the head's working box (top
+  0.354 m: it works over the 0.104 m carrier) by 128 + 14 cm³. B–E clear. The layout draws the
+  head retracted, so `interference` cannot see it. Fixes: park A's arm folded away from the
+  pallet (e.g. j1 ≈ ±120°) while the head drives, raise A's mount, or add a check of the parked
+  arm against each head's working box.
+- **I. Link split.** Dev link1/link2 0.425/0.275 m vs 0.325/0.375 m measured in the vendor
+  STEP: reach, r_min and the IK use the placeholder. Put the datasheet value in the base spec.
+- **J. Gang head supports.** Heads are drawn at their waiting pose with no slide frame under
+  them; the frame is not modelled.
+- Gap B (no fastener for drive_esc, drive_pod, drive_side_plates, drive_top_plate) and gap C
+  (mount_servo parked) carried; the spider-carrier bridge vs the mid plate and the arm-sandwich
+  head (docs/12 §7) is not modelled; plan_speed_scale 0.5 still the D-007 linear-axis value.

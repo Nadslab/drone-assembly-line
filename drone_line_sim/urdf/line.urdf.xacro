@@ -103,8 +103,8 @@
   <xacro:heads_from_spec parent="Line_base" ids="${python.sorted(spec['gang_heads'])}"/>
 
   <!-- ros2_control: one system, every joint on a position interface
-       No joint states a `position_proportional_gain` (the gantry axes' D-002 field went with
-       them, D-012), so every joint keeps the plugin's default. `initial_value` is 0, which is
+       No joint states a `position_proportional_gain` (D-002's field has no SCARA or ram
+       value, D-012), so every joint keeps the plugin's default. `initial_value` is 0, which is
        inside every SCARA and ram travel. -->
   <xacro:macro name="control_joint" params="name initial gain:=''">
     <joint name="${name}">

@@ -400,21 +400,28 @@ def dev_cad_reports():
 
 
 def test_repo_dev_overlay_records_the_d013_result(dev_cad_reports):
-    """D-013 phase 1 on the dev overlay: station A (st_build_frame) is converted and clean; the
-    stations after it still stand in the D-012 pattern, where gh_top_plate waits on its slide
-    under scara_fit_top_plate's path (safe_z FAIL), and two neighbour pairs share reach (WARN).
-    actors keeps open gap B (WARN)."""
+    """D-013 on the dev overlay: five SCARA stations, every one inside takt, every safe_z inside
+    the Epson's 0.30 m stroke, no shared reach zone, payload and wrist inertia under rating.
+    Only gap B stays open (WARN: four drive steps name no fastener)."""
     results, passed = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
                                             dev=True)
     got = by_name(results)
-    assert not passed
-    assert {r.name: r.status for r in results if r.status != "PASS"} == {
-        "actors": "WARN", "scara_clearance": "WARN", "safe_z": "FAIL"}
-    assert [m.split(":")[0] for lvl, m in got["safe_z"].findings if lvl == "FAIL"] == \
-        ["scara_fit_top_plate"]
-    assert all(p <= 100.0 for p in got["robot_load"].info["load_pct"].values())
+    assert passed
+    assert {r.name: r.status for r in results if r.status != "PASS"} == {"actors": "WARN"}
     assert sorted(m.split()[1].rstrip(":") for lvl, m in got["actors"].findings
-                  if lvl == "WARN") == ["drive_top_plate", "fit_side_plates", "seat_esc"]
+                  if lvl == "WARN") == ["drive_esc", "drive_pod", "drive_side_plates",
+                                        "drive_top_plate"]
+    assert set(got["robot_load"].info["load_pct"]) == {
+        "scara_build_frame", "scara_seat_esc", "scara_fit_pod", "scara_fit_side_plates",
+        "scara_fit_top_plate"}
+    assert got["scara_clearance"].info["shared_zones"] == []
+
+
+@pytest.mark.parametrize("name", ["frame", "electronics", "closeout"])
+def test_repo_dev_every_milestone_passes_on_its_own(dev_cad_reports, name):
+    raw = spec_mod.milestone_subset(spec_mod.load_raw(dev=True), name)
+    results, passed = check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)
+    assert passed, [(r.name, r.findings) for r in results if r.status == "FAIL"]
 
 
 def test_repo_dev_frame_milestone_passes(dev_cad_reports):
@@ -431,8 +438,10 @@ def test_repo_spec_every_feeder_and_buffer_is_drawn_and_every_drive_has_a_driver
     assert not [m for m in msgs if "draws from it" in m or "has no driver" in m], msgs
     actors = by_name(results)["actors"].info["station_actors"]
     assert actors["st_load_pallet"] == "sub_line"
-    assert actors["st_mount_servo"] == "parked"
-    assert actors["st_fit_side_plates"] == "scara + gh_side_plates"
+    assert actors["st_build_frame"] == "scara + gh_arm_sandwich"
+    assert actors["st_seat_esc"] == "scara + gh_esc"
+    assert actors["st_fit_pod"] == "scara + gh_pod"
+    assert actors["st_fit_side_plates"] == "scara + gh_side_plates"   # mount_servo is parked
     assert actors["st_fit_top_plate"] == "scara + gh_top_plate"
 
 

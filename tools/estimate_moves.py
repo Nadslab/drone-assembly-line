@@ -10,7 +10,8 @@ No ROS, no Gazebo: arithmetic on the spec. One SCARA pick-and-place (D-012) is
 with `scara_defaults.settle_s` after each of the four Z moves. Every move is a trapezoid on the
 TCP distance (straight line in plan for a horizontal move, the drop for a Z move) at the robot
 model's `motion.v_max`/`a_max` scaled by `scara_defaults.plan_speed_scale` (D-007: plan below the
-ceilings; its 0.5 comes from the gantry spike and must be re-derived for a SCARA):
+ceilings; its 0.5 comes from D-007's linear-axis measurement and must be re-derived for a
+SCARA):
 
     t = d/v + v/a     if d >= v^2/a      (reaches v)
     t = 2 sqrt(d/a)   otherwise          (triangular)
@@ -329,21 +330,21 @@ def print_station_table(rows: dict) -> None:
 def print_table(doc: dict) -> None:
     scale = doc["plan_speed_scale"]
     head = f"@{scale:g}" if scale is not None else "@plan"
-    print(f"{'scara':<25}{'step':<19}{'from':<14}{'qty':>4}{'safe_z':>8}{'switch':>8}"
+    print(f"{'scara':<25}{'step':<23}{'from':<14}{'qty':>4}{'safe_z':>8}{'switch':>8}"
           f"{'step_s ' + head:>14}{'step_s @1':>11}")
-    print("-" * 103)
+    print("-" * 107)
     for sid, g in doc["scaras"].items():
         for s in g["steps"]:
-            print(f"{sid:<25}{s['id']:<19}{s['from'] or '-':<14}{s['qty']:>4}"
+            print(f"{sid:<25}{s['id']:<23}{s['from'] or '-':<14}{s['qty']:>4}"
                   f"{s['safe_z']:>8.3f}{s['tool_switch_s']:>8.3f}{s['time_s']:>14.3f}"
                   f"{s['time_s_at_1']:>11.3f}")
         if g["total_s"] is not None:
-            print(f"{'':<25}{'budget':<19}{'':<14}{'':>4}{'':>8}{'':>8}{g['budget_s']:>14.3f}"
+            print(f"{'':<25}{'budget':<23}{'':<14}{'':>4}{'':>8}{'':>8}{g['budget_s']:>14.3f}"
                   f"{g['budget_s']:>11.3f}   {g['load_pct']:.1f}% / {g['load_pct_at_1']:.1f}%"
                   f"  {g['status']}" + (f" ({'; '.join(g['errors'])})" if g["errors"] else ""))
         else:
-            print(f"{sid:<25}{'total':<19}{'-':>59}   {g['status']}")
-        print("-" * 103)
+            print(f"{sid:<25}{'total':<23}{'-':>59}   {g['status']}")
+        print("-" * 107)
     if doc["transfer_s"] is not None:
         print(f"budget = takt {doc['takt_s']:g} s - transfer {doc['transfer_s']:g} s "
               f"(index {doc['index_s']:g} s = pitch / belt_speed, + stop unit) "

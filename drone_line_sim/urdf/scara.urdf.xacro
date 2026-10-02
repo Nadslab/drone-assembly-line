@@ -23,8 +23,8 @@
     spec); motion.j4_speed on j4.
 
   Numbers typed in this file are **envelopes**: link masses and the boxes the arm is drawn as. The
-  efforts are derived from them (moved mass x lever x a_max, plus gravity on j3), as on the old
-  gantry; no deliverable number comes from here. No collision geometry: position-commanded joints
+  efforts are derived from them (moved mass x lever x a_max, plus gravity on j3); no deliverable
+  number comes from here. No collision geometry: position-commanded joints
   fight a contact instead of stopping (D-002). The quill and the wrist hang on a vertical driven
   axis, so they are gravity-free in Gazebo (D-007).
 -->

@@ -184,9 +184,11 @@ def stack_parts(spec: LineSpec, station: str, own: bool = True,
     at an earlier station (by index) — and at this one too when `own` — less every part a
     `remove` step lifts off before it (D-013: a carrier rides along until it is removed).
     `before_step` (with `own`) stops at that step of this station: the stack a SCARA brings that
-    step's part in over. `own=False` is the stack as the pallet arrives."""
+    step's part in over. `own=False` is the stack as the pallet arrives. A milestone subset starts
+    from what the pallet brings in (`pallet_in`)."""
     idx = spec.stations[station].index
     out = ["pallet"] if "pallet" in spec.parts else []
+    out += [p for p in spec.pallet_in or [] if p not in out]   # brought in from upstream
     for s in spec.sequence:
         if s.status != "active" or not s.part or s.station not in spec.stations:
             continue

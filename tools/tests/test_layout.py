@@ -102,8 +102,8 @@ def test_every_station_feeder_buffer_and_robot_has_exactly_one_solid(clean):
         assert got.count(f"ReturnPath_{name}") == got.count(f"ReturnSink_{name}") == 1
     assert got.count("GangHead_Top") == 1
     assert "GangHead_Top_Slide" not in got                     # no SCARA at st_drive: no slide
-    assert sorted(n for n in got if n.startswith("Guard_")) == ["Guard_Back", "Guard_Front"]
-    assert not [n for n in got if n.startswith("Gantry")]
+    assert sorted(n for n in got if n.startswith("Guard_")) == ["Guard_Fence",
+                                                                "Guard_Partition_Front_Back"]
     assert len(got) == len(set(got))
 
 
@@ -132,7 +132,7 @@ def test_every_dimension_names_its_spec_key(clean):
         "robot_models.test_scara.joint_limits.j2"}
     head = next(s for s in doc["solids"] if s["name"] == "GangHead_Top")
     assert "gang_heads.gh_top.stroke" in head["dims"]["centre_z"]["spec_keys"]
-    guard = next(s for s in doc["solids"] if s["name"] == "Guard_Front")
+    guard = next(s for s in doc["solids"] if s["name"] == "Guard_Fence")
     assert "GUARD_H" in guard["dims"]["size_z"]["constants"]
     assert all(not s["placeholder"] for s in doc["solids"])     # no overlay in this run
 
@@ -180,18 +180,28 @@ def test_a_head_on_a_slide_waits_opposite_its_scara_with_a_slide_envelope(tmp_pa
     assert code == 0, doc["errors"]
 
 
-def test_one_guard_per_milestone_around_its_robots(clean):
-    """Front: buf_plate's footprint (x -0.275, D-013: sources stand inside their guard) to
-    gh_top's box (x 1.1), plus guard_offset and the wall; back: scara_spider's reach (1.76) to
-    the end of rt_fixture's sink (2.7 + 0.3 + 0.3 = 3.3)."""
+def test_one_fence_round_the_line_and_a_partition_per_milestone_boundary(clean):
+    """D-013: the fence runs guard_offset outside everything worked at — from buf_plate's
+    footprint (x -0.275) to rt_fixture's put-down end (2.7 + 0.075) — and a partition stands
+    half-way between st_drive (1.0) and st_test (1.5), the front | back boundary."""
     _, _, doc = clean
     wall = layout.GUARD_T * 1000.0
-    front = next(s for s in doc["solids"] if s["name"] == "Guard_Front")["bbox_mm"]
-    back = next(s for s in doc["solids"] if s["name"] == "Guard_Back")["bbox_mm"]
-    assert (front["min"][0], front["max"][0]) == pytest.approx(
-        (-275.0 - 300.0 - wall, 1100.0 + 300.0 + wall), abs=1e-3)
-    assert (back["min"][0], back["max"][0]) == pytest.approx(
-        (1725.0 - 300.0 - wall, 3300.0 + 300.0 + wall), abs=1e-3)
+    fence = next(s for s in doc["solids"] if s["name"] == "Guard_Fence")["bbox_mm"]
+    part = next(s for s in doc["solids"] if s["name"] == "Guard_Partition_Front_Back")["bbox_mm"]
+    assert (fence["min"][0], fence["max"][0]) == pytest.approx(
+        (-275.0 - 300.0 - wall, 2775.0 + 300.0 + wall), abs=1e-3)
+    assert (part["min"][0] + part["max"][0]) / 2.0 == pytest.approx(1250.0, abs=1e-3)
+    assert (part["min"][1], part["max"][1]) == pytest.approx(
+        (fence["min"][1] + wall, fence["max"][1] - wall), abs=1e-3)
+
+
+def test_a_return_chute_leaves_through_a_tunnel_and_its_sink_stands_outside(clean):
+    _, code, doc = clean
+    assert code == 0, doc["errors"]
+    fence = next(s for s in doc["solids"] if s["name"] == "Guard_Fence")["bbox_mm"]
+    sink = next(s for s in doc["solids"] if s["name"] == "ReturnSink_Fixture")["bbox_mm"]
+    assert sink["min"][0] > fence["max"][0]
+    assert not any("ends inside the fence" in w for w in doc["warnings"])
 
 
 def test_a_milestone_is_drawn_on_its_own(tmp_path, pass_raw):
@@ -200,9 +210,10 @@ def test_a_milestone_is_drawn_on_its_own(tmp_path, pass_raw):
     got = names(doc)
     assert doc["milestone"] == "back" and "/out/back/" in doc["outputs"]["step"]
     assert {"Scara_Spider_Base", "Scara_Pod_Base", "Buffer_Fixture", "Buffer_Pod",
-            "Guard_Back"} <= set(got)
-    assert not {"Scara_Place_Base", "GangHead_Top", "Feeder_MidPlate", "Guard_Front",
-                "Station_Drive"} & set(got)
+            "Guard_Fence", "ReturnPath_Fixture"} <= set(got)
+    assert not {"Scara_Place_Base", "GangHead_Top", "Feeder_MidPlate", "Station_Drive"} \
+        & set(got)
+    assert not [n for n in got if n.startswith("Guard_Partition")]      # one milestone
     conveyor = next(s for s in doc["solids"] if s["name"] == "Conveyor")["bbox_mm"]
     # st_test (1.5) to st_pod (2.5), half a pitch beyond each end.
     assert (conveyor["min"][0], conveyor["max"][0]) == pytest.approx((1250.0, 2750.0), abs=1e-3)
@@ -222,15 +233,14 @@ def test_a_feeder_standing_on_the_conveyor_fails_naming_both(tmp_path, pass_raw)
     assert doc["passed"] is False
 
 
-def test_guards_of_neighbouring_milestones_that_cross_fail_naming_both(tmp_path, pass_raw):
-    """The front guard ends 0.04 m before the back one starts; 0.05 m more offset each and the
-    walls cross (the D-012 dev result: no shared wall between milestones yet)."""
+def test_a_partition_inside_an_envelopes_offset_is_warned(tmp_path, pass_raw):
+    """The partition stands half-way between the boundary stations; a guard_offset that makes
+    it reach into either one's reach envelope is said, not drawn away."""
     raw = layout_raw(pass_raw)
     raw["layout"]["guard_offset"] = 0.35
     code, doc = run(tmp_path, raw)
-    assert code == 1
-    assert {"Guard_Front", "Guard_Back"} in [{f["a"], f["b"]}
-                                             for f in doc["interference"]["failures"]]
+    assert code == 0, doc["errors"]
+    assert any(w.startswith("partition front|back") for w in doc["warnings"])
 
 
 def test_a_placeholder_solid_is_suffixed_but_keeps_its_category_colour(tmp_path, pass_raw):
@@ -239,11 +249,11 @@ def test_a_placeholder_solid_is_suffixed_but_keeps_its_category_colour(tmp_path,
     code, doc = run(tmp_path, raw, "--dev", overlay={"layout": {"guard_offset": 0.3}})
     assert code == 0, doc["errors"]
     labels = {s["name"]: s["label"] for s in doc["solids"]}
-    assert labels["Guard_Front"] == "Guard_Front_PH"
+    assert labels["Guard_Fence"] == "Guard_Fence_PH"
     assert labels["Conveyor"] == "Conveyor"
     assert doc["placeholders"] == ["layout.guard_offset"]
     assert "/dev/" in doc["outputs"]["step"]
-    guard = find(import_step(doc["outputs"]["step"]), "Guard_Front_PH")
+    guard = find(import_step(doc["outputs"]["step"]), "Guard_Fence_PH")
     assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) == \
         tuple(round(c, 2) for c in layout.colour_of("guard"))
     assert tuple(round(c, 2) for c in tuple(guard.color)[:3]) != \
@@ -295,7 +305,7 @@ def test_placeholder_solids_are_opaque_too(tmp_path, pass_raw):
     code, doc = run(tmp_path, raw, "--dev", overlay={"layout": {"guard_offset": 0.3}})
     assert code == 0, doc["errors"]
     alphas = leaf_alphas(doc["outputs"]["step"])
-    assert alphas["Guard_Front_PH"] == 1.0
+    assert alphas["Guard_Fence_PH"] == 1.0
     assert set(alphas.values()) == {1.0}
 
 
@@ -381,7 +391,7 @@ def test_the_reference_group_holds_exactly_the_non_physical_solids(clean):
     back = import_step(doc["outputs"]["step"])
     reference = next(c for c in back.children if c.label == "Reference")
     got = {c.label for c in reference.children}
-    expected = {"Floor", "OperatorAisle", "Guard_Front", "Guard_Back"}
+    expected = {"Floor", "OperatorAisle", "Guard_Fence", "Guard_Partition_Front_Back"}
     expected |= {f"{scara_name(sid)}_Envelope" for sid in raw["scaras"]}
     assert got == expected
     robots = next(c for c in back.children if c.label == "Robots")

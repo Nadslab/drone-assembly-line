@@ -258,7 +258,8 @@ class ScaraDefaults(Model):
     # safe_z is derived per SCARA (tools/robot_geometry.py): the tallest item in its reach
     # envelope, plus the part it carries, plus this margin.
     z_margin: NonNeg | None
-    # Moves are planned at this fraction of v_max/a_max (D-007's gantry value; re-derive, D-012).
+    # Moves are planned at this fraction of v_max/a_max (D-007's linear-axis value; re-derive for
+    # a SCARA, D-012).
     plan_speed_scale: Annotated[float, Field(gt=0, le=1)] | None
 
 
@@ -430,6 +431,9 @@ class LineSpec(Model):
     milestones: dict[str, list[str]] | None = None
     sequence: list[Step]
     layout: Layout | None = None   # only tools/cad/layout.py needs it
+    # Set only by milestone_subset (D-013): the parts already on the pallet when it reaches this
+    # milestone's first station (a carrier riding along from upstream). None on the whole line.
+    pallet_in: list[str] | None = None
 
     @model_validator(mode="after")
     def _scaras(self):
@@ -701,6 +705,19 @@ def milestone_subset(raw: dict, name: str) -> dict:
     raw = out
     out = copy.deepcopy(out)
     keep = set(milestones[name])
+    # What the pallet brings in: every part placed upstream and not removed upstream.
+    index = {k: (v or {}).get("index") or 0 for k, v in (raw.get("stations") or {}).items()}
+    first = min(index[k] for k in keep if k in index) if keep & set(index) else 0
+    carried: list[str] = []
+    for s in raw.get("sequence") or []:
+        if s.get("status", "active") != "active" or not s.get("part") \
+                or index.get(s.get("station"), first) >= first:
+            continue
+        if s.get("capability") == "remove":
+            carried = [p for p in carried if p != s["part"]]
+        elif s["part"] not in carried:
+            carried.append(s["part"])
+    out["pallet_in"] = carried
     out["milestones"] = {name: list(milestones[name])}
     out["stations"] = {k: v for k, v in (raw.get("stations") or {}).items() if k in keep}
     steps = [s for s in raw.get("sequence") or [] if s.get("station") in keep]

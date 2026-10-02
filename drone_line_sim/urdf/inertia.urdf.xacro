@@ -36,8 +36,8 @@
   </xacro:macro>
 
   <!-- A link that hangs on a driven axis with a vertical component is gravity-free in Gazebo.
-       GazeboSimSystem commands a joint *velocity* from its position error, and measured on the
-       gantry: with gravity on, the Z axis does not leave its lower limit at all, even with the
+       GazeboSimSystem commands a joint *velocity* from its position error, and measured in the
+       D-007 line smoke test: with gravity on, a Z axis does not leave its lower limit at all, even with the
        derived effort raised 3x; with world gravity zeroed it reaches its target. A real Z drive
        holds its load (brake, counterbalance, servo); this is that, stated once. See
        docs/decisions.md D-007. -->

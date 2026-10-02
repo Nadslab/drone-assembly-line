@@ -1,5 +1,11 @@
 # 10 — Spec-Driven Line Plan (Gazebo + CAD + generation)
 
+> **Superseded in part (2026-10-02).** Read [docs/12_line_architecture_update.md](12_line_architecture_update.md)
+> first: per its §8, §2 naming (`gantry` → `scara_<station>`, plus `rt_<carrier>` and capability
+> `remove`), the §3 spec example (`gantry:` block, per-step stations), the gantry parts of P1, P5.3,
+> P5.4, P7 and P8a (read "SCARA" for "gantry"), and the §14 "Gantry axis spec" open item (now
+> "real SCARA motion parameters") are replaced. The current spec is the repo's (D-012, D-013).
+
 **Status:** plan, not started
 **Date:** 2026-09-19
 **Supersedes:** the four-step Gazebo sub-step list (world / feeders / robot descriptions / ros2_control)

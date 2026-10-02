@@ -27,9 +27,9 @@ z = -line.work_height), exported in millimetres:
              put-down plane — and ReturnSink_<Name> at its far end, the sub-line it feeds
              (SINK_SIZE square, floor to SINK_H below the put-down plane)
   Reference  non-physical solids: Floor (bbox of everything + 1 m), OperatorAisle (outside the
-             outermost guard on its side), Guard_<Milestone> (one per milestone, D-012: a wall
-             guard_offset outside the union of its robots' envelopes, with a tunnel where the
-             conveyor passes), Scara_<Name>_Envelope (an annular cylinder, the model's r_min..reach,
+             fence on its side), Guard_Fence (D-013: one wall guard_offset outside everything
+             worked at, tunnelled where the conveyor and each return chute pass) and
+             Guard_Partition_<A>_<B> (a wall across it at each milestone boundary), Scara_<Name>_Envelope (an annular cylinder, the model's r_min..reach,
              over the TCP's z range) and GangHead_<Name>_Slide (the volume a head on a slide
              sweeps between waiting and working)
 
@@ -69,12 +69,14 @@ import copy
 import json
 import math
 import re
+import resource
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from build123d import Box, Color, Compound, Cylinder, Pos, Rot, export_step, import_step
+from build123d import (Box, Color, Compound, Cylinder, Location, Pos, Rot, Shape, export_step,
+                       import_step)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))         # tools/cad: common
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
@@ -251,6 +253,18 @@ class Item:
         return self.centre[i] + self.size[i] / 2.0
 
 
+def relocated(shape, loc: Location | None = None):
+    """`shape` at `loc` (or where it is) as a fresh leaf: the same OCC geometry, its label and
+    colour, no parent. build123d's own `moved()` / `Location * shape` deep-copy the shape first,
+    and for a shape already in an assembly that copies the whole tree: ~1 s and up to 100 MB per
+    solid, which ran the full line (five vendor arms) out of a 7.8 GB machine (D-013)."""
+    out = Shape.cast(shape.wrapped.Moved((loc or Location()).wrapped))
+    if isinstance(out, Compound) and len(out.solids()) == 1:
+        out = out.solids()[0]               # a one-solid part exports as a solid, colour kept
+    out.label, out.color = shape.label, shape.color
+    return out
+
+
 def box_mm(centre, size):
     return Pos(*(c.value * 1000.0 for c in centre)) * Box(*(s.value * 1000.0 for s in size))
 
@@ -295,6 +309,7 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
     notes = notes if notes is not None else {}
     notes.setdefault("warnings", [])
     notes.setdefault("vendor", {})
+    notes.setdefault("vendor_warned", set())
     q = Reader(v)
     items: list[Item] = []
     L = "layout"
@@ -416,8 +431,10 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
             measured = model.measured()
             notes["vendor"][sid] = measured
             links = (lookup(v.raw, f"{rm}.link1"), lookup(v.raw, f"{rm}.link2"))
-            if None not in links and any(abs(a * 1000.0 - b) > 1.0 for a, b in
+            if None not in links and rm not in notes["vendor_warned"] \
+                    and any(abs(a * 1000.0 - b) > 1.0 for a, b in
                                          zip(links, (measured["link1_mm"], measured["link2_mm"]))):
+                notes["vendor_warned"].add(rm)
                 notes["warnings"].append(
                     f"{rm}: link1/link2 {links[0]:g}/{links[1]:g} m"
                     f"{' (PLACEHOLDER)' if v.is_placeholder(rm + '.link1') else ''} but the "
@@ -489,7 +506,8 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
                                                       py - d / 2.0, py + d / 2.0))
 
     # Return paths (D-013): a strip from the put-down point along its yaw, floor to the put-down
-    # plane, and a sink block at its far end. Both stand in their station's guard.
+    # plane, and a sink block at its far end.
+    strips = []
     for rid in v.raw.get("return_paths") or {}:
         rp = f"return_paths.{rid}"
         rx, ry, rz = q(f"{rp}.pose[0]"), q(f"{rp}.pose[1]"), q(f"{rp}.pose[2]")
@@ -509,39 +527,70 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
         items.append(Item(f"ReturnSink_{pascal(rid.removeprefix('rt_'))}", "return", "Returns",
                           (rx + far * ux, ry + far * uy, floor_z + sh / 2.0), (sink, sink, sh),
                           yaw=ryaw))
+        # Inside the guard: the put-down end, where the SCARA works. The chute runs out through
+        # the fence (a tunnel) to its sink, which stands outside with the sub-line.
         owner = lookup(v.raw, f"{rp}.station")
-        # Plan bounds of strip + sink: `length + sink` along the yaw, the wider of the two across.
-        half = dmax(width, sink) / 2.0
-        end = length + sink
-        xs = [rx + a * end * ux - b * half * uy for a in (0.0, 1.0) for b in (-1.0, 1.0)]
-        ys = [ry + a * end * uy + b * half * ux for a in (0.0, 1.0) for b in (-1.0, 1.0)]
-        reach_rects.setdefault(owner, []).append((dmin(*xs), dmax(*xs), dmin(*ys), dmax(*ys)))
+        reach_rects.setdefault(owner, []).append((rx - width / 2.0, rx + width / 2.0,
+                                                  ry - width / 2.0, ry + width / 2.0))
+        strips.append((rid, rx, ry, rz, ux, uy, length, width))
 
-    # Guards (D-012): one per milestone, a wall guard_offset outside the union of its robots'
-    # envelopes (SCARA reach discs, gang heads and their slides) and its stations' feeders and
-    # buffers (D-013), open where the belt passes.
+    # Guards (D-013): one continuous fence guard_offset outside everything that moves or is
+    # worked at — SCARA reach discs, gang heads and their slides, feeders and buffers, the
+    # put-down end of each return path — with a tunnel where the conveyor passes each end wall
+    # and where a return chute leaves; and a partition wall across it at every milestone
+    # boundary, half-way between the two stations either side, tunnelled for the conveyor.
     offset = q(f"{L}.guard_offset")
     tunnel_top = belt_top + pallet[2] + const("TUNNEL_CLEAR")
     wall = const("GUARD_T")
     gz = span(floor_z, floor_z + const("GUARD_H"))
+    tz = span(floor_z, tunnel_top)
     guards = []
-    milestones = v.raw.get("milestones") or {"line": stations}
-    for mname, members in milestones.items():
-        rects = [r for st in members for r in reach_rects.get(st, [])]
-        if not rects:
-            continue                    # nothing in this milestone moves: nothing to guard
+    rects = [r for rs in reach_rects.values() for r in rs]
+    if rects and not v.missing:
         env = [(dmin(*(r[0] for r in rects)), dmax(*(r[1] for r in rects))),
                (dmin(*(r[2] for r in rects)), dmax(*(r[3] for r in rects)))]
         inner = [(env[i][0] - offset, env[i][1] + offset) for i in range(2)]
         gx, gy = span(inner[0][0] - wall, inner[0][1] + wall), span(inner[1][0] - wall,
                                                                    inner[1][1] + wall)
-        tz = span(floor_z, tunnel_top)
-        tunnel = ((gx[0], cy, tz[0]), (gx[1] + wall * 4.0, sy, tz[1]))
-        it = Item(f"Guard_{pascal(mname)}", "guard", "Reference",
-                  (gx[0], gy[0], gz[0]), (gx[1], gy[1], gz[1]),
-                  hollow=(inner[0][1] - inner[0][0], inner[1][1] - inner[1][0]), cuts=[tunnel])
-        guards.append(it)
-        items.append(it)
+        cuts = [((gx[0], cy, tz[0]), (gx[1] + wall * 4.0, sy, tz[1]))]
+        for rid, rx, ry, rz, ux, uy, length, width in strips:
+            xs = [rx + a * length * ux - b * width / 2.0 * uy for a in (0, 1) for b in (-1, 1)]
+            ys = [ry + a * length * uy + b * width / 2.0 * ux for a in (0, 1) for b in (-1, 1)]
+            sx_, sy_ = span(dmin(*xs), dmax(*xs)), span(dmin(*ys), dmax(*ys))
+            leaves = (sx_[0].value - sx_[1].value / 2 < inner[0][0].value
+                      or sx_[0].value + sx_[1].value / 2 > inner[0][1].value
+                      or sy_[0].value - sy_[1].value / 2 < inner[1][0].value
+                      or sy_[0].value + sy_[1].value / 2 > inner[1][1].value)
+            if not leaves:
+                notes["warnings"].append(f"return path {rid} ends inside the fence: its sink "
+                                         "(the sub-line) would stand in the guarded area")
+                continue
+            ctop = span(floor_z, rz + const("TUNNEL_CLEAR"))
+            cuts.append(((sx_[0], sy_[0], ctop[0]), (sx_[1], sy_[1], ctop[1])))
+        fence = Item("Guard_Fence", "guard", "Reference", (gx[0], gy[0], gz[0]),
+                     (gx[1], gy[1], gz[1]),
+                     hollow=(inner[0][1] - inner[0][0], inner[1][1] - inner[1][0]), cuts=cuts)
+        guards.append(fence)
+        items.append(fence)
+        runs = sorted(((m, [st for st in members if st in pose])
+                       for m, members in (v.raw.get("milestones") or {}).items()),
+                      key=lambda mm: index.get(mm[1][0], 0) if mm[1] else 0)
+        runs = [(m, members) for m, members in runs if members]
+        for (ma, a_st), (mb, b_st) in zip(runs, runs[1:]):
+            xp = (pose[a_st[-1]][0] + pose[b_st[0]][0]) / 2.0
+            for st in a_st + b_st:
+                for r in reach_rects.get(st, []):
+                    if r[0].value - offset.value + rg.EPS < xp.value \
+                            < r[1].value + offset.value - rg.EPS:
+                        notes["warnings"].append(
+                            f"partition {ma}|{mb} at x {xp.value:.3f} is inside guard_offset of "
+                            f"{st}'s envelope ({r[0].value:.3f}..{r[1].value:.3f})")
+                        break
+            part = Item(f"Guard_Partition_{pascal(ma)}_{pascal(mb)}", "guard", "Reference",
+                        (xp, gy[0], gz[0]), (wall, inner[1][1] - inner[1][0], gz[1]),
+                        cuts=[((xp, cy, tz[0]), (wall * 4.0, sy, tz[1]))])
+            guards.append(part)
+            items.append(part)
 
     # Operator aisle: on its side, from the outermost guard outward, the length of the line.
     side = q.plain(f"{L}.operator_aisle.side")
@@ -637,8 +686,8 @@ def assemble(items: list[Item], groups: tuple[str, ...] = GROUPS,
     `copy_shapes`: building a Compound reparents each child shape to it, silently dropping it out
     of any Compound it was already a child of — so a second assemble() call over the same `items`
     (physical, after the full one) must work from copies, never the same `it.shape` objects, or
-    the first tree's groups come back empty. A shallow copy is enough (its own wrapper and parent,
-    the OCC geometry shared) and costs nothing; a deep copy of a vendor STEP took ~25 s.
+    the first tree's groups come back empty. The copy is `relocated()`: a new wrapper over the same
+    OCC geometry, with no parent.
     """
     out = []
     for gname in groups:
@@ -646,7 +695,7 @@ def assemble(items: list[Item], groups: tuple[str, ...] = GROUPS,
         for it in items:
             if it.group != gname:
                 continue
-            shape = copy.copy(it.shape) if copy_shapes else it.shape
+            shape = relocated(it.shape) if copy_shapes else it.shape
             if it.subgroup:
                 subs.setdefault(it.subgroup, []).append(shape)
             else:
@@ -664,9 +713,7 @@ def rotate_tree(node: Compound) -> Compound:
     never touched."""
     kids = list(getattr(node, "children", ()) or ())
     if not kids:
-        rotated = Rot(X=EXPORT_ROT_X_DEG) * node
-        rotated.label = node.label
-        return rotated
+        return relocated(node, Rot(X=EXPORT_ROT_X_DEG))
     return Compound(children=[rotate_tree(k) for k in kids], label=node.label)
 
 
@@ -912,6 +959,12 @@ def main(argv: list[str] | None = None) -> int:
     doc["warnings"] = warnings_of(v) + notes["warnings"]
 
     timing = doc.setdefault("timing_s", {})
+    peak = doc.setdefault("peak_rss_mb", {})
+
+    def rss(phase):
+        peak[phase] = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0)
+        print(f"layout: {phase} done, peak {peak[phase]} MB", file=sys.stderr, flush=True)
+    rss("plan")
     t0 = time.monotonic()
     for it in items:
         it.shape = build_shape(it)
@@ -925,9 +978,11 @@ def main(argv: list[str] | None = None) -> int:
                      "by_group": {g: sum(it.group == g for it in items) for g in GROUPS}}
 
     timing["build"] = round(time.monotonic() - t0, 2)
+    rss("build")
     t0 = time.monotonic()
     doc["interference"] = interference(items)
     timing["interference"] = round(time.monotonic() - t0, 2)
+    rss("interference")
     t0 = time.monotonic()
     for f in doc["interference"]["failures"]:
         doc["errors"].append(f"interference: {f['a']} ∩ {f['b']} = {f['volume_mm3']} mm3")
@@ -944,6 +999,7 @@ def main(argv: list[str] | None = None) -> int:
     doc["outputs"] = {"step": str(step), "step_physical": str(physical_step),
                       "svg": str(out_dir / SVG_NAME)}
     timing["write"] = round(time.monotonic() - t0, 2)
+    rss("write")
     t0 = time.monotonic()
     if not args.no_render:
         shots = render_png.render(items, colour_of, REPORTS / "render", args.milestone or "line")
@@ -953,6 +1009,7 @@ def main(argv: list[str] | None = None) -> int:
             doc["outputs"]["render"] = shots
 
     timing["render"] = round(time.monotonic() - t0, 2)
+    rss("render")
     t0 = time.monotonic()
     doc["verify"] = verify(step, primary)
     if not doc["verify"]["hierarchy_preserved"]:
@@ -980,6 +1037,7 @@ def main(argv: list[str] | None = None) -> int:
                              "were built, or lost the hierarchy")
 
     timing["verify"] = round(time.monotonic() - t0, 2)
+    rss("verify")
     checked = ([doc["verify"]] + [f for f in doc["verify"].get("fallback", {}).get("files", [])]
               + [doc["verify_physical"]])
     for v in checked:

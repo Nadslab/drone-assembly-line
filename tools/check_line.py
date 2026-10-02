@@ -106,7 +106,10 @@ def check_schema(spec: LineSpec, r: Result) -> None:
             ref(f"{coll}.{name}.station", "station", f.station, stations)
     for name, rp in spec.return_paths.items():
         ref(f"return_paths.{name}.carrier", "part", rp.carrier, parts)
-        ref(f"return_paths.{name}.sink", "source/buffer", rp.sink, set(spec.sources) | buffers)
+        # A milestone subset (pallet_in set) may return to a sub-line it does not include.
+        if spec.pallet_in is None or rp.sink in spec.sources or rp.sink in buffers:
+            ref(f"return_paths.{name}.sink", "source/buffer", rp.sink,
+                set(spec.sources) | buffers)
     for name, h in spec.gang_heads.items():
         # `bottom_plate.arm_holes`: the part must exist; sub-features are not modelled yet.
         if h.pattern_from:
@@ -136,7 +139,8 @@ def check_schema(spec: LineSpec, r: Result) -> None:
     pins = spec.drone.arm_pins if spec.drone is not None else None
     if pins is not None:
         step = next((s for s in spec.sequence if s.id == pins.extend_step), None)
-        if step is None or step.device != "arm_pins":
+        upstream = step is None and spec.pallet_in is not None       # extended before this cut
+        if not upstream and (step is None or step.device != "arm_pins"):
             r.add(FAIL, f"drone.arm_pins.extend_step -> '{pins.extend_step}' is not an actuate "
                         "step of device arm_pins")
     if spec.layout is not None:
