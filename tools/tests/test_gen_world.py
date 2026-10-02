@@ -63,6 +63,11 @@ def world_of(path):
     return ET.fromstring(path.read_text()).find("world")
 
 
+def R(raw):
+    """The spec with its anchors resolved: where every pose is (D-013)."""
+    return spec_mod.resolve_anchors(raw)[0]
+
+
 def pose_of(element):
     return [float(c) for c in element.find("pose").text.split()[:3]]
 
@@ -112,11 +117,11 @@ def test_every_include_is_at_its_spec_pose(run, pass_raw):
     assert code == 0, doc["errors"]
     includes = {i.find("name").text: i for i in world_of(out).findall("include")}
     assert pose_of(includes["Feeder_MidPlate"]) == pytest.approx(
-        raised(pass_raw["feeders"]["fd_mid_plate"]["pose"], pass_raw), abs=TOL)
+        raised(R(pass_raw)["feeders"]["fd_mid_plate"]["pose"], pass_raw), abs=TOL)
     assert includes["Feeder_MidPlate"].find("uri").text == "model://fd_mid_plate"
     # The pallet stands at station 1 — the station with the lowest index, not the first in yaml.
     assert pose_of(includes["Pallet_1"]) == pytest.approx(
-        raised(pass_raw["stations"]["st_load"]["pose"], pass_raw), abs=TOL)
+        raised(R(pass_raw)["stations"]["st_load"]["pose"], pass_raw), abs=TOL)
 
 
 def test_every_station_and_buffer_is_at_its_spec_pose(run, pass_raw):
@@ -124,9 +129,9 @@ def test_every_station_and_buffer_is_at_its_spec_pose(run, pass_raw):
     assert code == 0, doc["errors"]
     models = {m.get("name"): m for m in world_of(out).findall("model")}
     assert pose_of(models["Station_Drive"]) == pytest.approx(
-        raised(pass_raw["stations"]["st_drive"]["pose"], pass_raw), abs=TOL)
+        raised(R(pass_raw)["stations"]["st_drive"]["pose"], pass_raw), abs=TOL)
     assert pose_of(models["Buffer_Plate"]) == pytest.approx(
-        raised(pass_raw["buffers"]["buf_plate"]["pose"], pass_raw), abs=TOL)
+        raised(R(pass_raw)["buffers"]["buf_plate"]["pose"], pass_raw), abs=TOL)
     assert doc["models"]["Station_Drive"]["spec_path"] == "stations.st_drive.pose"
 
 
@@ -134,7 +139,7 @@ def test_a_station_with_cells_gets_one_enclosure_per_cell_at_cell_pitch(run, pas
     """`count` parallel copies of a station stand beside the line, `cell_pitch` apart (§15)."""
     code, doc, out = run()
     assert code == 0, doc["errors"]
-    station = pass_raw["stations"]["st_test"]
+    station = R(pass_raw)["stations"]["st_test"]
     cells = [m for m in world_of(out).findall("model") if m.get("name").startswith("Station_Test_")]
     assert len(cells) == station["count"]
     for k, cell in enumerate(sorted(cells, key=lambda m: m.get("name"))):
@@ -184,7 +189,7 @@ def test_a_feeder_with_no_model_is_an_envelope_instead_of_an_include(run, pass_r
     assert code == 0, doc["errors"]
     assert doc["models"]["Feeder_MidPlate"]["kind"] == "feeder"
     assert pose_of({m.get("name"): m for m in world_of(out).findall("model")}["Feeder_MidPlate"]) \
-        == pytest.approx(raised(raw["feeders"]["fd_mid_plate"]["pose"], raw), abs=TOL)
+        == pytest.approx(raised(R(raw)["feeders"]["fd_mid_plate"]["pose"], raw), abs=TOL)
 
 
 def test_a_feeder_with_no_pose_is_skipped_and_said_so(run, pass_raw):
@@ -200,7 +205,7 @@ def test_two_models_with_the_same_name_fail(run, pass_raw):
     raw["buffers"]["buf_plate2"] = dict(raw["buffers"]["buf_plate"])
     raw["sources"]["src_plate2"] = {"output": "bottom_plate", "buffer": "buf_plate2",
                                     "interval_s": 20.0, "buffer_capacity": 3}
-    raw["buffers"]["buf_plate2"]["pose"] = [0.9, 0.3, 0.1, 0.0]
+    raw["buffers"]["buf_plate2"]["offset"] = [0.9, 0.3, 0.1, 0.0]
     code, doc, _ = run(raw)
     assert code == 0, doc["errors"]                 # different names: fine
     raw["stations"]["st_load"]["index"] = 1
@@ -220,7 +225,7 @@ def test_the_conveyor_ends_where_the_pallet_starts(run, pass_raw, tmp_path):
     assert code == 0, doc["errors"]
     conveyor = {m.get("name"): m for m in world_of(out).findall("model")}["Conveyor"]
     top = box_z(conveyor)[1]
-    station = raised(pass_raw["stations"]["st_load"]["pose"], pass_raw)
+    station = raised(R(pass_raw)["stations"]["st_load"]["pose"], pass_raw)
     assert top == pytest.approx(station[2] - 0.012, abs=TOL)      # top face, 12 mm below
 
 
@@ -243,7 +248,7 @@ def test_the_frame_reaches_under_the_parallel_cells(run, pass_raw):
     assert code == 0, doc["errors"]
     axis = gen_world.CELL_AXIS
     frame = doc["models"]["Frame"]
-    station = pass_raw["stations"]["st_test"]
+    station = R(pass_raw)["stations"]["st_test"]
     far = station["pose"][axis] + (station["count"] - 1) * station["cell_pitch"]
     assert frame["pose"][axis] + frame["size_m"][axis] / 2.0 >= far + gen_world.FRAME_MARGIN
 
@@ -291,7 +296,7 @@ def test_minimal_collapses_the_cells_into_one_group_spanning_their_footprint(run
     models = {m.get("name"): m for m in world_of(out).findall("model")}
     assert "Station_Test_Group" in models
     assert not any(n.startswith("Station_Test_Cell") for n in models)
-    station = pass_raw["stations"]["st_test"]
+    station = R(pass_raw)["stations"]["st_test"]
     axis = gen_world.CELL_AXIS
     side = gen_world.CELL_FILL * station["cell_pitch"]
     span = (station["count"] - 1) * station["cell_pitch"] + side
@@ -370,11 +375,11 @@ def test_a_spec_with_no_work_height_fails_naming_it(run, pass_raw):
 
 @pytest.mark.parametrize("key, blank", [
     ("stations.st_drive.pose[0]",
-     lambda raw: raw["stations"]["st_drive"]["pose"].__setitem__(0, None)),
+     lambda raw: raw["stations"]["st_drive"]["anchor"].__setitem__("gap", None)),
     ("buffers.buf_plate.pose[2]",
-     lambda raw: raw["buffers"]["buf_plate"]["pose"].__setitem__(2, None)),
+     lambda raw: raw["buffers"]["buf_plate"]["offset"].__setitem__(2, None)),
     ("buffers.buf_pod.pose[1]",
-     lambda raw: raw["buffers"]["buf_pod"]["pose"].__setitem__(1, None))])
+     lambda raw: raw["buffers"]["buf_pod"]["offset"].__setitem__(1, None))])
 def test_null_spec_value_fails_and_names_the_key(run, pass_raw, key, blank, capsys):
     raw = copy.deepcopy(pass_raw)
     blank(raw)
@@ -387,11 +392,11 @@ def test_null_spec_value_fails_and_names_the_key(run, pass_raw, key, blank, caps
 
 def test_dev_run_is_quarantined_in_its_own_file(tmp_path, pass_raw, run):
     raw = copy.deepcopy(pass_raw)
-    raw["buffers"]["buf_plate"]["pose"] = [None, 0.3, 0.1, 0.0]
+    raw["buffers"]["buf_plate"]["offset"] = [None, 0.3, 0.1, 0.0]
     (tmp_path / "line_spec.dev.yaml").write_text(
-        yaml.safe_dump({"buffers": {"buf_plate": {"pose": [0.5, None, None, None]}}}))
+        yaml.safe_dump({"buffers": {"buf_plate": {"offset": [0.5, None, None, None]}}}))
     code, doc, out = run(raw, "--dev")
     assert code == 0, doc["errors"]
     assert out.name == "main_line.dev.sdf" and out.is_file()
-    assert doc["dev"] is True and doc["placeholders"] == ["buffers.buf_plate.pose[0]"]
+    assert doc["dev"] is True and doc["placeholders"] == ["buffers.buf_plate.pose[0]"]   # derived from offset[0]
     assert not (tmp_path / "gen_world.json").exists()

@@ -19,7 +19,7 @@ Everything is derived:
   * its **floor sits on top of the ESC** — `parts.esc.z_in_stack + parts.esc.dims[2]` — because
     that is where the pod lands, so the tray presents the pod at its final height with no number
     of its own;
-  * the pick boss is sized against `scaras.<id>.tools.<tool>.dims` of whichever tool the sequence uses
+  * the pick boss is sized against `tools.<tool>.dims` of whichever tool the sequence uses
     to place `carrier_pod`, and the volume the jaws sweep around it is checked empty
     (tools/cad/gripper.py).
 
@@ -259,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
                     "around the pick boss")
     height = doc["bbox_mm"]["size"][2]
     if height > lo.travel_z:
-        return fail(f"the tray is {height:.1f} mm tall but scaras.{lo.scara}.z_stroke is only "
+        return fail(f"the tray is {height:.1f} mm tall but {lo.scara}'s z_stroke is only "
                     f"{lo.travel_z:.1f} mm: the SCARA cannot lift it clear")
     if doc["errors"]:
         print(f"{STEM}: FAIL — {doc['errors'][-1]}", file=sys.stderr)

@@ -36,7 +36,7 @@ def run(tmp_path, raw, *extra, overlay=None):
         for f in (FIXTURES / "cad").glob("cad_*.json"):
             (cad / f"{f.stem}.dev.json").write_text(f.read_text())
     code = layout.main(["--spec", str(spec), "--out", str(tmp_path / "out" / "line_layout.step"),
-                        "--report", str(report), "--cad-reports", str(cad), *extra])
+                        "--report", str(report), "--cad-reports", str(cad), "--no-render", *extra])
     return code, json.loads(report.read_text())
 
 
@@ -91,12 +91,15 @@ def test_every_station_feeder_buffer_and_robot_has_exactly_one_solid(clean):
             assert got.count(name) == 1, sid
     for fid, f in raw["feeders"].items():
         feeder = "Feeder_" + layout.pascal(fid.removeprefix("fd_"))
-        assert got.count(feeder) == (1 if f.get("pose") else 0), fid   # blow feeder: no pose
+        assert got.count(feeder) == (1 if f.get("offset") else 0), fid   # blow feeder: no pose
     for bid in raw["buffers"]:
         assert got.count("Buffer_" + layout.pascal(bid.removeprefix("buf_"))) == 1, bid
     for sid in raw["scaras"]:
         assert got.count(f"{scara_name(sid)}_Base") == 1
         assert got.count(f"{scara_name(sid)}_Envelope") == 1
+    for rid in raw["return_paths"]:
+        name = layout.pascal(rid.removeprefix("rt_"))
+        assert got.count(f"ReturnPath_{name}") == got.count(f"ReturnSink_{name}") == 1
     assert got.count("GangHead_Top") == 1
     assert "GangHead_Top_Slide" not in got                     # no SCARA at st_drive: no slide
     assert sorted(n for n in got if n.startswith("Guard_")) == ["Guard_Back", "Guard_Front"]
@@ -120,11 +123,13 @@ def test_every_dimension_names_its_spec_key(clean):
     _, _, doc = clean
     base = next(s for s in doc["solids"] if s["name"] == "Scara_Place_Base")
     assert base["dims"]["size_x"]["spec_keys"] == ["layout.scara_base.diameter"]
-    assert {"stations.st_place.pose[1]", "scaras.scara_place.base_offset_y",
-            "scaras.scara_place.base_side"} <= set(base["dims"]["centre_y"]["spec_keys"])
+    # The base is its resolved pose (D-013): the offset in its station's frame.
+    assert base["dims"]["centre_y"]["spec_keys"] == ["scaras.scara_place.pose[1]"]
     env = next(s for s in doc["solids"] if s["name"] == "Scara_Place_Envelope")
-    assert env["dims"]["size_x"]["spec_keys"] == ["scaras.scara_place.reach.r_max"]
-    assert env["dims"]["inner_x"]["spec_keys"] == ["scaras.scara_place.reach.r_min"]
+    assert env["dims"]["size_x"]["spec_keys"] == ["robot_models.test_scara.reach"]
+    assert set(env["dims"]["inner_x"]["spec_keys"]) == {
+        "robot_models.test_scara.link1", "robot_models.test_scara.link2",
+        "robot_models.test_scara.joint_limits.j2"}
     head = next(s for s in doc["solids"] if s["name"] == "GangHead_Top")
     assert "gang_heads.gh_top.stroke" in head["dims"]["centre_z"]["spec_keys"]
     guard = next(s for s in doc["solids"] if s["name"] == "Guard_Front")
@@ -145,10 +150,10 @@ def test_the_base_and_envelope_are_where_the_clearance_check_sees_them(clean):
             [(bx - r) * 1000, (bx + r) * 1000, (by - r) * 1000, (by + r) * 1000], abs=1e-2)
         env = next(s for s in doc["solids"]
                    if s["name"] == f"{scara_name(sid)}_Envelope")["bbox_mm"]
-        r_max = raw["scaras"][sid]["reach"]["r_max"]
-        assert env["size"][0] == pytest.approx(2 * r_max * 1000, abs=1e-2)
+        model = raw["robot_models"][raw["scaras"][sid]["model"]]
+        assert env["size"][0] == pytest.approx(2 * model["reach"] * 1000, abs=1e-2)
         assert (env["min"][2], env["max"][2]) == pytest.approx(
-            (0.0, raw["scaras"][sid]["z_stroke"] * 1000), abs=1e-2)
+            (0.0, model["z_stroke"] * 1000), abs=1e-2)
 
 
 def test_the_gang_head_box_is_robot_geometrys(clean):
@@ -176,16 +181,17 @@ def test_a_head_on_a_slide_waits_opposite_its_scara_with_a_slide_envelope(tmp_pa
 
 
 def test_one_guard_per_milestone_around_its_robots(clean):
-    """Front: scara_load's reach disc (x -0.24) to gh_top's box (x 1.1), plus guard_offset and
-    the wall; back: scara_spider (1.76) to scara_pod (2.74)."""
+    """Front: buf_plate's footprint (x -0.275, D-013: sources stand inside their guard) to
+    gh_top's box (x 1.1), plus guard_offset and the wall; back: scara_spider's reach (1.76) to
+    the end of rt_fixture's sink (2.7 + 0.3 + 0.3 = 3.3)."""
     _, _, doc = clean
     wall = layout.GUARD_T * 1000.0
     front = next(s for s in doc["solids"] if s["name"] == "Guard_Front")["bbox_mm"]
     back = next(s for s in doc["solids"] if s["name"] == "Guard_Back")["bbox_mm"]
     assert (front["min"][0], front["max"][0]) == pytest.approx(
-        (-240.0 - 300.0 - wall, 1100.0 + 300.0 + wall), abs=1e-3)
+        (-275.0 - 300.0 - wall, 1100.0 + 300.0 + wall), abs=1e-3)
     assert (back["min"][0], back["max"][0]) == pytest.approx(
-        (1760.0 - 300.0 - wall, 2740.0 + 300.0 + wall), abs=1e-3)
+        (1725.0 - 300.0 - wall, 3300.0 + 300.0 + wall), abs=1e-3)
 
 
 def test_a_milestone_is_drawn_on_its_own(tmp_path, pass_raw):
@@ -206,7 +212,7 @@ def test_a_milestone_is_drawn_on_its_own(tmp_path, pass_raw):
 
 def test_a_feeder_standing_on_the_conveyor_fails_naming_both(tmp_path, pass_raw):
     raw = layout_raw(pass_raw)
-    raw["feeders"]["fd_mid_plate"]["pose"] = [0.25, 0.0, 0.15, 0.0]
+    raw["feeders"]["fd_mid_plate"]["offset"] = [-0.25, 0.0, 0.15, 0.0]
     code, doc = run(tmp_path, raw)
     assert code == 1
     assert doc["interference"]["result"] == "FAIL"

@@ -1,8 +1,8 @@
-r"""SCARA end-effectors, one per tool id in `scaras.<id>.tools` (plan P4 B7).
+r"""SCARA end-effectors, one per tool id a SCARA carries (`tools:`, plan P4 B7, D-013).
 
     tools/.venv/bin/python tools/cad/tools.py [--out DIR] [--spec PATH] [--dev]
 
-`scaras.<id>.tools.<tool>.dims` is the envelope a tool needs at a pick feature — [x, y, reach] — and the
+`tools.<tool>.dims` is the envelope a tool needs at a pick feature — [x, y, reach] — and the
 fixtures already size their pick features against it (tools/cad/gripper.py). This generator builds
 the other half: the tool that envelope belongs to, in the two grips the spec allows.
 
@@ -15,7 +15,7 @@ the other half: the tool that envelope belongs to, in the two grips the spec all
 
 Everything is derived:
 
-  * which tools exist, and their footprint and reach, are `scaras.<id>.tools` (one id is one tool on every SCARA);
+  * which tools exist, and their footprint and reach, are `tools:` (one id is one tool; `scaras.<id>.tools` lists each end-effector's);
   * a vacuum tool's cups are laid out inside the **smallest part that tool picks** — read off the
     `sequence` steps that name it — so the cups always land on the part and never overhang it;
   * a vacuum tool is checked against the **heaviest** part it picks: cup area x working vacuum,
@@ -239,7 +239,7 @@ def build(lo: Layout) -> Compound:
 def derived(lo: Layout) -> dict:
     """Numbers another tool can check against the spec, in millimetres unless named otherwise."""
     doc = {
-        "frame": f"scaras.*.tools.{lo.tool}; z=0 at the pick plane (the face that meets the part)",
+        "frame": f"tools.{lo.tool}; z=0 at the pick plane (the face that meets the part)",
         "model_name": lo.name,
         "grip": lo.grip,
         "dims_mm": [round(c, 6) for c in lo.dims],
@@ -271,7 +271,7 @@ def check(lo: Layout, item: dict) -> None:
     if not lo.handles:
         item["warnings"].append(
             f"no sequence step picks anything with '{lo.tool}': it is sized by "
-            f"scaras.*.tools.{lo.tool}.dims alone")
+            f"tools.{lo.tool}.dims alone")
     if lo.grip == "vacuum":
         if min(lo.smallest) - 2.0 * CUP_INSET < CUP_D:
             smallest = min(lo.handles, key=lambda h: min(h.foot) if h.foot else 1e9, default=None)
@@ -289,7 +289,7 @@ def check(lo: Layout, item: dict) -> None:
                 f"({lift['demand_n']:.1f} N)")
     elif lo.jaw_opening < MIN_BOSS_D:
         item["errors"].append(
-            f"scaras.*.tools.{lo.tool}.dims open {min(lo.dims[0], lo.dims[1]):.1f} mm, so with "
+            f"tools.{lo.tool}.dims open {min(lo.dims[0], lo.dims[1]):.1f} mm, so with "
             f"{GRIP_CLEAR:g} mm of clearance per side the jaws close on a Ø{lo.jaw_opening:.1f} mm "
             f"boss: below Ø{MIN_BOSS_D:g} mm that is a pin, not a pick boss")
 

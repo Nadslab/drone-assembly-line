@@ -176,10 +176,10 @@ def test_carrier_fits_the_scara_z_stroke(work):
 def test_a_fixture_taller_than_the_z_travel_fails(tmp_path, pass_raw, part):
     raw = copy.deepcopy(pass_raw)
     sid = {"carrier_spider": "scara_spider", "carrier_pod": "scara_pod"}[part]
-    raw["scaras"][sid]["z_stroke"] = 0.05                    # 50 mm on the SCARA placing it
+    raw["robot_models"]["test_scara"]["z_stroke"] = 0.05     # 50 mm on the SCARA placing it
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
-    assert f"scaras.{sid}.z_stroke" in doc["errors"][-1]
+    assert f"{sid}'s z_stroke" in doc["errors"][-1]
 
 
 def test_the_arms_are_carried_on_ring_material_not_thin_air(work):
@@ -227,11 +227,10 @@ def test_nothing_sits_where_the_jaws_go(work, part):
 def test_a_tool_that_cannot_grip_the_boss_fails_naming_the_tool(tmp_path, pass_raw, part, dims,
                                                                 wanted):
     raw = copy.deepcopy(pass_raw)
-    for sid in ("scara_spider", "scara_pod"):              # one tool id is one design
-        raw["scaras"][sid]["tools"]["tool_carrier"]["dims"] = dims
+    raw["tools"]["tool_carrier"]["dims"] = dims             # one tool id is one design (D-013)
     code, doc = run_raw(tmp_path, raw, part)
     assert code == 1
-    assert wanted in doc["errors"][0] and "scaras.*.tools.tool_carrier" in doc["errors"][0]
+    assert wanted in doc["errors"][0] and "tools.tool_carrier" in doc["errors"][0]
 
 
 def test_the_keep_out_volume_is_measured_not_assumed():
@@ -342,16 +341,15 @@ def test_a_sequence_that_places_the_fixture_with_no_tool_fails(tmp_path, pass_ra
     assert any(part in m for m in doc["missing"])
 
 
-def test_option_b_carrier_no_robot_lifts_builds_with_a_warning(tmp_path, pass_raw):
-    """D-012 option B: no step places carrier_spider (the arms are lifted out of it), so there is
-    no tool to size the boss against and no z stroke to fit: built, and the report says so."""
+def test_a_carrier_no_step_places_fails_naming_the_sequence(tmp_path, pass_raw):
+    """D-013: the carrier rides along, so a step always places it with a tool; option B (the
+    carrier left in its buffer) is gone, and a spec without that step is incomplete."""
     raw = copy.deepcopy(pass_raw)
     raw["sequence"] = [s for s in raw["sequence"] if s.get("part") != "carrier_spider"]
+    raw["buffers"].pop("buf_fixture")
     code, doc = run_raw(tmp_path, raw, "carrier_spider")
-    assert code == 0, doc["errors"]
-    assert doc["derived"]["pick"]["tool"] is None
-    assert doc["derived"]["scara_z_stroke_mm"] is None
-    assert any("option B" in w for w in doc["warnings"])
+    assert code == 1
+    assert any("no step places 'carrier_spider'" in m for m in doc["missing"])
 
 
 @pytest.mark.parametrize("part, stem", [("carrier_spider", "spider_carrier"),

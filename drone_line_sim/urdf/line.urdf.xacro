@@ -47,24 +47,23 @@
   </joint>
 
   <!-- a SCARA per spec entry: scara_<station> -> Scara_<Name>, joints scara_<station>_j1..j4.
-       The base: the station's x, base_offset_y out on base_side, on the datum plane
-       (spec.scara_base). -->
+       The base: its resolved pose (scaras.<id>.pose, from its offset in its station's anchor
+       frame, D-013); the arm: its robot model. -->
   <xacro:macro name="scaras_from_spec" params="parent ids">
     <xacro:if value="${len(ids) > 0}">
       <xacro:property name="sid" value="${ids[0]}"/>
       <xacro:property name="sc" value="${spec['scaras'][sid]}"/>
-      <xacro:property name="pose" value="${spec['stations'][sc['station']]['pose']}"/>
-      <xacro:property name="by"
-                      value="${pose[1] + (1.0 if sc['base_side'] == '+y' else -1.0)
-                                         * sc['base_offset_y']}"/>
+      <xacro:property name="rm" value="${spec['robot_models'][sc['model']]}"/>
+      <xacro:property name="pose" value="${sc['pose']}"/>
       <xacro:scara parent="${parent}"
                    name="${'Scara_' + ''.join(w.capitalize()
                             for w in sid.removeprefix('scara_').split('_'))}"
-                   prefix="${sid}_" r_min="${sc['reach']['r_min']}"
-                   r_max="${sc['reach']['r_max']}" z_stroke="${sc['z_stroke']}"
-                   v_max="${sc['motion']['v_max']}" a_max="${sc['motion']['a_max']}"
-                   payload="${sc['payload_kg']}">
-        <origin xyz="${pose[0]} ${by} ${pose[2]}" rpy="0 0 0"/>
+                   prefix="${sid}_" L1="${rm['link1']}" L2="${rm['link2']}"
+                   j1_lim="${rm['joint_limits']['j1']}" j2_lim="${rm['joint_limits']['j2']}"
+                   j4_lim="${rm['joint_limits']['j4']}" z_stroke="${rm['z_stroke']}"
+                   v_max="${rm['motion']['v_max']}" a_max="${rm['motion']['a_max']}"
+                   w4="${rm['motion']['j4_speed']}" payload="${rm['payload_rated']}">
+        <origin xyz="${pose[0]} ${pose[1]} ${pose[2]}" rpy="0 0 ${pose[3]}"/>
       </xacro:scara>
       <xacro:scaras_from_spec parent="${parent}" ids="${ids[1:]}"/>
     </xacro:if>
@@ -72,14 +71,13 @@
 
   <xacro:scaras_from_spec parent="Line_base" ids="${python.sorted(spec['scaras'])}"/>
 
-  <!-- a gang head per spec entry, at the station its sequence step names -->
+  <!-- a gang head per spec entry, at its working pose over the station its step names -->
   <xacro:macro name="heads_from_spec" params="parent ids">
     <xacro:if value="${len(ids) > 0}">
       <xacro:property name="hid" value="${ids[0]}"/>
       <xacro:property name="h" value="${spec['gang_heads'][hid]}"/>
-      <xacro:property name="pose"
-                      value="${spec['stations'][[s['station'] for s in spec['sequence']
-                                                 if s.get('head') == hid][0]]['pose']}"/>
+      <!-- its working pose: resolved from its offset in its station's frame (D-013) -->
+      <xacro:property name="pose" value="${h['pose']}"/>
       <xacro:property name="pat"
                       value="${spec['parts'][h['pattern_from'].split('.')[0]]
                                             [h['pattern_from'].split('.')[1]]['positions']

@@ -1,4 +1,4 @@
-"""tools/estimate_moves.py: the SCARA pick-and-place model (D-012) — home, pick, place, home on a
+"""tools/estimate_moves.py: the SCARA pick-and-place model (D-012, D-013) — home, pick, place, home on a
 trapezoid over the TCP distance — the plan speed scale, the takt budget, the per-SCARA safe_z it
 moves at, and the station time with a gang head's slide."""
 
@@ -46,9 +46,9 @@ def test_no_move_takes_no_time_and_direction_does_not_matter():
 @pytest.mark.parametrize("scale", [1.0, 0.5])
 def test_one_cycle_is_home_pick_place_home_with_four_settles(pass_raw, scale):
     spec = spec_mod.parse_spec(pass_raw)
-    sc, d = spec.scaras["scara_place"], spec.scara_defaults
+    motion, d = spec_mod.scara_model(spec, "scara_place").motion, spec.scara_defaults
     home, pick, place = (0.5, 0.14), (0.3, 0.3, 0.15), (0.5, 0.0, 0.1)
-    c = em.cycle(home, pick, place, sc.motion, d, 0.3, scale)
+    c = em.cycle(home, pick, place, motion, d, 0.3, scale)
 
     def t(dist):
         return em.axis_time(dist, 1.0 * scale, 2.0 * scale)
@@ -65,8 +65,9 @@ def test_one_cycle_is_home_pick_place_home_with_four_settles(pass_raw, scale):
 
 def test_home_is_the_arm_folded_to_r_min_towards_its_station(pass_raw):
     g = est(pass_raw)["scaras"]["scara_place"]
-    assert g["base"] == [0.5, 0.24, 0.1]
-    assert g["home"] == pytest.approx([0.5, 0.14])              # 0.1 m from the base, towards y 0
+    assert g["base"] == [0.5, 0.24, 0.0]
+    # r_min = the elbow folded to its j2 limit: 0.1 m from the base, towards y 0.
+    assert g["home"] == pytest.approx([0.5, 0.14], abs=1e-4)
 
 
 # ---------------------------------------------------------------- which steps, which scale
@@ -83,7 +84,7 @@ def test_each_scara_only_counts_the_steps_at_its_station(pass_raw):
     doc = est(pass_raw)
     assert {sid: [s["id"] for s in g["steps"]] for sid, g in doc["scaras"].items()} == {
         "scara_load": ["load"], "scara_place": ["place"], "scara_spider": ["place_spider"],
-        "scara_pod": ["place_pod"]}
+        "scara_pod": ["remove_spider", "place_pod"]}
     assert doc["passed"] and doc["complete"]
 
 
@@ -129,17 +130,21 @@ def test_a_load_under_takt_but_over_the_budget_fails(pass_raw):
     assert doc["scaras"]["scara_pod"]["status"] == "FAIL"
 
 
-def test_safe_z_is_the_tallest_item_in_reach_plus_the_hang_plus_the_margin(pass_raw):
-    g = est(pass_raw)["scaras"]
-    # scara_pod: its own station before the pod tray lands (the spider carrier, 104.4 mm on a
-    # station at 0.1), plus the pod tray it carries (79.5 mm), plus 0.03.
-    assert g["scara_pod"]["safe_z"]["tallest_item"] == ["station st_pod (before its place)",
-                                                       pytest.approx(0.2044)]
-    assert g["scara_pod"]["safe_z"]["hang"] == ["carrier_pod", pytest.approx(0.0795)]
-    assert g["scara_pod"]["safe_z"]["safe_z"] == pytest.approx(0.2044 + 0.0795 + 0.03)
-    # Nothing outside r_max counts: st_spider's taller stack is 0.5 m away.
-    names = [n for n, _ in g["scara_pod"]["safe_z"]["items"]]
-    assert "station st_spider" not in names and "buffer buf_pod" in names
+def test_each_step_moves_at_its_own_path_based_safe_z(pass_raw):
+    g = est(pass_raw)["scaras"]["scara_pod"]
+    sz = g["safe_z"]
+    # remove_spider (D-013): lifting the spider carrier (105.4 mm) off its own stack (104.4 mm)
+    # and over to rt_fixture is the highest move, + 0.03.
+    assert sz["tallest_item"] == ["station st_pod (before remove_spider)", pytest.approx(0.1044)]
+    assert sz["hang"] == ["carrier_spider", pytest.approx(0.1054)]
+    assert sz["safe_z"] == pytest.approx(0.1044 + 0.1054 + 0.03)
+    # place_pod moves at its own, lower height: the carrier is gone, buf_pod (0.1) is the top.
+    steps = {s["id"]: s for s in g["steps"]}
+    assert steps["remove_spider"]["safe_z"] == pytest.approx(sz["safe_z"])
+    assert steps["place_pod"]["safe_z"] == pytest.approx(0.1 + 0.0795 + 0.03)
+    # Nothing off its paths counts: st_spider's stack is 0.5 m away.
+    names = [n for n, _ in sz["items"]]
+    assert not any("st_spider" in n for n in names) and "return path rt_fixture" in names
 
 
 def test_a_missing_cad_report_is_unresolved_not_a_guess(pass_raw, tmp_path):
@@ -150,10 +155,11 @@ def test_a_missing_cad_report_is_unresolved_not_a_guess(pass_raw, tmp_path):
 
 
 def test_a_safe_z_above_the_stroke_fails_but_keeps_its_breakdown(pass_raw):
-    pass_raw["scaras"]["scara_pod"]["z_stroke"] = 0.3
+    pass_raw["robot_models"]["test_scara"]["z_stroke"] = 0.2
     doc = est(pass_raw)
     assert not doc["passed"]
-    assert any("above its z_stroke" in e for e in doc["errors"])
+    assert any("scara_pod: remove_spider: safe_z=0.240 is above its z range top 0.2" in e
+               for e in doc["errors"])
     g = doc["scaras"]["scara_pod"]
     assert g["status"] == "FAIL" and g["total_s"] is not None and g["steps"]
 
@@ -220,7 +226,7 @@ def test_cli_writes_the_report_and_exits_on_overload(tmp_path, pass_raw):
     assert "step_s @0.5" in proc.stdout and "step_s @1" in proc.stdout
     assert "budget = takt" in proc.stdout and "slide_s" in proc.stdout
 
-    pass_raw["scaras"]["scara_pod"]["motion"]["v_max"] = 0.01
+    pass_raw["robot_models"]["test_scara"]["motion"]["v_max"] = 0.01
     proc, doc = run(pass_raw)
     assert proc.returncode == 1
     assert doc["passed"] is False and doc["scaras"]["scara_pod"]["status"] == "FAIL"

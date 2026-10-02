@@ -101,7 +101,8 @@ def placing_tool(v: Values, part_id: str) -> str | None:
     from naming a tool of its own.
     """
     steps = v.raw.get("sequence") or []
-    named = [s for s in steps if isinstance(s, dict) and s.get("part") == part_id]
+    named = [s for s in steps if isinstance(s, dict) and s.get("part") == part_id
+             and s.get("capability") != "remove"]      # a remove step lifts it off (D-013)
     tools = [s["tool"] for s in named if s.get("tool")]
     if not tools:
         v.missing.append(f"sequence: no step places '{part_id}' with a tool")
@@ -114,28 +115,23 @@ def placing_tool(v: Values, part_id: str) -> str | None:
 
 
 def tool_path(raw: dict, tool: str) -> str:
-    """`scaras.<id>.tools.<tool>` on the first SCARA that carries it.
-
-    The schema makes one tool id one design on every SCARA, so any carrier's entry is the tool.
-    """
-    for sid in scara_ids(raw):
-        if tool in (lookup(raw, f"scaras.{sid}.tools") or {}):
-            return f"scaras.{sid}.tools.{tool}"
-    return f"scaras.*.tools.{tool}"   # no SCARA carries it: reads of this path come up missing
+    """`tools.<tool>`: tools are listed once, at the top level (D-013)."""
+    return f"tools.{tool}"
 
 
 def all_tools(raw: dict) -> list[str]:
-    """Every tool id any SCARA carries, once each, in line then spec order."""
+    """Every tool id any SCARA carries, once each, in line then end-effector order."""
     out: list[str] = []
     for sid in scara_ids(raw):
-        out += [t for t in (lookup(raw, f"scaras.{sid}.tools") or {}) if t not in out]
+        out += [t for t in (lookup(raw, f"scaras.{sid}.tools") or []) if t not in out]
     return out
 
 
 def placing_scara(v: Values, part_id: str) -> str | None:
     """The SCARA at the station where the sequence places `part_id` with a tool."""
     steps = [s for s in v.raw.get("sequence") or []
-             if isinstance(s, dict) and s.get("part") == part_id and s.get("tool")]
+             if isinstance(s, dict) and s.get("part") == part_id and s.get("tool")
+             and s.get("capability") != "remove"]
     sids = {station_scara(v.raw, s.get("station")) for s in steps}
     if len(sids) != 1 or None in sids:
         v.missing.append(f"scaras: no single SCARA places '{part_id}'")
@@ -144,10 +140,12 @@ def placing_scara(v: Values, part_id: str) -> str | None:
 
 
 def z_travel(v: Values, sid: str | None) -> float:
-    """That SCARA's z stroke in millimetres: everything it carries has to fit inside it."""
+    """That SCARA's z stroke in millimetres (its robot model's, D-013): everything it carries
+    has to fit inside it."""
     if sid is None:
         return float("nan")
-    return v.mm(f"scaras.{sid}.z_stroke")
+    model = lookup(v.raw, f"scaras.{sid}.model")
+    return v.mm(f"robot_models.{model}.z_stroke")
 
 
 def pick_xy(v: Values, part_id: str, default: tuple[float, float]) -> tuple[float, float]:

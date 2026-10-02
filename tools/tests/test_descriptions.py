@@ -127,9 +127,9 @@ def mount(joint_name, xyz):
                                       f'<origin xyz="{xyz}" rpy="0 0 0"/></joint>')}
 
 
-# The fixture's SCARA bases: station x, 0.24 m out on +y, station z (spec.scara_base).
-SCARAS = (mount("scara_load_mount", "0 0.24 0.1") | mount("scara_place_mount", "0.5 0.24 0.1")
-          | mount("scara_spider_mount", "2.0 0.24 0.1") | mount("scara_pod_mount", "2.5 0.24 0.1"))
+# The fixture's SCARA bases: offset [0, 0.24, 0] in each station's frame (D-013).
+SCARAS = (mount("scara_load_mount", "0 0.24 0") | mount("scara_place_mount", "0.5 0.24 0")
+          | mount("scara_spider_mount", "2.0 0.24 0") | mount("scara_pod_mount", "2.5 0.24 0"))
 
 
 def test_every_scara_is_bolted_at_its_spec_base(pass_raw):
@@ -139,20 +139,20 @@ def test_every_scara_is_bolted_at_its_spec_base(pass_raw):
 
 
 def test_a_scara_mounted_somewhere_else_fails(pass_raw):
-    joints = SCARAS | mount("scara_load_mount", "0 -0.24 0.1") | mount("gh_top_mount",
+    joints = SCARAS | mount("scara_load_mount", "0 -0.24 0") | mount("gh_top_mount",
                                                                      "1.0 0.0 0.16")
     rows = dc.compare_mounts(pass_raw, joints)
     assert [r["what"] for r in rows if not r["ok"]] == ["scara_load"]
-    assert "the spec puts the base at [0.0, 0.24, 0.1]" in rows[0]["errors"][0]
+    assert "the spec puts the base at [0.0, 0.24, 0.0]" in rows[0]["errors"][0]
 
 
 def test_a_head_standing_over_the_wrong_station_fails(pass_raw):
-    """z is the head's own stand-off, so only x and y are the station's to give."""
+    """z is the head's own stand-off, so only x and y are its pose's to give."""
     joints = SCARAS | mount("gh_top_mount", "1.0 0.3 0.16")
     rows = dc.compare_mounts(pass_raw, joints)
     head = next(r for r in rows if r["what"] == "gh_top")
     assert not head["ok"]
-    assert "st_drive's pose" in head["errors"][0]
+    assert "its pose is [1.0, 0.0, 0.0]" in head["errors"][0]
 
 
 # ---------------------------------------------------------------- the files, and the config

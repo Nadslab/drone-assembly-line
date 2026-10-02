@@ -83,7 +83,7 @@ def test_no_output_breaks_the_5_mb_rule(run):
 def test_a_failing_generator_fails_the_build_and_names_it(run, pass_raw):
     """A carrier its SCARA cannot lift clear: spider_carrier fails, the build reports which."""
     raw = copy.deepcopy(pass_raw)
-    raw["scaras"]["scara_spider"]["z_stroke"] = 0.05     # the SCARA placing the spider carrier
+    raw["robot_models"]["test_scara"]["z_stroke"] = 0.05   # the SCARAs placing the carriers
     code, doc = run(raw)
     assert code == 1
     assert any("spider_carrier" in e for e in doc["errors"])

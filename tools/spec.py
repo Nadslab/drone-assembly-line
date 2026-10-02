@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import math
 import re
 import sys
 from fnmatch import fnmatchcase
@@ -135,6 +136,10 @@ class Feeder(Model):
     part: str
     # Parts presented per pick: a fixtured nest hands over a whole set (D-009). Absent = 1.
     per_pick: PosInt | None = None
+    # Station-owned (D-013): `offset` in its station's anchor frame; `pose` is derived. A blow
+    # feeder has neither: it rides its gang head.
+    station: str | None = None
+    offset: Pose | None = None
     pose: Pose | None = None
     capacity: PosInt | None = None
     refill_s: Pos | None = None
@@ -147,60 +152,101 @@ class Source(Model):
     buffer: str
     interval_s: Pos
     buffer_capacity: NonNegInt | None
-    # A fixture that goes back to this sub-line empty once its load is taken (option B, D-012:
-    # carrier_spider stays in buf_spider). A no-op in every tool; check_line.py checks the name.
-    returns: str | None = None
 
 
 class Buffer(Model):
-    pose: Pose
+    # Station-owned (D-013): `offset` in its station's anchor frame; `pose` is derived from it.
+    station: str | None = None
+    offset: Pose | None = None
+    pose: Pose | None = None
+
+
+class ReturnPath(Model):
+    """An empty-carrier return path (D-013): a chute or conveyor segment owned by the station
+    whose SCARA lifts the carrier off the pallet (a `remove` step), running from where the
+    SCARA puts the carrier down (`offset` in that station's frame: x, y, the put-down plane z,
+    and the direction it runs) for `length`, to `sink` — the sub-line source (or buffer) the
+    carrier goes back to. `pose` is derived."""
+
+    carrier: str
+    station: str
+    kind: Literal["chute", "conveyor"]
+    offset: Pose | None = None
+    pose: Pose | None = None
+    length: Pos | None
+    width: Pos | None
+    sink: str
 
 
 class Tool(Model):
-    """A SCARA end-effector. `dims` is the envelope it needs at the pick feature, in metres:
-    [x, y, reach] — x,y across the pick point and reach = how far it comes down over it. The
-    fixture generators (P4 B3-B4) size their pick features from this."""
+    """A SCARA tool (top-level `tools:`, D-013). `dims` is the envelope it needs at the pick
+    feature, in metres: [x, y, reach] — x,y across the pick point and reach = how far it comes
+    down over it. The fixture generators (P4 B3-B4) size their pick features from this. On a
+    dual-tool end-effector each tool sits `offset_r` from the J4 axis, the two 180 deg apart;
+    `mass` and `offset_r` feed the payload and wrist_inertia checks."""
 
     grip: Literal["vacuum", "finger"]
     dims: Vec3
+    mass: Pos | None = None
+    offset_r: NonNeg | None = None
 
 
-class Reach(Model):
-    """The annulus about the base the TCP can work in, metres."""
+class RobotJointLimits(Model):
+    """Symmetric joint limits, +/- radians: j1 shoulder, j2 elbow, j4 wrist."""
 
-    r_min: Pos | None
-    r_max: Pos | None
-
-    @model_validator(mode="after")
-    def _ordered(self):
-        if self.r_min is not None and self.r_max is not None and self.r_min >= self.r_max:
-            raise ValueError(f"reach r_min {self.r_min} must be < r_max {self.r_max}")
-        return self
+    j1: Pos
+    j2: Pos
+    j4: Pos
 
 
-class Motion(Model):
-    """TCP limits, Cartesian: the trapezoid estimate_moves.py plans with (D-012)."""
+class RobotMotion(Model):
+    """TCP limits, Cartesian (the trapezoid estimate_moves.py plans with), and the wrist speed
+    that times a dual-tool switch (180 deg about J4)."""
 
     v_max: Pos | None
     a_max: Pos | None
+    j4_speed: Pos | None = None     # rad/s
+
+
+class RobotModel(Model):
+    """A SCARA product (D-013). Every `scaras` entry names one; nothing about the arm itself is
+    stated per SCARA. `reach` = link1 + link2; the TCP works at z = base z .. base z + z_stroke
+    (the base pose's z is the bottom of the stroke)."""
+
+    vendor: str | None = None
+    reach: Pos
+    z_stroke: Pos
+    payload_rated: Pos              # kg
+    payload_max: Pos                # kg
+    joint_limits: RobotJointLimits
+    inertia_rated: Pos              # kg m^2 about J4
+    repeatability: Pos              # m
+    step: str | None = None         # vendor STEP (layout.py places it at each base)
+    link1: Pos | None
+    link2: Pos | None
+    motion: RobotMotion
+
+    @model_validator(mode="after")
+    def _links(self):
+        if self.link1 is not None and self.link2 is not None \
+                and abs(self.link1 + self.link2 - self.reach) > 1e-6:
+            raise ValueError(f"link1 {self.link1} + link2 {self.link2} != reach {self.reach}")
+        return self
 
 
 class Scara(Model):
     """One SCARA per pick-and-place station (D-012), keyed `scara_<station without st_>`.
 
-    Its base stands at the station's x, `base_offset_y` out from the station on `base_side` (the
-    side of its part source): `scara_base()` is the one place that arithmetic lives. The TCP works
-    in the annulus [reach.r_min, reach.r_max] about the base and at z 0 .. `z_stroke` above the
-    datum plane."""
+    D-013: the arm is a `robot_models` entry; the base is placed by `offset` [dx, dy, dz, yaw] in
+    its station's anchor frame — dz is the bottom of the TCP's z stroke, yaw the direction j1 = 0
+    points — and `pose` is derived from it (resolve_anchors). `tools` is the end-effector: one
+    tool, or a dual-tool pair switched by a 180 deg J4 turn."""
 
     station: str
-    base_side: Literal["+y", "-y"] | None
-    base_offset_y: Pos | None
-    reach: Reach
-    z_stroke: Pos | None
-    payload_kg: Pos | None
-    tools: dict[str, Tool]
-    motion: Motion
+    model: str
+    offset: Pose | None = None
+    pose: Pose | None = None
+    tools: list[str]
 
 
 class ScaraDefaults(Model):
@@ -238,15 +284,30 @@ class GangHead(Model):
     # spindles takes ceil(qty / spindles) passes; check_line.py `station_time` adds them up.
     drive_s: Pos | None = None
     slide: Slide | None = None
+    # D-013: the working pose of the head frame in its station's anchor frame (the station is the
+    # one its drive step stands at); `pose` is derived.
+    offset: Pose | None = None
+    pose: Pose | None = None
+
+
+class ArmPins(Model):
+    """The pallet's arm pins are retractable (D-013): an `actuate` step extends them, and they
+    retract at `unload`, the end-of-line station that is deferred (docs/deferred_stations.yaml);
+    it gets its own actuate step when that station is re-added."""
+
+    retractable: bool
+    extend_step: str
+    retract_at: Literal["unload"]
 
 
 class Drone(Model):
-    """Features of the drone the line's tooling uses (D-012, option B)."""
+    """Features of the drone the line's tooling uses (D-012, D-013)."""
 
     # One per arm, bottom plate frame: the pallet's arm pin passes through it into the arm.
     arm_tooling_holes: list[Vec2] | None = None
     tooling_pin_d: Pos | None = None
     pin_engagement: Pos | None = None
+    arm_pins: ArmPins | None = None
 
 
 class Conveyor(Model):
@@ -258,10 +319,19 @@ class Conveyor(Model):
 ACTORS = ("scara", "driver", "operator", "sub_line", "test")
 
 
+class Anchor(Model):
+    """Where a station stands (D-013): `gap` metres along +x of the station it comes `after` (its
+    datum to this one's), or of the line origin for the first station (`after: origin`)."""
+
+    after: str
+    gap: NonNeg | None
+
+
 class Station(Model):
     index: PosInt
     count: PosInt
-    pose: Pose
+    anchor: Anchor | None = None
+    pose: Pose = (None, None, None, None)   # derived from the anchor chain (resolve_anchors)
     cell_pitch: Pos | None = None
     # Who works here (D-010). Derived from the steps for scara/driver/test; stated only where a
     # step cannot say it: an operator, or a sub_line that loads the pallet from `source` (a buffer
@@ -273,16 +343,21 @@ class Station(Model):
 class Step(Model):
     id: str
     station: str
-    capability: Literal["load", "place", "pick", "drive", "inspect", "test", "pack", "advance"]
+    # actuate (D-013): a station device moves (the pallet's arm pins extend); no actor.
+    # remove (D-013): the SCARA lifts `part` off the pallet and puts it on return path `to`.
+    capability: Literal["load", "place", "pick", "drive", "inspect", "test", "pack", "advance",
+                        "actuate", "remove"]
     duration_s: NonNeg | None
     requires: list[str]
     part: str | None = None
     from_: str | None = Field(default=None, alias="from")
     tool: str | None = None
+    to: str | None = None           # a remove step's return path
     head: str | None = None
     fastener: str | None = None
     qty: PosInt | None = None
     status: Literal["active", "parked"] = "active"
+    device: Literal["arm_pins"] | None = None     # what an `actuate` step moves
     note: str | None = None
 
 
@@ -343,6 +418,9 @@ class LineSpec(Model):
     feeders: dict[str, Feeder]
     sources: dict[str, Source]
     buffers: dict[str, Buffer]
+    return_paths: dict[str, ReturnPath] = Field(default_factory=dict)
+    robot_models: dict[str, RobotModel]
+    tools: dict[str, Tool]
     scaras: dict[str, Scara]
     scara_defaults: ScaraDefaults
     gang_heads: dict[str, GangHead]
@@ -375,15 +453,18 @@ class LineSpec(Model):
                 errors.append(f"sequence.{s.id}: moves part '{s.part}' with a SCARA and drives "
                               f"fasteners ({s.capability}, qty {s.qty}) in one step; split it "
                               "into a place step and a drive step")
-        # One tool id is one physical design: the CAD generators build it once.
-        first: dict[str, tuple[str, Tool]] = {}
+        # D-013: the arm is a robot model, the end-effector a list of top-level tools.
         for sid, sc in self.scaras.items():
-            for tid, tool in sc.tools.items():
-                if tid in first and first[tid][1] != tool:
-                    errors.append(f"scaras.{sid}.tools.{tid} differs from "
-                                  f"scaras.{first[tid][0]}.tools.{tid}; one tool id is one "
-                                  "tool")
-                first.setdefault(tid, (sid, tool))
+            if sc.model not in self.robot_models:
+                errors.append(f"scaras.{sid}.model: robot model '{sc.model}' does not exist")
+            for tid in sc.tools:
+                if tid not in self.tools:
+                    errors.append(f"scaras.{sid}.tools: tool '{tid}' does not exist")
+            if len(sc.tools) != len(set(sc.tools)):
+                errors.append(f"scaras.{sid}.tools: a tool is listed twice")
+            if len(sc.tools) > 2:
+                errors.append(f"scaras.{sid}.tools: {len(sc.tools)} tools; an end-effector is "
+                              "one tool or a dual-tool pair")
         errors += self._milestone_errors()
         if errors:
             raise ValueError("; ".join(errors))
@@ -452,14 +533,151 @@ def scara_ids(raw: dict) -> list[str]:
 
 
 def scara_base(spec: LineSpec, sid: str) -> tuple[float, float, float] | None:
-    """The base centre in the line frame: station x, station y +/- base_offset_y, station z.
-    None while any of it is null."""
-    sc = spec.scaras[sid]
-    st = spec.stations.get(sc.station)
-    if st is None or None in st.pose[:3] or sc.base_side is None or sc.base_offset_y is None:
+    """The base centre in the line frame (its resolved pose; z = the bottom of the TCP's z
+    stroke). None while any of it is null."""
+    pose = spec.scaras[sid].pose
+    if pose is None or None in pose[:3]:
         return None
-    sign = 1.0 if sc.base_side == "+y" else -1.0
-    return st.pose[0], st.pose[1] + sign * sc.base_offset_y, st.pose[2]
+    return pose[0], pose[1], pose[2]
+
+
+def scara_yaw(spec: LineSpec, sid: str) -> float | None:
+    """The direction j1 = 0 points, line frame, radians."""
+    pose = spec.scaras[sid].pose
+    return None if pose is None else pose[3]
+
+
+def scara_model(spec: LineSpec, sid: str) -> "RobotModel":
+    return spec.robot_models[spec.scaras[sid].model]
+
+
+def scara_side(spec: LineSpec, sid: str) -> str | None:
+    """"+y" or "-y": the side of its station the SCARA's base stands on (station frame)."""
+    off = spec.scaras[sid].offset
+    if off is None or off[1] is None or off[1] == 0:
+        return None
+    return "+y" if off[1] > 0 else "-y"
+
+
+# ---------------------------------------------------------------- anchors (D-013)
+
+ORIGIN = "origin"
+# Everything a station owns is placed by `offset` in that station's anchor frame.
+OWNED = ("feeders", "buffers", "scaras", "gang_heads", "return_paths")
+
+
+def compose(frame, offset) -> list[float | None]:
+    """`offset` [dx, dy, dz, yaw] in `frame` [x, y, z, yaw] -> a line-frame pose. A component is
+    None when anything it depends on is."""
+    fx, fy, fz, fyaw = (list(frame) + [None] * 4)[:4]
+    dx, dy, dz, dyaw = (list(offset) + [None] * 4)[:4]
+    if None in (fx, fyaw, dx, dy):
+        x = None
+    else:
+        x = fx + math.cos(fyaw) * dx - math.sin(fyaw) * dy
+    y = None if None in (fy, fyaw, dx, dy) else fy + math.sin(fyaw) * dx + math.cos(fyaw) * dy
+    z = None if None in (fz, dz) else fz + dz
+    yaw = None if None in (fyaw, dyaw) else fyaw + dyaw
+    return [None if c is None else round(c, 12) for c in (x, y, z, yaw)]
+
+
+def owner_station(raw: dict, coll: str, eid: str) -> str | None:
+    """The station whose anchor frame an owned entity's offset is in: its `station`, or for a
+    gang head the one station its drive step stands at."""
+    if coll == "gang_heads":
+        return head_station(raw, eid)
+    return ((raw.get(coll) or {}).get(eid) or {}).get("station")
+
+
+def _compose_deps(frame, fdeps, offset, opaths) -> list[set[str]]:
+    """Which spec paths each component of compose(frame, offset) depends on: x on the frame's x,
+    and on dx / dy only where the frame's yaw gives them a share (a straight line along +x does
+    not make y depend on the gap)."""
+    yaw = frame[3] or 0.0
+    c, s_ = abs(math.cos(yaw)) > 1e-12, abs(math.sin(yaw)) > 1e-12
+    dx, dy, dz, dyaw = opaths
+    out = [fdeps[0] | fdeps[3] | ({dx} if c else set()) | ({dy} if s_ else set()),
+           fdeps[1] | fdeps[3] | ({dx} if s_ else set()) | ({dy} if c else set()),
+           fdeps[2] | {dz}, fdeps[3] | {dyaw}]
+    return [d - {None} for d in out]
+
+
+def resolve_anchors(raw: dict) -> tuple[dict, dict[str, set[str]]]:
+    """Station poses from their anchor chain, then every owned entity's pose from its station
+    and offset (D-013). Returns (a copy of raw with `pose` filled in, {resolved pose path: the
+    spec paths it was computed from}), per pose component.
+
+    Idempotent: a station whose `after` is not in this spec (a milestone subset: that station
+    ran upstream) keeps the pose it was resolved to, if any. Entities without an anchor/offset
+    are left alone — the `anchors` check reports them as absolute poses, and a dangling `after`
+    too. Raises SpecError on an anchor cycle."""
+    out = copy.deepcopy(raw)
+    stations = out.get("stations") or {}
+    deps: dict[str, set[str]] = {}
+    none4 = [set(), set(), set(), set()]
+    done: dict[str, tuple[list, list[set[str]]]] = {}
+
+    def station(sid: str, chain: tuple[str, ...]):
+        if sid in done:
+            return done[sid]
+        if sid in chain:
+            raise SpecError([f"stations.{sid}.anchor: anchor cycle "
+                             f"{' -> '.join(chain + (sid,))}"])
+        st = stations[sid] or {}
+        anchor = st.get("anchor")
+        if not isinstance(anchor, dict):
+            done[sid] = (list(st.get("pose") or [None] * 4), none4)
+            return done[sid]
+        after, gap = anchor.get("after"), anchor.get("gap")
+        if after == ORIGIN:
+            frame, fdeps = [0.0, 0.0, 0.0, 0.0], none4
+        elif after in stations:
+            frame, fdeps = station(after, chain + (sid,))
+        else:
+            # Anchored upstream of a milestone subset (resolved before the cut), or to a
+            # station that does not exist: the `anchors` check reports the latter.
+            done[sid] = (list(st.get("pose") or [None] * 4), none4)
+            return done[sid]
+        pose = compose(frame, [gap, 0.0, 0.0, 0.0])
+        pdeps = _compose_deps(frame, fdeps, [gap, 0.0, 0.0, 0.0],
+                              [f"stations.{sid}.anchor.gap", None, None, None])
+        st["pose"] = pose
+        for i in range(4):
+            deps[f"stations.{sid}.pose[{i}]"] = pdeps[i]
+        done[sid] = (pose, pdeps)
+        return done[sid]
+
+    for sid in stations:
+        station(sid, ())
+    for coll in OWNED:
+        for eid, ent in (out.get(coll) or {}).items():
+            if not isinstance(ent, dict) or ent.get("offset") is None:
+                continue
+            st = owner_station(out, coll, eid)
+            if st not in stations:
+                continue        # resolved before a subset cut, or a dangling station (schema)
+            frame, fdeps = station(st, ())
+            ent["pose"] = compose(frame, ent["offset"])
+            pdeps = _compose_deps(frame, fdeps, ent["offset"],
+                                  [f"{coll}.{eid}.offset[{i}]" for i in range(4)])
+            for i in range(4):
+                deps[f"{coll}.{eid}.pose[{i}]"] = pdeps[i]
+    return out, deps
+
+
+def authored_pose_errors(data: dict, where: str) -> list[str]:
+    """A `pose` written into the file next to an anchor or offset: poses are derived (D-013)."""
+    errors = []
+    for sid, st in (data.get("stations") or {}).items():
+        if isinstance(st, dict) and "anchor" in st and "pose" in st:
+            errors.append(f"{where}: stations.{sid} has both `anchor` and `pose`; the pose is "
+                          "derived from the anchor")
+    for coll in OWNED:
+        for eid, ent in (data.get(coll) or {}).items():
+            if isinstance(ent, dict) and "offset" in ent and "pose" in ent:
+                errors.append(f"{where}: {coll}.{eid} has both `offset` and `pose`; the pose is "
+                              "derived from the offset")
+    return errors
 
 
 def head_station(raw: dict, hid: str) -> str | None:
@@ -479,7 +697,9 @@ def milestone_subset(raw: dict, name: str) -> dict:
     if name not in milestones:
         raise SpecError([f"milestone '{name}' does not exist (have: "
                          f"{', '.join(milestones) or 'none'})"])
-    out = copy.deepcopy(raw)
+    out, _ = resolve_anchors(raw)       # poses first: the cut drops the stations they chain from
+    raw = out
+    out = copy.deepcopy(out)
     keep = set(milestones[name])
     out["milestones"] = {name: list(milestones[name])}
     out["stations"] = {k: v for k, v in (raw.get("stations") or {}).items() if k in keep}
@@ -502,6 +722,8 @@ def milestone_subset(raw: dict, name: str) -> dict:
     drawn |= {v.get("feeder") for v in out["fasteners"].values()}
     out["feeders"] = {k: v for k, v in (raw.get("feeders") or {}).items() if k in drawn}
     out["buffers"] = {k: v for k, v in (raw.get("buffers") or {}).items() if k in drawn}
+    out["return_paths"] = {k: v for k, v in (raw.get("return_paths") or {}).items()
+                           if (v or {}).get("station") in keep}
     out["sources"] = {k: v for k, v in srcs.items() if v.get("buffer") in out["buffers"]}
     lay = out.get("layout")
     if isinstance(lay, dict) and isinstance(lay.get("feeder_footprints"), dict):
@@ -551,8 +773,8 @@ def add_dev_argument(parser: argparse.ArgumentParser) -> None:
 
 # Collections whose keys are entities: the overlay may fill their fields but not add members.
 ENTITY_COLLECTIONS = {"parts", "fasteners", "feeders", "sources", "buffers", "gang_heads",
-                      "scaras", "scaras.*.tools", "stations", "milestones",
-                      "layout.feeder_footprints"}
+                      "scaras", "robot_models", "tools", "return_paths", "stations",
+                      "milestones", "layout.feeder_footprints"}
 
 
 def _is_entity_collection(path: str) -> bool:
@@ -631,12 +853,29 @@ def _read_yaml(p: Path) -> dict:
 
 
 def load_merged(path: str | Path | None = None, dev: bool = False) -> Merged:
-    """The spec as plain YAML data (nulls preserved), plus overlay provenance when dev."""
+    """The spec as plain YAML data (nulls preserved), anchors resolved into line-frame poses
+    (D-013), plus overlay provenance when dev: a resolved pose computed from any placeholder is a
+    placeholder too (its record carries `derived_from`)."""
     p = Path(path) if path else DEFAULT_SPEC
     base = _read_yaml(p)
-    if not dev:
-        return Merged(raw=base)
-    return merge_overlay(base, _read_yaml(overlay_path(p)))
+    errors = authored_pose_errors(base, p.name)
+    if dev:
+        overlay = _read_yaml(overlay_path(p))
+        errors += authored_pose_errors(overlay, overlay_path(p).name)
+    if errors:
+        raise SpecError(errors)
+    m = merge_overlay(base, overlay) if dev else Merged(raw=base)
+    m.raw, deps = resolve_anchors(m.raw)
+    ph = {r["path"] for r in m.placeholders}
+    for path, used in deps.items():
+        if used & ph:
+            node = m.raw
+            name, i = path.rsplit("[", 1)
+            for k in name.split("."):
+                node = node[k]
+            m.placeholders.append({"path": path, "value": node[int(i[:-1])],
+                                   "derived_from": sorted(used & ph)})
+    return m
 
 
 def load_raw(path: str | Path | None = None, dev: bool = False) -> dict:
@@ -644,6 +883,9 @@ def load_raw(path: str | Path | None = None, dev: bool = False) -> dict:
 
 
 def parse_spec(raw: dict) -> LineSpec:
+    """Validate; anchors are resolved first (idempotent), so a raw dict built by hand parses the
+    same as one from load_merged."""
+    raw, _ = resolve_anchors(raw)
     try:
         return LineSpec.model_validate(raw)
     except ValidationError as exc:

@@ -45,6 +45,7 @@ def _drive_at_place(s):
     _seq(s, "drive")["station"] = "st_place"
     del s["stations"]["st_drive"]
     s["milestones"]["front"].remove("st_drive")
+    s["stations"]["st_test"]["anchor"] = {"after": "st_place", "gap": 1.0}
 
 
 def _slide_at_place(t_in, t_out):
@@ -102,6 +103,32 @@ def _drop_tooling_hole(s):
     s["drone"]["arm_tooling_holes"].pop()
 
 
+def _actuate_without_device(s):
+    s["sequence"].append({"id": "pins", "station": "st_place", "capability": "actuate",
+                          "duration_s": 0.5, "requires": ["load"]})
+
+
+def _absolute_station(s):
+    s["stations"]["st_drive"].pop("anchor")
+    s["stations"]["st_drive"]["pose"] = [1.0, 0.0, 0.0, 0.0]
+    s["stations"]["st_test"]["anchor"]["after"] = "st_drive"
+
+
+def _absolute_feeder(s):
+    f = s["feeders"]["fd_mid_plate"]
+    f.pop("offset")
+    f.pop("station")
+    f["pose"] = [0.3, 0.3, 0.15, 0.0]
+
+
+def _longer_links(link):
+    """Every SCARA reaches 2 x link: 0.30 m overlaps neighbours 0.5 m apart by 0.1 m."""
+    def mutate(s):
+        m = s["robot_models"]["test_scara"]
+        m.update(link1=link, link2=link, reach=2 * link)
+    return mutate
+
+
 def _set(path, value):
     """Mutation that sets spec[k1][k2]... = value."""
     def mutate(s):
@@ -142,6 +169,16 @@ FAILING = [
     ("actors", "part_from_nowhere", lambda s: _seq(s, "place").pop("from"), "FAIL"),
     ("actors", "sub_line_source_does_not_exist", _sub_line_loader("buf_nope"), "FAIL"),
     ("actors", "sub_line_without_source", _sub_line_loader(None), "FAIL"),
+    # remove (D-013): only what is on the pallet, onto its own return path.
+    ("actors", "removes_a_part_not_on_the_pallet", _set(["sequence", 5, "part"], "carrier_pod"),
+     "FAIL"),
+    ("actors", "return_path_nothing_uses",
+     _set(["return_paths", "rt_spare"], {"carrier": "carrier_pod", "station": "st_pod",
+                                         "kind": "chute", "offset": [0.2, -0.3, 0.1, 0.0],
+                                         "length": 0.2, "width": 0.1, "sink": "buf_pod"}),
+     "FAIL"),
+    ("schema", "remove_without_a_return_path", lambda s: _seq(s, "remove_spider").pop("to"),
+     "FAIL"),
     # station_time (D-011): gh_top 1 pass x 19 s + index 0.5/0.3 s > takt 20 s.
     ("station_time", "drive_pass_too_long", _set(["gang_heads", "gh_top", "drive_s"], 19.0),
      "FAIL"),
@@ -158,14 +195,14 @@ FAILING = [
      _set(["scaras", "scara_place", "station"], "st_nowhere"), "FAIL"),
     ("schema", "robot_step_at_a_station_without_scara",
      lambda s: s["scaras"].pop("scara_place"), "FAIL"),
-    ("schema", "one_tool_id_two_designs",
-     _set(["scaras", "scara_pod", "tools", "tool_carrier"],
-          {"grip": "finger", "dims": [0.05, 0.05, 0.03]}), "FAIL"),
+    ("schema", "scara_tool_does_not_exist", _set(["scaras", "scara_pod", "tools"], ["tool_nope"]),
+     "FAIL"),
+    ("schema", "scara_model_does_not_exist", _set(["scaras", "scara_pod", "model"], "nope"),
+     "FAIL"),
     ("schema", "tool_not_on_the_station_scara", _set(["sequence", 1, "tool"], "tool_carrier"),
      "FAIL"),
     ("schema", "place_and_drive_in_one_step", _set(["sequence", 1, "fastener"], "m3_x8"), "FAIL"),
-    ("schema", "source_returns_an_unknown_part",
-     _set(["sources", "src_plate", "returns"], "carrier_nope"), "FAIL"),
+    ("schema", "actuate_step_without_device", _actuate_without_device, "FAIL"),
     # Milestones (D-012).
     ("schema", "station_in_no_milestone",
      _set(["milestones", "back"], ["st_test", "st_spider"]), "FAIL"),
@@ -173,29 +210,45 @@ FAILING = [
      _set(["milestones", "back"], ["st_drive", "st_test", "st_spider", "st_pod"]), "FAIL"),
     ("schema", "milestones_out_of_line_order",
      _set(["milestones", "front"], ["st_place", "st_load", "st_drive"]), "FAIL"),
-    # scara_reach: pick and place inside [r_min, r_max] about the base.
-    ("scara_reach", "pick_beyond_r_max",
-     _set(["feeders", "fd_mid_plate", "pose"], [0.3, 0.6, 0.15, 0.0]), "FAIL"),
-    ("scara_reach", "pick_inside_r_min", _set(["scaras", "scara_place", "reach", "r_min"], 0.22),
-     "FAIL"),
-    ("scara_reach", "null_r_max", _set(["scaras", "scara_place", "reach", "r_max"], None), "WARN"),
+    # anchors (D-013): stations on an anchor chain, everything they own at an offset.
+    ("anchors", "station_with_an_absolute_pose", _absolute_station, "FAIL"),
+    ("anchors", "anchored_to_the_wrong_station",
+     _set(["stations", "st_drive", "anchor"], {"after": "st_load", "gap": 1.0}), "FAIL"),
+    ("anchors", "feeder_with_an_absolute_pose", _absolute_feeder, "FAIL"),
+    # scara_reach (D-013): IK inside the model's links and j1/j2 limits, z inside the stroke.
+    ("scara_reach", "pick_beyond_reach",
+     _set(["feeders", "fd_mid_plate", "offset"], [-0.2, 0.6, 0.15, 0.0]), "FAIL"),
+    ("scara_reach", "pick_inside_r_min",
+     _set(["robot_models", "test_scara", "joint_limits", "j2"], 1.0), "FAIL"),
+    ("scara_reach", "pick_outside_j1",
+     _set(["robot_models", "test_scara", "joint_limits", "j1"], 0.3), "FAIL"),
+    ("scara_reach", "pick_above_the_stroke",
+     _set(["feeders", "fd_mid_plate", "offset"], [-0.2, 0.3, 0.7, 0.0]), "FAIL"),
+    ("scara_reach", "null_links", _set(["robot_models", "test_scara", "link1"], None), "WARN"),
     # scara_clearance: a base footprint stands clear; shared reach is a WARN.
     ("scara_clearance", "base_in_the_conveyor",
-     _set(["scaras", "scara_place", "base_offset_y"], 0.15), "FAIL"),
+     _set(["scaras", "scara_place", "offset", 1], 0.15), "FAIL"),
     ("scara_clearance", "base_on_a_buffer",
-     _set(["buffers", "buf_plate", "pose"], [0.45, 0.3, 0.1, 0.0]), "FAIL"),
+     _set(["buffers", "buf_plate", "offset"], [0.45, 0.3, 0.1, 0.0]), "FAIL"),
     ("scara_clearance", "two_bases_overlap", _set(["layout", "scara_base", "diameter"], 0.55),
      "FAIL"),
-    ("scara_clearance", "envelopes_overlap", _set(["scaras", "scara_place", "reach", "r_max"], 0.3),
-     "WARN"),
+    ("scara_clearance", "envelopes_overlap", _longer_links(0.15), "WARN"),
     ("scara_clearance", "null_base_diameter", _set(["layout", "scara_base", "diameter"], None),
      "WARN"),
-    # safe_z: scara_pod's is 0.314 (spider carrier at st_pod 0.204 + pod tray 0.080 + 0.03).
-    ("safe_z", "safe_z_above_the_z_stroke", _set(["scaras", "scara_pod", "z_stroke"], 0.3),
-     "FAIL"),
+    # safe_z (path based, D-013): scara_spider's is 0.235 (buf_fixture 0.1 under its path +
+    # carrier_spider 0.105 + 0.03), scara_pod's 0.240 (lifting that carrier off): 0.22 fails both.
+    ("safe_z", "safe_z_above_the_z_stroke",
+     _set(["robot_models", "test_scara", "z_stroke"], 0.22), "FAIL"),
     ("safe_z", "null_margin", _set(["scara_defaults", "z_margin"], None), "WARN"),
-    ("robot_load", "scara_pod_over_budget",
-     _set(["scaras", "scara_pod", "motion", "v_max"], 0.02), "FAIL"),
+    # payload / wrist_inertia (D-013): scara_spider lifts 0.3 kg of tool + 0.6 kg of carrier.
+    ("payload", "over_payload_rated",
+     _set(["robot_models", "test_scara", "payload_rated"], 0.5), "FAIL"),
+    ("payload", "null_tool_mass", _set(["tools", "tool_carrier", "mass"], None), "WARN"),
+    ("wrist_inertia", "over_inertia_rated",
+     _set(["robot_models", "test_scara", "inertia_rated"], 0.001), "WARN"),
+    ("wrist_inertia", "null_part_mass", _set(["parts", "carrier_pod", "mass"], None), "WARN"),
+    ("robot_load", "scara_over_budget",
+     _set(["robot_models", "test_scara", "motion", "v_max"], 0.02), "FAIL"),
     ("robot_load", "null_grip_time", _set(["scara_defaults", "grip_s"], None), "WARN"),
     # D-009: the pallet is moving for pitch/belt_speed + stop_unit_cycle_s of every takt.
     ("robot_load", "transfer_eats_the_budget", _set(["layout", "stop_unit_cycle_s"], 16.0),

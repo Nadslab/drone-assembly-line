@@ -10,17 +10,27 @@ z = -line.work_height), exported in millimetres:
              Pallet_Slot_<n>_<k> (queued-pallet outlines between station n and the next)
   Stations   Station_<Name> (stop_unit_length x conveyor width, floor to belt top), and for a
              station with count > 1 one Station_<Name>_Cell<k> per cell on the test branch
-  Robots     Scara_<Name>_Base (a layout.scara_base cylinder, floor up, at spec.scara_base()) and
-             GangHead_<Name> (a layout.gang_head_box over its station — or, on a slide, where it
-             waits while the SCARA works; tools/robot_geometry.head_box)
+  Robots     Scara_<Name>_Base (a layout.scara_base pedestal from the floor to the mounting face
+             at the SCARA's resolved pose) with Scara_<Name> on it — its robot model's vendor STEP
+             (tools/cad/vendor.py), posed folded (j1 = 0, j2 at its limit); with no STEP the
+             pedestal is a layout.scara_base.height cylinder and the run WARNs — and
+             GangHead_<Name> (a layout.gang_head_box at its working pose — or, on a slide, where
+             it waits while the SCARA works; tools/robot_geometry.head_box)
+  Carriers   Carrier_<Name> on the pallet at every station it rides through (placed, not yet
+             removed: robot_geometry.stack_parts), from its generator's STEP in cad_out/[dev/]
+             (its bbox as a box when the STEP is not built)
   Feeders    Feeder_<Name> at its pose, sized by layout.feeder_footprints (a feeder with no pose —
              a blow feeder riding its gang head — has nothing to place)
   Buffers    Buffer_<Name>, the same
+  Returns    ReturnPath_<Name> (D-013): the chute or conveyor segment an empty carrier goes back
+             on — `width` across, `length` from its put-down point along its yaw, floor to the
+             put-down plane — and ReturnSink_<Name> at its far end, the sub-line it feeds
+             (SINK_SIZE square, floor to SINK_H below the put-down plane)
   Reference  non-physical solids: Floor (bbox of everything + 1 m), OperatorAisle (outside the
              outermost guard on its side), Guard_<Milestone> (one per milestone, D-012: a wall
              guard_offset outside the union of its robots' envelopes, with a tunnel where the
-             conveyor passes), Scara_<Name>_Envelope (an annular cylinder, reach r_min..r_max,
-             datum plane to z_stroke) and GangHead_<Name>_Slide (the volume a head on a slide
+             conveyor passes), Scara_<Name>_Envelope (an annular cylinder, the model's r_min..reach,
+             over the TCP's z range) and GangHead_<Name>_Slide (the volume a head on a slide
              sweeps between waiting and working)
 
 Every dimension carries the spec keys it came from; a solid that used any placeholder is coloured
@@ -35,6 +45,9 @@ Axes: all of the above — layout.json, bbox_mm, the interference/straddle check
 (line) frame, Z up. Only the exported STEP is rotated: SolidWorks is Y-up, so the whole assembly is
 rotated EXPORT_ROT_X_DEG (-90 deg about X) right before writing, mapping spec (x, y, z) to STEP
 (x, z, -y) so SolidWorks' Top view is the plan view.
+
+Renders (D-013): reports/render/<milestone or line>_top.png and _iso.png, offscreen through
+pyvista (tools/render/render.py), for a quick look without SolidWorks.
 
 Outputs: two STEP assemblies next to each other — line_layout.step (Line > Conveyor, Stations,
 Robots, Feeders, Buffers, Reference; `--no-reference` drops Reference from this one too) and
@@ -54,8 +67,10 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -63,16 +78,23 @@ from build123d import Box, Color, Compound, Cylinder, Pos, Rot, export_step, imp
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))         # tools/cad: common
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # tools: spec
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "render"))
 
+import render as render_png  # noqa: E402
 import robot_geometry as rg  # noqa: E402
+import vendor  # noqa: E402
 from common import Values, lookup, pascal  # noqa: E402
-from spec import (DEFAULT_SPEC, LineSpec, SpecError, add_dev_argument, load_merged,  # noqa: E402
+from spec import (DEFAULT_SPEC, REPO, LineSpec, SpecError, add_dev_argument,  # noqa: E402
+                  load_merged,
                   milestone_subset, parse_spec, report_path, scara_ids)
 
 DEFAULT_OUT = Path("/mnt/c/Users/Admin/Documents/drone-line-cad/60_layout/line_layout.step")
 PHYSICAL_NAME = "line_layout_physical.step"   # the same assembly, Reference group dropped
 SVG_NAME = "line_layout_top.svg"
-GROUPS = ("Conveyor", "Stations", "Robots", "Feeders", "Buffers", "Reference")
+GROUPS = ("Conveyor", "Stations", "Robots", "Feeders", "Buffers", "Returns", "Reference")
+CAD_OUT = Path(__file__).resolve().parent.parent.parent / "cad_out"
+REPORTS = Path(__file__).resolve().parent.parent.parent / "reports"
+CARRIER_STEPS = {"carrier_spider": "spider_carrier.step", "carrier_pod": "pod_tray.step"}
 PHYSICAL_GROUPS = GROUPS[:-1]                 # every group except Reference
 
 # Export-only axis fix: SolidWorks is Y-up, the spec/line frame is Z-up. Rotating -90 deg about X
@@ -90,12 +112,15 @@ GUARD_H = 2.0            # guard wall top above the floor
 TUNNEL_CLEAR = 0.05      # opening above the pallet top where the conveyor passes a guard
 OUTLINE_RIM = 0.01       # rim width of a queued-pallet outline
 OUTLINE_H = 0.005        # height of a queued-pallet outline
+SINK_SIZE = 0.30         # plan size of the block standing for a return path's sub-line end
+SINK_H = 0.10            # how far below the put-down plane the sink's top is (a chute falls)
 PALLET_DATUM_TOL = 0.001  # pallet top vs the datum plane: WARN beyond this
 VOLUME_TOL_MM3 = 1.0     # shared volume below this is two faces touching, not an overlap
 
 # Pairs of categories that may share volume. Everything else is a FAIL.
 ALLOWED_OVERLAPS = (
     ("pallet", "conveyor"),      # a pallet (or a queued outline) rides on the belt
+    ("carrier", "pallet"),       # a carrier's locating features sit into the pallet
     ("station", "conveyor"),     # a station footprint straddles the belt
     ("envelope", "*"),           # a reach/slide envelope is a volume a robot sweeps, not a body
     ("floor", "*"),
@@ -106,12 +131,14 @@ ALLOWED_OVERLAPS = (
 CATEGORY_COLOUR = {
     "floor": "reference", "aisle": "reference", "guard": "reference", "envelope": "reference",
     "conveyor": "conveyor", "pallet": "pallet", "station": "station", "robot": "robot",
-    "gang_head": "gang_head", "feeder": "feeder", "buffer": "buffer",
+    "gang_head": "gang_head", "feeder": "feeder", "buffer": "buffer", "carrier": "carrier",
+    "return": "return",
 }
 COLOURS = {                      # by colour bucket, RGB 0-1
     "reference": (0.80, 0.80, 0.82), "conveyor": (0.45, 0.45, 0.47), "pallet": (0.20, 0.45, 0.85),
     "station": (0.25, 0.65, 0.35), "robot": (0.00, 0.55, 0.55), "gang_head": (0.65, 0.38, 0.15),
-    "feeder": (0.95, 0.80, 0.20), "buffer": (0.55, 0.25, 0.70),
+    "feeder": (0.95, 0.80, 0.20), "buffer": (0.55, 0.25, 0.70), "carrier": (0.85, 0.20, 0.25),
+    "return": (0.95, 0.55, 0.65),
 }
 PLACEHOLDER_COLOUR = (1.0, 0.55, 0.0)  # SVG placeholder outline only — never a STEP fill colour
 
@@ -199,6 +226,7 @@ class Item:
     cylinder: bool = False                      # size x = diameter (= size y); hollow[0] inner d
     cuts: list[tuple[tuple[Dim, Dim, Dim], tuple[Dim, Dim, Dim]]] = field(default_factory=list)
     shape: object = None
+    solid: object = None                        # a ready shape (vendor STEP, carrier), mm
 
     def dims(self) -> list[Dim]:
         out = list(self.centre) + list(self.size)
@@ -228,6 +256,11 @@ def box_mm(centre, size):
 
 
 def build_shape(it: Item):
+    if it.solid is not None:
+        solid = it.solid
+        solid.label = it.label
+        solid.color = Color(*colour_of(it.category), OPAQUE)
+        return solid
     if it.cylinder:
         solid = Cylinder(it.size[0].value * 500.0, it.size[2].value * 1000.0)
         if it.hollow:
@@ -252,11 +285,16 @@ def span(lo: Dim, hi: Dim) -> tuple[Dim, Dim]:
     return (lo + hi) / 2.0, hi - lo
 
 
-def plan(v: Values, spec: LineSpec, cad: rg.CadHeights) -> list[Item] | None:
+def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = None
+         ) -> list[Item] | None:
     """Every solid, as Dims. None when a value the layout needs is null.
 
-    `spec` is `v.raw` parsed; `cad` is where the gang heads' stack heights come from (they sit on
-    the stack, tools/robot_geometry.head_box)."""
+    `spec` is `v.raw` parsed; `cad` is where the gang heads' stack heights and the carriers come
+    from (they sit on the stack, tools/robot_geometry.head_box). `notes` collects warnings and
+    what was measured in the vendor STEPs."""
+    notes = notes if notes is not None else {}
+    notes.setdefault("warnings", [])
+    notes.setdefault("vendor", {})
     q = Reader(v)
     items: list[Item] = []
     L = "layout"
@@ -316,7 +354,31 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights) -> list[Item] | None:
             items.append(Item(name, "station", "Stations", (pose[s][0], pose[s][1], cz),
                               (stop, belt_w, sz)))
 
-    # Robots: a SCARA base column per SCARA, its reach envelope; a gang head box per head.
+    # Carriers (D-013): on the pallet at every station they ride through.
+    for s in stations:
+        for part in rg.stack_parts(spec, s, own=True):
+            if part not in CARRIER_STEPS:
+                continue
+            shape = carrier_shape(part, cad, notes)
+            if shape is None:
+                continue
+            pz = q(f"stations.{s}.pose[2]")
+            at = Pos(pose[s][0].value * 1000.0, pose[s][1].value * 1000.0, pz.value * 1000.0)
+            keys = pose[s][0].keys | pose[s][1].keys | pz.keys
+            ph = pose[s][0].placeholder or pose[s][1].placeholder or pz.placeholder
+            sub = f"{pascal(part)}_{index[s]}"
+            solids = shape.solids()
+            for i, solid in enumerate(solids):
+                solid = at * solid
+                bb = solid.bounding_box()
+                items.append(Item(sub if len(solids) == 1 else f"{sub}_{i + 1}", "carrier",
+                                  "Conveyor",
+                                  tuple(Dim(c / 1000.0, keys, ph) for c in tuple(bb.center())),
+                                  tuple(Dim(c / 1000.0, keys, ph) for c in tuple(bb.size)),
+                                  subgroup=sub if len(solids) > 1 else None, solid=solid))
+
+    # Robots: a SCARA (pedestal + vendor arm) per SCARA, its reach envelope; a gang head box per
+    # head.
     def derived(value: float, paths: set[str]) -> Dim:
         """A number robot_geometry worked out, carrying the spec keys it came from."""
         return Dim(value, frozenset(paths), any(v.is_placeholder(k) for k in paths))
@@ -326,19 +388,58 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights) -> list[Item] | None:
     for sid in scara_ids(v.raw):
         s = f"scaras.{sid}"
         st = v.plain(f"{s}.station")
+        rm = f"robot_models.{v.plain(f'{s}.model')}"
         name = f"Scara_{pascal(sid.removeprefix('scara_'))}"
-        side = v.plain(f"{s}.base_side")
-        sign = Dim(1.0 if side == "+y" else -1.0, frozenset({f"{s}.base_side"}),
-                   v.is_placeholder(f"{s}.base_side"))
-        bx = q(f"stations.{st}.pose[0]")
-        by = q(f"stations.{st}.pose[1]") + sign * q(f"{s}.base_offset_y")
-        r_min, r_max, stroke = q(f"{s}.reach.r_min"), q(f"{s}.reach.r_max"), q(f"{s}.z_stroke")
-        items.append(Item(f"{name}_Base", "robot", "Robots", (bx, by, floor_z + base_h / 2.0),
-                          (base_d, base_d, base_h), cylinder=True))
+        bx, by, bz = q(f"{s}.pose[0]"), q(f"{s}.pose[1]"), q(f"{s}.pose[2]")
+        yaw = q(f"{s}.pose[3]")
+        reach, stroke = q(f"{rm}.reach"), q(f"{rm}.z_stroke")
+        j2 = q(f"{rm}.joint_limits.j2")
+        k = rg.kin(spec, sid)
+        if k is None or k.r_min is None:
+            v.missing.append(f"{rm}.link1/link2 (the folded reach r_min of {sid})")
+            continue
+        r_min = derived(k.r_min, {f"{rm}.link1", f"{rm}.link2", f"{rm}.joint_limits.j2"})
+        model = None
+        step = q.plain(f"{rm}.step", "")
+        try:
+            model = vendor.load(step) if step else None
+        except vendor.VendorError as exc:
+            notes["warnings"].append(f"{sid}: vendor STEP not placed ({exc}); drawn as the "
+                                     "layout.scara_base cylinder")
+        if model is None and not step:
+            notes["warnings"].append(f"{sid}: {rm}.step is not set; drawn as the "
+                                     "layout.scara_base cylinder")
+        if model is None:
+            items.append(Item(f"{name}_Base", "robot", "Robots", (bx, by, floor_z + base_h / 2.0),
+                              (base_d, base_d, base_h), cylinder=True))
+        else:
+            measured = model.measured()
+            notes["vendor"][sid] = measured
+            links = (lookup(v.raw, f"{rm}.link1"), lookup(v.raw, f"{rm}.link2"))
+            if None not in links and any(abs(a * 1000.0 - b) > 1.0 for a, b in
+                                         zip(links, (measured["link1_mm"], measured["link2_mm"]))):
+                notes["warnings"].append(
+                    f"{rm}: link1/link2 {links[0]:g}/{links[1]:g} m"
+                    f"{' (PLACEHOLDER)' if v.is_placeholder(rm + '.link1') else ''} but the "
+                    f"vendor STEP measures {measured['link1_mm'] / 1000:g}/"
+                    f"{measured['link2_mm'] / 1000:g} m")
+            # The STEP's shaft is at the top of its stroke: its lower end is the TCP's z top.
+            mount = bz + stroke - derived(model.shaft_bottom / 1000.0, {f"{rm}.step"})
+            items.append(Item(f"{name}_Base", "robot", "Robots",
+                              (bx, by, (floor_z + mount) / 2.0), (base_d, base_d, mount - floor_z),
+                              cylinder=True))
+            keys = set(bx.keys | by.keys | bz.keys | yaw.keys | stroke.keys | j2.keys)
+            for role, solid in vendor.placed(model, 0.0, j2.value, bx.value * 1000.0,
+                                             by.value * 1000.0, mount.value * 1000.0, yaw.value):
+                bb = solid.bounding_box()
+                items.append(Item(f"{name}_{role}", "robot", "Robots",
+                                  tuple(derived(c / 1000.0, keys) for c in tuple(bb.center())),
+                                  tuple(derived(c / 1000.0, keys) for c in tuple(bb.size)),
+                                  subgroup=name, solid=solid))
         items.append(Item(f"{name}_Envelope", "envelope", "Reference",
-                          (bx, by, stroke / 2.0), (r_max * 2.0, r_max * 2.0, stroke),
+                          (bx, by, bz + stroke / 2.0), (reach * 2.0, reach * 2.0, stroke),
                           hollow=(r_min * 2.0, r_min * 2.0), cylinder=True))
-        reach_rects.setdefault(st, []).append((bx - r_max, bx + r_max, by - r_max, by + r_max))
+        reach_rects.setdefault(st, []).append((bx - reach, bx + reach, by - reach, by + reach))
     for hid in sorted(v.raw.get("gang_heads") or {}):
         hb = rg.head_box(spec, hid, cad)
         if hb.rect is None:
@@ -381,9 +482,44 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights) -> list[Item] | None:
                               f"{kind.capitalize()}s",
                               (q(f"{coll}.{fid}.pose[0]"), q(f"{coll}.{fid}.pose[1]"),
                                floor_z + h / 2.0), (w, d, h), yaw=yaw))
+            # A source stands inside its station's guard too (D-013): it is in the cell.
+            owner = lookup(v.raw, f"{coll}.{fid}.station")
+            px, py = q(f"{coll}.{fid}.pose[0]"), q(f"{coll}.{fid}.pose[1]")
+            reach_rects.setdefault(owner, []).append((px - w / 2.0, px + w / 2.0,
+                                                      py - d / 2.0, py + d / 2.0))
+
+    # Return paths (D-013): a strip from the put-down point along its yaw, floor to the put-down
+    # plane, and a sink block at its far end. Both stand in their station's guard.
+    for rid in v.raw.get("return_paths") or {}:
+        rp = f"return_paths.{rid}"
+        rx, ry, rz = q(f"{rp}.pose[0]"), q(f"{rp}.pose[1]"), q(f"{rp}.pose[2]")
+        ryaw = q(f"{rp}.pose[3]")
+        length, width = q(f"{rp}.length"), q(f"{rp}.width")
+        if v.missing:
+            continue
+        ux, uy = math.cos(ryaw.value), math.sin(ryaw.value)
+        name = f"ReturnPath_{pascal(rid.removeprefix('rt_'))}"
+        top = rz - floor_z
+        items.append(Item(name, "return", "Returns",
+                          (rx + length * (ux / 2.0), ry + length * (uy / 2.0),
+                           floor_z + top / 2.0), (length, width, top), yaw=ryaw))
+        sink = const("SINK_SIZE")
+        far = length + sink / 2.0
+        sh = top - const("SINK_H")
+        items.append(Item(f"ReturnSink_{pascal(rid.removeprefix('rt_'))}", "return", "Returns",
+                          (rx + far * ux, ry + far * uy, floor_z + sh / 2.0), (sink, sink, sh),
+                          yaw=ryaw))
+        owner = lookup(v.raw, f"{rp}.station")
+        # Plan bounds of strip + sink: `length + sink` along the yaw, the wider of the two across.
+        half = dmax(width, sink) / 2.0
+        end = length + sink
+        xs = [rx + a * end * ux - b * half * uy for a in (0.0, 1.0) for b in (-1.0, 1.0)]
+        ys = [ry + a * end * uy + b * half * ux for a in (0.0, 1.0) for b in (-1.0, 1.0)]
+        reach_rects.setdefault(owner, []).append((dmin(*xs), dmax(*xs), dmin(*ys), dmax(*ys)))
 
     # Guards (D-012): one per milestone, a wall guard_offset outside the union of its robots'
-    # envelopes (SCARA reach discs, gang heads and their slides), open where the belt passes.
+    # envelopes (SCARA reach discs, gang heads and their slides) and its stations' feeders and
+    # buffers (D-013), open where the belt passes.
     offset = q(f"{L}.guard_offset")
     tunnel_top = belt_top + pallet[2] + const("TUNNEL_CLEAR")
     wall = const("GUARD_T")
@@ -436,6 +572,26 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights) -> list[Item] | None:
     return items
 
 
+_STEP_CACHE: dict[str, object] = {}
+
+
+def carrier_shape(part: str, cad: rg.CadHeights, notes: dict):
+    """The carrier's own STEP (its generator's output), rest plane at z = 0, mm; its bbox as a
+    box when that STEP is not built; None (and a warning) when neither exists."""
+    path = CAD_OUT / ("dev" if cad.dev else "") / CARRIER_STEPS[part]
+    if path.is_file():
+        if str(path) not in _STEP_CACHE:
+            _STEP_CACHE[str(path)] = Compound(import_step(str(path)).solids())
+        return copy.deepcopy(_STEP_CACHE[str(path)])
+    box = cad.bbox(part)
+    if box is None:
+        notes["warnings"].append(f"{part}: neither {path} nor its bbox report exists; not drawn")
+        return None
+    notes["warnings"].append(f"{part}: {path} not built; drawn as its bbox")
+    lo, size = box["min"], box["size"]
+    return Pos(*(lo[i] + size[i] / 2.0 for i in range(3))) * Box(*size)
+
+
 # ---------------------------------------------------------------- checks
 
 def allowed(a: str, b: str) -> bool:
@@ -480,8 +636,9 @@ def assemble(items: list[Item], groups: tuple[str, ...] = GROUPS,
 
     `copy_shapes`: building a Compound reparents each child shape to it, silently dropping it out
     of any Compound it was already a child of — so a second assemble() call over the same `items`
-    (physical, after the full one) must work from independent deep copies, never the same
-    `it.shape` objects, or the first tree's groups come back empty.
+    (physical, after the full one) must work from copies, never the same `it.shape` objects, or
+    the first tree's groups come back empty. A shallow copy is enough (its own wrapper and parent,
+    the OCC geometry shared) and costs nothing; a deep copy of a vendor STEP took ~25 s.
     """
     out = []
     for gname in groups:
@@ -489,7 +646,7 @@ def assemble(items: list[Item], groups: tuple[str, ...] = GROUPS,
         for it in items:
             if it.group != gname:
                 continue
-            shape = copy.deepcopy(it.shape) if copy_shapes else it.shape
+            shape = copy.copy(it.shape) if copy_shapes else it.shape
             if it.subgroup:
                 subs.setdefault(it.subgroup, []).append(shape)
             else:
@@ -597,8 +754,8 @@ def write_svg(items: list[Item], path: Path) -> None:
     Unlike the STEP, fill stays the category colour and a placeholder gets an orange outline:
     under --dev every station pose is a placeholder, so an all-orange plan would show nothing.
     """
-    order = ["floor", "aisle", "guard", "envelope", "conveyor", "station", "pallet", "robot",
-             "gang_head", "feeder", "buffer"]
+    order = ["floor", "aisle", "guard", "envelope", "conveyor", "station", "pallet", "carrier",
+             "robot", "gang_head", "feeder", "buffer", "return"]
     boxes = [(it, it.shape.bounding_box()) for it in items]
     fl = next(b for it, b in boxes if it.category == "floor")
     x0, x1, y0, y1 = fl.min.X, fl.max.X, fl.min.Y, fl.max.Y
@@ -694,6 +851,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="draw only this milestone (D-012) into <out dir>/<NAME>/")
     ap.add_argument("--cad-reports", type=Path, default=None,
                     help=f"where cad_<part>.json live (default {rg.CAD_REPORTS})")
+    ap.add_argument("--no-render", action="store_true",
+                    help="skip the reports/render/<name>_{top,iso}.png renders")
     ap.add_argument("--no-reference", action="store_true",
                     help=f"the primary STEP ({DEFAULT_OUT.name}) drops the Reference group too; "
                          f"{PHYSICAL_NAME} (always written) is unaffected")
@@ -717,7 +876,7 @@ def main(argv: list[str] | None = None) -> int:
                  "verify_physical": {},
                  "constants_m": {k: globals()[k] for k in (
                      "FLOOR_T", "FLOOR_MARGIN", "AISLE_T", "GUARD_T", "GUARD_H", "TUNNEL_CLEAR",
-                     "OUTLINE_RIM", "OUTLINE_H")},
+                     "OUTLINE_RIM", "OUTLINE_H", "SINK_SIZE", "SINK_H")},
                  "placeholders": [], "missing": [], "warnings": [], "errors": [], "solids": []}
 
     def finish(code: int) -> int:
@@ -741,15 +900,19 @@ def main(argv: list[str] | None = None) -> int:
         return finish(1)
 
     v = Values(merged.raw, {p["path"] for p in merged.placeholders})
-    items = plan(v, spec, rg.CadHeights(args.cad_reports, args.dev))
+    notes: dict = {"warnings": [], "vendor": {}}
+    items = plan(v, spec, rg.CadHeights(args.cad_reports, args.dev), notes)
+    doc["vendor_steps"] = notes["vendor"]
     doc["placeholders"] = sorted(set(v.placeholders))
     if items is None:
         doc["missing"] = sorted(set(v.missing))
         doc["errors"].append(f"no value for: {', '.join(doc['missing'])} — fill the key(s) in, "
                              "or re-run with --dev")
         return finish(1)
-    doc["warnings"] = warnings_of(v)
+    doc["warnings"] = warnings_of(v) + notes["warnings"]
 
+    timing = doc.setdefault("timing_s", {})
+    t0 = time.monotonic()
     for it in items:
         it.shape = build_shape(it)
     line = assemble(items, GROUPS)                                   # full, incl. Reference
@@ -761,7 +924,11 @@ def main(argv: list[str] | None = None) -> int:
                      "placeholder_values": len(doc["placeholders"]),
                      "by_group": {g: sum(it.group == g for it in items) for g in GROUPS}}
 
+    timing["build"] = round(time.monotonic() - t0, 2)
+    t0 = time.monotonic()
     doc["interference"] = interference(items)
+    timing["interference"] = round(time.monotonic() - t0, 2)
+    t0 = time.monotonic()
     for f in doc["interference"]["failures"]:
         doc["errors"].append(f"interference: {f['a']} ∩ {f['b']} = {f['volume_mm3']} mm3")
 
@@ -776,7 +943,17 @@ def main(argv: list[str] | None = None) -> int:
         return finish(1)
     doc["outputs"] = {"step": str(step), "step_physical": str(physical_step),
                       "svg": str(out_dir / SVG_NAME)}
+    timing["write"] = round(time.monotonic() - t0, 2)
+    t0 = time.monotonic()
+    if not args.no_render:
+        shots = render_png.render(items, colour_of, REPORTS / "render", args.milestone or "line")
+        if "error" in shots:
+            doc["warnings"].append(f"render: {shots['error']}")
+        else:
+            doc["outputs"]["render"] = shots
 
+    timing["render"] = round(time.monotonic() - t0, 2)
+    t0 = time.monotonic()
     doc["verify"] = verify(step, primary)
     if not doc["verify"]["hierarchy_preserved"]:
         manifest, files = out_dir / "manifest.txt", []
@@ -802,6 +979,7 @@ def main(argv: list[str] | None = None) -> int:
         doc["errors"].append(f"{PHYSICAL_NAME}: re-imported STEP does not have the solids that "
                              "were built, or lost the hierarchy")
 
+    timing["verify"] = round(time.monotonic() - t0, 2)
     checked = ([doc["verify"]] + [f for f in doc["verify"].get("fallback", {}).get("files", [])]
               + [doc["verify_physical"]])
     for v in checked:

@@ -35,7 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cad.common import lookup  # noqa: E402
 from gen_world import CELL_AXIS, WORLD_NAME  # noqa: E402
-from spec import DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged  # noqa: E402
+from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, load_merged,  # noqa: E402
+                  resolve_anchors)
 
 POSE_RE = re.compile(r"\[\s*(-?\d+\.?\d*(?:e-?\d+)?)\s+(-?\d+\.?\d*(?:e-?\d+)?)\s+"
                      r"(-?\d+\.?\d*(?:e-?\d+)?)\s*\]")
@@ -138,6 +139,7 @@ def expected_pose(raw: dict, name: str, entry: dict) -> tuple[list[float], str] 
 
 def check(raw: dict, manifest: dict, timeout: float, tol_mm: float) -> dict:
     """Compare every model in the manifest with where the running world actually has it."""
+    raw, _ = resolve_anchors(raw)       # spec poses come from anchors and offsets (D-013)
     live = model_list(timeout)
     wanted = [n for n in (manifest.get("models") or {}) if n in live]
     actual_poses = world_poses(WORLD_NAME, wanted, timeout)

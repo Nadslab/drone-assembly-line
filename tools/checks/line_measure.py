@@ -45,26 +45,32 @@ def tcp_link(sid):
 
 
 def scara_base(spec, sid):
-    """The base in the line frame: station x, station y +/- base_offset_y (spec.scara_base)."""
-    sc = spec['scaras'][sid]
-    pose = spec['stations'][sc['station']]['pose']
-    sign = 1.0 if sc['base_side'] == '+y' else -1.0
-    return [pose[0], pose[1] + sign * sc['base_offset_y'], pose[2]]
+    """The base in the line frame: its resolved pose (scaras.<id>.pose, D-013)."""
+    return list(spec['scaras'][sid]['pose'][:3])
+
+
+def scara_model(spec, sid):
+    return spec['robot_models'][spec['scaras'][sid]['model']]
 
 
 def scara_ik(spec, sid, pose):
-    """Joint targets that put the TCP at `pose` (x, y, z, yaw): two-link planar IK, elbow on the
-    side that keeps j2 >= 0. None when the pose is outside the reach annulus."""
-    sc = spec['scaras'][sid]
-    base = scara_base(spec, sid)
-    link = sc['reach']['r_max'] / 2.0
+    """Joint targets that put the TCP at `pose` (x, y, z, yaw): two-link planar IK with the robot
+    model's links, j1 measured from the base yaw, elbow on the side that keeps j2 >= 0. None when
+    the pose is outside the reach annulus or the joint limits."""
+    rm = scara_model(spec, sid)
+    base, yaw = scara_base(spec, sid), spec['scaras'][sid]['pose'][3]
+    l1, l2 = rm['link1'], rm['link2']
     dx, dy = pose[0] - base[0], pose[1] - base[1]
-    c2 = (dx * dx + dy * dy - 2.0 * link * link) / (2.0 * link * link)
+    c2 = (dx * dx + dy * dy - l1 * l1 - l2 * l2) / (2.0 * l1 * l2)
     if not -1.0 <= c2 <= 1.0:
         return None
     j2 = math.acos(c2)
-    j1 = math.atan2(dy, dx) - math.atan2(link * math.sin(j2), link + link * math.cos(j2))
-    j4 = (pose[3] or 0.0) - j1 - j2
+    j1 = math.atan2(dy, dx) - yaw - math.atan2(l2 * math.sin(j2), l1 + l2 * math.cos(j2))
+    j1 = math.atan2(math.sin(j1), math.cos(j1))
+    lim = rm['joint_limits']
+    if abs(j1) > lim['j1'] or abs(j2) > lim['j2']:
+        return None
+    j4 = (pose[3] or 0.0) - yaw - j1 - j2
     j4 = math.atan2(math.sin(j4), math.cos(j4))
     return {f'{sid}_j1': j1, f'{sid}_j2': j2, f'{sid}_j3': pose[2] - base[2], f'{sid}_j4': j4}
 
@@ -176,12 +182,13 @@ def move_time(delta, limits, fraction):
 
 def scara_joint_limits(spec, sid):
     """v_max / a_max per joint, the arithmetic of gen_controllers.scara_limits."""
-    sc = spec['scaras'][sid]
-    link = sc['reach']['r_max'] / 2.0
-    v, a = sc['motion']['v_max'], sc['motion']['a_max']
-    rev = {'v_max': v / link, 'a_max': a / link}
-    return {f'{sid}_j1': rev, f'{sid}_j2': rev, f'{sid}_j3': {'v_max': v, 'a_max': a},
-            f'{sid}_j4': rev}
+    rm = scara_model(spec, sid)
+    l1, l2 = rm['link1'], rm['link2']
+    v, a = rm['motion']['v_max'], rm['motion']['a_max']
+    return {f'{sid}_j1': {'v_max': v / l1, 'a_max': a / l1},
+            f'{sid}_j2': {'v_max': v / l2, 'a_max': a / l2},
+            f'{sid}_j3': {'v_max': v, 'a_max': a},
+            f'{sid}_j4': {'v_max': rm['motion']['j4_speed'], 'a_max': a / l2}}
 
 
 def main():

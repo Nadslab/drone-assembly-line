@@ -44,7 +44,7 @@ sys.path.insert(0, str(TOOLS))
 
 import gen_controllers as gc  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, SpecError, add_dev_argument, dump_merged,  # noqa: E402
-                  load_merged, parse_spec, report_path)
+                  load_merged, parse_spec, report_path, resolve_anchors)
 
 PKG = REPO / "drone_line_sim"
 URDF_DIR = PKG / "urdf"
@@ -180,13 +180,15 @@ def compare_spindles(raw: dict, hid: str, joints: dict[str, ET.Element]) -> dict
 
 
 def compare_mounts(raw: dict, joints: dict[str, ET.Element]) -> list[dict]:
-    """Where the machines are bolted: each SCARA at its base (spec.scara_base), a head over its
-    station.
+    """Where the machines are bolted: each SCARA at its resolved base pose (scaras.<id>.pose), a
+    head at its resolved working pose (gang_heads.<id>.pose), both from offsets in their
+    station's anchor frame (D-013).
 
     A head stands off along z by its own stroke (urdf/gang_head.urdf.xacro), so only x and y are
-    the station's to give; z is recorded, not asserted.
+    the pose's to give; z is recorded, not asserted.
     """
     rows = []
+    raw, _ = resolve_anchors(raw)           # poses come from anchors and offsets (D-013)
 
     def xyz_of(joint: str) -> list[float] | None:
         origin = joints.get(joint, ET.Element("joint")).find("origin")
@@ -195,30 +197,24 @@ def compare_mounts(raw: dict, joints: dict[str, ET.Element]) -> list[dict]:
         return [float(c) for c in (origin.get("xyz") or "").split()[:3]]
 
     for sid in gc.scara_ids(raw):
-        sc = gc.lookup(raw, f"scaras.{sid}") or {}
-        pose = gc.lookup(raw, f"stations.{sc.get('station')}.pose") or [None] * 3
-        sign = 1.0 if sc.get("base_side") == "+y" else -1.0
-        try:
-            base = [pose[0], pose[1] + sign * sc["base_offset_y"], pose[2]]
-        except (TypeError, KeyError):
-            base = None
+        pose = gc.lookup(raw, f"scaras.{sid}.pose")
+        base = list(pose[:3]) if pose and None not in pose[:3] else None
         put = xyz_of(f"{sid}_mount")
-        path = f"scaras.{sid} (station {sc.get('station')} pose, base_side, base_offset_y)"
+        path = f"scaras.{sid}.pose (its offset in its station's frame)"
         rows.append({"what": sid, "joint": f"{sid}_mount", "spec_path": path,
                      "expected": base, "actual": put, "axes": "xyz",
                      "errors": [] if (put and base and all(close(a, float(b), POSE_TOL)
                                                            for a, b in zip(put, base)))
                      else [f"{sid}_mount at {put}, the spec puts the base at {base}"]})
     for hid in sorted(raw.get("gang_heads") or {}):
-        station = gc.head_station(raw, hid)
-        pose = gc.lookup(raw, f"stations.{station}.pose") or []
+        pose = gc.lookup(raw, f"gang_heads.{hid}.pose") or []
         put = xyz_of(f"{hid}_mount")
         ok = put and len(pose) >= 2 and all(close(put[i], float(pose[i]), POSE_TOL)
                                             for i in range(2))
         rows.append({"what": hid, "joint": f"{hid}_mount",
-                     "spec_path": f"stations.{station}.pose", "expected": list(pose[:3]),
+                     "spec_path": f"gang_heads.{hid}.pose", "expected": list(pose[:3]),
                      "actual": put, "axes": "xy",
-                     "errors": [] if ok else [f"{hid}_mount at {put}, {station}'s pose is "
+                     "errors": [] if ok else [f"{hid}_mount at {put}, its pose is "
                                               f"{list(pose[:3])} (x and y must match)"]})
     for row in rows:
         row["ok"] = not row["errors"]

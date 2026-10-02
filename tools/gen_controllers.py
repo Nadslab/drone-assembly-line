@@ -10,8 +10,9 @@ and `tools/checks/descriptions.sh` fails if the description and this file ever d
 the only thing keeping the two derivations honest.
 
 What comes from the spec: which SCARAs exist, which heads exist and how many banks each has
-(`gang_heads.<id>.opposed`), and every limit: a SCARA's from `scaras.<id>.{reach, z_stroke,
-motion}` (`scara_limits`, the same arithmetic as urdf/scara.urdf.xacro), a head's from
+(`gang_heads.<id>.opposed`), and every limit: a SCARA's from its robot model,
+`robot_models.<scaras.<id>.model>` (`scara_limits`, the same arithmetic as
+urdf/scara.urdf.xacro, D-013), a head's from
 `gang_heads.<id>.{stroke,v_max,a_max}`. What is typed here: the controller update rate and the
 trajectory/goal tolerances, all four from the P1 spike (docs/decisions.md D-002), collected at the
 top.
@@ -127,24 +128,29 @@ def validate_heads(raw: dict) -> list[str]:
 # ---------------------------------------------------------------- limits, read through Values
 
 def scara_limits(v: Values, sid: str) -> dict[str, dict]:
-    """j1..j4 of one SCARA, the arithmetic urdf/scara.urdf.xacro does (D-012):
-    L1 = L2 = r_max / 2 (PLACEHOLDER split); j1, j4 in [-pi, pi]; |j2| <= the fold that brings the
-    TCP in to r_min; j3 in [0, z_stroke]; velocity v_max on j3 and v_max / L on the revolute
-    joints, a_max likewise."""
-    path = f"scaras.{sid}"
-    r_min, r_max = v.plain(f"{path}.reach.r_min"), v.plain(f"{path}.reach.r_max")
+    """j1..j4 of one SCARA from its robot model, the arithmetic urdf/scara.urdf.xacro does
+    (D-013): j1, j2, j4 within +/- joint_limits.<j>; j3 in [0, z_stroke]; velocity v_max on j3,
+    v_max / link1 on j1, v_max / link2 on j2 (the rate that moves the link's tip at the TCP's
+    Cartesian v_max: a stand-in, not a spec) and j4_speed on j4; a_max likewise (j4: a_max /
+    link2)."""
+    model = v.plain(f"scaras.{sid}.model")
+    path = f"robot_models.{model}"
+    l1, l2 = v.plain(f"{path}.link1"), v.plain(f"{path}.link2")
+    lim = {j: v.plain(f"{path}.joint_limits.{j}") for j in ("j1", "j2", "j4")}
     stroke = v.plain(f"{path}.z_stroke")
     v_max, a_max = v.plain(f"{path}.motion.v_max"), v.plain(f"{path}.motion.a_max")
-    if None in (r_min, r_max, stroke, v_max, a_max):
+    w4 = v.plain(f"{path}.motion.j4_speed")
+    if None in (l1, l2, stroke, v_max, a_max, w4, *lim.values()):
         return {}
-    link = r_max / 2.0
-    elbow = math.acos((r_min * r_min - 2.0 * link * link) / (2.0 * link * link))
-    rev = {"type": "revolute", "spec_path": path, "v_max": v_max / link, "a_max": a_max / link}
-    return {f"{sid}_j1": {**rev, "min": -math.pi, "max": math.pi},
-            f"{sid}_j2": {**rev, "min": -elbow, "max": elbow},
+
+    def rev(j, vel, acc):
+        return {"type": "revolute", "spec_path": path, "min": -lim[j], "max": lim[j],
+                "v_max": vel, "a_max": acc}
+    return {f"{sid}_j1": rev("j1", v_max / l1, a_max / l1),
+            f"{sid}_j2": rev("j2", v_max / l2, a_max / l2),
             f"{sid}_j3": {"type": "prismatic", "spec_path": path, "min": 0.0, "max": stroke,
                           "v_max": v_max, "a_max": a_max},
-            f"{sid}_j4": {**rev, "min": -math.pi, "max": math.pi}}
+            f"{sid}_j4": rev("j4", w4, a_max / l2)}
 
 
 def joint_limits(v: Values) -> dict:

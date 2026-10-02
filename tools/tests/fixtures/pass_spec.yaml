@@ -45,50 +45,67 @@ drone:
 fasteners:
   m3_x8: {length: 0.008, d: 0.003, feeder: fd_screw}
 
+# D-013: every source belongs to a station and sits at an offset in its frame (dz = pick plane).
 feeders:
-  fd_mid_plate: {type: magazine, part: mid_plate, pose: [0.3, 0.3, 0.15, 0.0], capacity: 20, refill_s: 60.0}
+  fd_mid_plate: {type: magazine, part: mid_plate, station: st_place, offset: [-0.2, 0.3, 0.15, 0.0], capacity: 20, refill_s: 60.0}
   fd_screw: {type: blow, part: m3_x8, target: gh_top, feed_s: 0.5}
 
 sources:
   src_plate: {output: bottom_plate, buffer: buf_plate, interval_s: 20.0, buffer_capacity: 3}
 buffers:
-  buf_plate: {pose: [-0.2, 0.3, 0.1, 0.0]}
-  buf_fixture: {pose: [1.8, 0.3, 0.1, 0.0]}    # spider carriers
-  buf_pod: {pose: [2.3, 0.3, 0.1, 0.0]}        # pod trays (a buffer no source fills)
+  buf_plate: {station: st_load, offset: [-0.2, 0.3, 0.1, 0.0]}
+  buf_fixture: {station: st_spider, offset: [-0.2, 0.3, 0.1, 0.0]}    # spider carriers
+  buf_pod: {station: st_pod, offset: [-0.2, 0.3, 0.1, 0.0]}           # pod trays (a buffer no source fills)
 
-# One SCARA per pick-and-place station, all on +y, 0.24 m out; each source sits 0.2 m upstream
-# of its station, 0.3 m out. Reach 0.1-0.24 m keeps neighbouring envelopes (0.5 m apart) clear.
+# D-013: scara_pod lifts the spider carrier off before it places the pod tray, onto a chute
+# back to the carriers' buffer.
+return_paths:
+  rt_fixture: {carrier: carrier_spider, station: st_pod, kind: chute, offset: [0.2, 0.3, 0.1, 0.0],
+               length: 0.3, width: 0.15, sink: buf_fixture}
+
+# A small SCARA: links 0.12 + 0.12 (reach 0.24), j2 limited so it folds in to r_min 0.1 m,
+# j1 nearly a full turn.
+robot_models:
+  test_scara:
+    reach: 0.24
+    z_stroke: 0.6
+    payload_rated: 3.0
+    payload_max: 6.0
+    joint_limits: {j1: 3.0, j2: 2.281994, j4: 6.283185}
+    inertia_rated: 0.02
+    repeatability: 0.00002
+    link1: 0.12
+    link2: 0.12
+    motion: {v_max: 1.0, a_max: 2.0, j4_speed: 10.0}
+
+tools:
+  tool_plate: {grip: vacuum, dims: [0.12, 0.12, 0.02], mass: 0.3, offset_r: 0.0}
+  tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03], mass: 0.3, offset_r: 0.0}
+
+# One SCARA per pick-and-place station, all on +y, 0.24 m out, facing the line; each source sits
+# 0.2 m upstream of its station, 0.3 m out. Reach 0.24 m keeps neighbouring envelopes (0.5 m apart)
+# clear.
 scaras:
-  scara_load:
-    {station: st_load, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
-     z_stroke: 0.6, payload_kg: 3.0, tools: {}, motion: {v_max: 1.0, a_max: 2.0}}
-  scara_place:
-    {station: st_place, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
-     z_stroke: 0.6, payload_kg: 3.0, tools: {tool_plate: {grip: vacuum, dims: [0.12, 0.12, 0.02]}},
-     motion: {v_max: 1.0, a_max: 2.0}}
-  scara_spider:
-    {station: st_spider, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
-     z_stroke: 0.6, payload_kg: 3.0, tools: {tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}},
-     motion: {v_max: 1.0, a_max: 2.0}}
-  scara_pod:
-    {station: st_pod, base_side: "+y", base_offset_y: 0.24, reach: {r_min: 0.1, r_max: 0.24},
-     z_stroke: 0.6, payload_kg: 3.0, tools: {tool_carrier: {grip: finger, dims: [0.06, 0.06, 0.03]}},
-     motion: {v_max: 1.0, a_max: 2.0}}
+  scara_load: {station: st_load, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: []}
+  scara_place: {station: st_place, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_plate]}
+  scara_spider: {station: st_spider, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_carrier]}
+  scara_pod: {station: st_pod, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_carrier]}
 scara_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03, plan_speed_scale: 0.5}
 gang_heads:
   gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05,
-           v_max: 0.1, a_max: 0.5, drive_s: 3.0}
+           v_max: 0.1, a_max: 0.5, drive_s: 3.0, offset: [0.0, 0.0, 0.0, 0.0]}
 
 conveyor: {pitch: 0.5}
+# Anchored 0.5 m apart along +x from the line origin (D-013).
 stations:
-  st_load:  {index: 1, count: 1, pose: [0.0, 0.0, 0.1, 0.0]}
-  st_place: {index: 2, count: 1, pose: [0.5, 0.0, 0.1, 0.0]}
-  st_drive: {index: 3, count: 1, pose: [1.0, 0.0, 0.1, 0.0]}
-  st_test:  {index: 4, count: 5, pose: [1.5, 0.0, 0.1, 0.0], cell_pitch: 0.4}
+  st_load:  {index: 1, count: 1, anchor: {after: origin, gap: 0.0}}
+  st_place: {index: 2, count: 1, anchor: {after: st_load, gap: 0.5}}
+  st_drive: {index: 3, count: 1, anchor: {after: st_place, gap: 0.5}}
+  st_test:  {index: 4, count: 5, anchor: {after: st_drive, gap: 0.5}, cell_pitch: 0.4}
   # The two fixture-placing stations. Appended last so the indices of the four steps above,
   # which the failing-case fixtures address by position, do not move.
-  st_spider: {index: 5, count: 1, pose: [2.0, 0.0, 0.1, 0.0]}
-  st_pod:    {index: 6, count: 1, pose: [2.5, 0.0, 0.1, 0.0]}
+  st_spider: {index: 5, count: 1, anchor: {after: st_test, gap: 0.5}}
+  st_pod:    {index: 6, count: 1, anchor: {after: st_spider, gap: 0.5}}
 
 milestones:
   front: [st_load, st_place, st_drive]
@@ -101,8 +118,10 @@ sequence:
   - {id: test,  station: st_test,  capability: test,  duration_s: 90.0, requires: [drive]}
   - {id: place_spider, station: st_spider, capability: place, part: carrier_spider, from: buf_fixture,
      tool: tool_carrier, duration_s: 6.0, requires: [load]}
+  - {id: remove_spider, station: st_pod, capability: remove, part: carrier_spider,
+     tool: tool_carrier, to: rt_fixture, duration_s: 3.0, requires: [place_spider]}
   - {id: place_pod, station: st_pod, capability: place, part: carrier_pod, from: buf_pod,
-     tool: tool_carrier, duration_s: 6.0, requires: [load]}
+     tool: tool_carrier, duration_s: 6.0, requires: [remove_spider]}
 
 # Floor plan (tools/cad/layout.py) and the conveyor timing the takt budget needs.
 layout:

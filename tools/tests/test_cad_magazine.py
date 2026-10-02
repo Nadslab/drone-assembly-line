@@ -55,10 +55,12 @@ def test_one_magazine_per_magazine_feeder_and_nothing_else(run, pass_raw):
     """The spec decides which magazines exist: feeders of another type are not magazines."""
     raw = copy.deepcopy(pass_raw)
     raw["feeders"]["fd_top_plate"] = {"type": "magazine", "part": "top_plate",
-                                      "pose": [0.4, 0.3, 0.15, 0.0], "capacity": 10,
+                                      "station": "st_place", "offset": [-0.1, 0.3, 0.15, 0.0],
+                                      "capacity": 10,
                                       "refill_s": 60.0}
     raw["feeders"]["fd_standoff"] = {"type": "step", "part": "mid_plate",
-                                     "pose": [0.6, 0.3, 0.1, 0.0], "capacity": 200,
+                                     "station": "st_place", "offset": [0.1, 0.3, 0.1, 0.0],
+                                     "capacity": 200,
                                      "refill_s": 300.0}
     code, doc = run(raw)
     assert code == 0, doc["errors"]
@@ -79,7 +81,7 @@ def test_capacity_is_what_makes_the_magazine_deep(run, pass_raw):
     """`feeders.<id>.capacity` is the spec's own number for how many parts it holds."""
     raw = copy.deepcopy(pass_raw)
     raw["feeders"]["fd_mid_plate"]["capacity"] = 5
-    raw["feeders"]["fd_mid_plate"]["pose"][2] = 0.15
+    raw["feeders"]["fd_mid_plate"]["offset"][2] = 0.15
     code, doc = run(raw)
     assert code == 0, doc["errors"]
     d = doc["items"]["fd_mid_plate"]["derived"]
@@ -145,7 +147,7 @@ def test_the_key_rib_tracks_the_part_it_keys(run, pass_raw):
 def test_a_magazine_that_would_stand_below_the_floor_fails_naming_the_pose(run, pass_raw):
     """A pose that cannot hold the stack the spec asks for is the spec contradicting itself."""
     raw = copy.deepcopy(pass_raw)
-    raw["feeders"]["fd_mid_plate"]["pose"] = [0.2, 0.3, 0.02, 0.0]      # 20 mm off the floor
+    raw["feeders"]["fd_mid_plate"]["offset"] = [-0.3, 0.3, 0.02, 0.0]   # 20 mm off the floor
     code, doc = run(raw)
     assert code == 1
     assert "feeders.fd_mid_plate.pose[2]" in doc["errors"][0]
@@ -154,9 +156,9 @@ def test_a_magazine_that_would_stand_below_the_floor_fails_naming_the_pose(run, 
 def test_a_placeholder_pose_only_warns(tmp_path, pass_raw):
     """The overlay is never a deliverable number (CLAUDE.md): it has nothing to be wrong about."""
     raw = copy.deepcopy(pass_raw)
-    raw["feeders"]["fd_mid_plate"]["pose"] = [0.2, 0.3, None, 0.0]
+    raw["feeders"]["fd_mid_plate"]["offset"] = [-0.3, 0.3, None, 0.0]
     (tmp_path / "line_spec.dev.yaml").write_text(
-        yaml.safe_dump({"feeders": {"fd_mid_plate": {"pose": [None, None, 0.02, None]}}}))
+        yaml.safe_dump({"feeders": {"fd_mid_plate": {"offset": [None, None, 0.02, None]}}}))
     code, doc = run_raw(tmp_path, raw, "--dev")
     assert code == 0, doc["errors"]
     assert any("feeders.fd_mid_plate.pose[2]" in w for w in doc["warnings"])
@@ -200,7 +202,7 @@ def test_the_material_note_travels_in_the_step_header(run, tmp_path):
     ("feeders.fd_mid_plate.capacity",
      lambda raw: raw["feeders"]["fd_mid_plate"].__setitem__("capacity", None)),
     ("feeders.fd_mid_plate.pose[2]",
-     lambda raw: raw["feeders"]["fd_mid_plate"]["pose"].__setitem__(2, None))])
+     lambda raw: raw["feeders"]["fd_mid_plate"]["offset"].__setitem__(2, None))])
 def test_null_spec_value_fails_and_names_the_key(run, tmp_path, pass_raw, key, blank, capsys):
     raw = copy.deepcopy(pass_raw)
     blank(raw)

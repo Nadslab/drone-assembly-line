@@ -8,8 +8,8 @@ No ROS, no Gazebo: arithmetic on the spec. One SCARA pick-and-place (D-012) is
     pick -> place (horizontal), Z down, release, Z up, place -> home
 
 with `scara_defaults.settle_s` after each of the four Z moves. Every move is a trapezoid on the
-TCP distance (straight line in plan for a horizontal move, the drop for a Z move) at the SCARA's
-`motion.v_max`/`a_max` scaled by `scara_defaults.plan_speed_scale` (D-007: plan below the
+TCP distance (straight line in plan for a horizontal move, the drop for a Z move) at the robot
+model's `motion.v_max`/`a_max` scaled by `scara_defaults.plan_speed_scale` (D-007: plan below the
 ceilings; its 0.5 comes from the gantry spike and must be re-derived for a SCARA):
 
     t = d/v + v/a     if d >= v^2/a      (reaches v)
@@ -17,20 +17,27 @@ ceilings; its 0.5 comes from the gantry spike and must be re-derived for a SCARA
 
 Every time is also given at scale 1.0 for comparison.
 
-Home is the TCP folded in to `reach.r_min`, straight out from the base towards its station, at
-safe_z: the arm parked as tight as its reach allows, clear of the pallet. Z runs between the
-SCARA's own safe_z (tools/robot_geometry.py: tallest item in its reach envelope + the part it
-carries + z_margin) and the pose's z.
+Home is the TCP folded in to the model's r_min (the elbow at its j2 limit), straight out from the
+base towards its station. Z runs between the step's own safe_z (tools/robot_geometry.py,
+path-based, D-013: tallest item under the band the tool and its part sweep + the part's height +
+z_margin) and the pose's z.
 
-Which steps: the active steps with capability place, load or pick at the SCARA's station. A drive
-step is the gang head's, never the SCARA's (D-009). A `qty: n` step is n whole cycles.
+Dual-tool switch (D-013): a step whose tool differs from the SCARA's previous step's (read
+cyclically) starts with a 180 deg J4 turn at home, timed pi / (motion.j4_speed x
+plan_speed_scale). It is counted in series — conservative: a real cell can turn J4 during the
+travel to the pick.
+
+Which steps: the active steps a SCARA performs at its station (a tool, or a part drawn `from` a
+source). A drive step is the gang head's, never the SCARA's (D-009). A `qty: n` step is n whole
+cycles.
 
 Budget: the pallet is only at a station between transfers, so each SCARA's load is compared with
 takt_s - transfer_s, transfer_s = index_s + layout.stop_unit_cycle_s, where index_s =
 conveyor.pitch / layout.conveyor.belt_speed (spec.index_s; the spec states no index time, D-010).
 
-Station time (D-011, D-012): SCARA steps + gang head drive_s x passes + slide t_in + t_out
-(a head on a slide: SCARA places, clears, slide in, drive, slide out) + index_s, against takt.
+Station time (D-011..D-013): SCARA steps (tool switches included) + gang head drive_s x passes
++ slide t_in + t_out (a head on a slide: SCARA places, clears, slide in, drive, slide out) +
+`actuate` step durations (the pallet's arm pins extending) + index_s, against takt.
 
 Writes reports/move_estimate.json (`--dev`: move_estimate.dev.json) with per-step phase times,
 per-SCARA load at both scales, the budget, and `passed`. A null the estimate needs is
@@ -49,9 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import robot_geometry as rg  # noqa: E402
 from spec import (DEFAULT_SPEC, LineSpec, SpecError, add_dev_argument, index_s,  # noqa: E402
-                  load_merged, parse_spec, report_path, robot_served, scara_base)
-
-ROBOT_CAPABILITIES = ("place", "load", "pick")
+                  load_merged, parse_spec, report_path, robot_served, scara_base, scara_model)
 
 
 def axis_time(d: float, v: float, a: float) -> float:
@@ -91,13 +96,6 @@ def cycle(home, pick, place, motion, d, safe_z: float, scale: float = 1.0) -> di
     return out
 
 
-def home_xy(base, station_pose, r_min: float) -> tuple[float, float]:
-    """The arm folded in to r_min, pointing from the base at its station."""
-    dx, dy = station_pose[0] - base[0], station_pose[1] - base[1]
-    n = math.hypot(dx, dy) or 1.0
-    return base[0] + dx / n * r_min, base[1] + dy / n * r_min
-
-
 def _nulls(label: str, values: dict) -> list[str]:
     return [f"{label}: {k} is null" for k, v in values.items() if v is None]
 
@@ -116,9 +114,13 @@ def transfer(spec: LineSpec) -> tuple[float | None, list[str]]:
 
 
 def scara_steps(spec: LineSpec, sid: str) -> list:
-    st = spec.scaras[sid].station
-    return [s for s in spec.sequence if s.status == "active" and s.station == st
-            and s.capability in ROBOT_CAPABILITIES and robot_served(s)]
+    return rg.scara_steps(spec, sid)
+
+
+def switch_time(spec: LineSpec, sid: str, scale: float) -> float | None:
+    """One dual-tool switch: 180 deg about J4 at j4_speed x scale."""
+    w = scara_model(spec, sid).motion.j4_speed
+    return None if w is None or scale is None else math.pi / (w * scale)
 
 
 def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
@@ -136,8 +138,9 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
                  "passed": True, "complete": True, "scaras": {}, "unresolved": [], "errors": [],
                  "model": {"grip_s": d.grip_s, "release_s": d.release_s,
                            "settle_s": d.settle_s, "z_margin": d.z_margin,
-                           "capabilities": list(ROBOT_CAPABILITIES),
-                           "home": "TCP at reach.r_min from the base, towards its station",
+                           "steps": "every active step a SCARA performs (tool or `from`)",
+                           "home": "TCP at the model's r_min from the base, towards its station",
+                           "tool_switch": "pi / (j4_speed x scale), in series",
                            "profile": "trapezoid on the TCP distance (plan straight line, or "
                                       "the Z drop) at plan_speed_scale x motion.v_max/a_max"}}
     common_missing = _nulls("scara_defaults", {
@@ -148,35 +151,39 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
                                                    if spec.scaras[k].station in spec.stations
                                                    else 0, k)):
         sc = spec.scaras[sid]
+        model = scara_model(spec, sid)
+        k = rg.kin(spec, sid)
         sz = rg.safe_z(spec, sid, cad)
         base = scara_base(spec, sid)
-        row: dict = {"station": sc.station, "base": base and [round(c, 4) for c in base],
+        switches = rg.tool_switches(spec, sid)
+        row: dict = {"station": sc.station, "model": sc.model,
+                     "base": base and [round(c, 4) for c in base],
                      "safe_z": sz.doc(), "budget_s": doc["budget_s"], "steps": [],
+                     "tool_switches": switches, "switch_s": None,
                      "total_s": None, "total_s_at_1": None, "load_pct": None,
                      "status": "UNRESOLVED",
                      "unresolved": list(common_missing) + sz.unresolved, "errors": []}
         doc["scaras"][sid] = row
-        row["unresolved"] += _nulls(f"scaras.{sid}", {
-            "motion.v_max": sc.motion.v_max, "motion.a_max": sc.motion.a_max,
-            "reach.r_min": sc.reach.r_min, "z_stroke": sc.z_stroke})
+        row["unresolved"] += _nulls(f"robot_models.{sc.model}", {
+            "motion.v_max": model.motion.v_max, "motion.a_max": model.motion.a_max,
+            "link1": model.link1, "link2": model.link2})
+        if switches and model.motion.j4_speed is None:
+            row["unresolved"].append(f"robot_models.{sc.model}: motion.j4_speed is null (times "
+                                     f"the tool switch before {', '.join(switches)})")
         if base is None:
-            row["unresolved"].append(f"scaras.{sid}: base_side/base_offset_y or the station "
-                                     "pose is null")
-        if sz.value is not None and sc.z_stroke is not None \
-                and sz.value > sc.z_stroke + rg.EPS:
-            row["errors"].append(f"safe_z={sz.value:.3f} is above its z_stroke "
-                                 f"{sc.z_stroke:g}")
+            row["unresolved"].append(f"scaras.{sid}: offset or the station pose is null")
+        if k is not None:
+            for step, one in sz.steps.items():
+                if one["safe_z"] is not None and one["safe_z"] > k.z_hi + rg.EPS:
+                    row["errors"].append(f"{step}: safe_z={one['safe_z']:.3f} is above its z "
+                                         f"range top {k.z_hi:g}")
 
         legs = []
-        place = spec.stations[sc.station].pose
         for s in scara_steps(spec, sid):
-            pick = rg.source_pose(spec, s.from_)
-            if pick is None:
-                row["unresolved"].append(f"sequence.{s.id}: no pick pose (`from` names no "
-                                         "feeder or buffer with a pose)")
-                continue
-            if None in pick[:3] or None in place[:3]:
-                row["unresolved"].append(f"sequence.{s.id}: pick or place pose has a null")
+            pick, place = rg.step_points(spec, s)
+            if pick is None or place is None:
+                row["unresolved"].append(f"sequence.{s.id}: no pick or place pose (`from` names "
+                                         "no feeder or buffer with a pose, or a pose is null)")
                 continue
             legs.append((s, pick[:3], place[:3]))
 
@@ -185,30 +192,36 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
             doc["unresolved"] += [f"{sid}: {u}" for u in row["unresolved"]]
             row["status"] = "FAIL" if row["errors"] else "UNRESOLVED"
             continue
-        # A safe_z above z_stroke is already a failure; the times are still worked out at that
+        # A safe_z above the stroke is already a failure; the times are still worked out at that
         # safe_z, so the breakdown is there to read.
 
-        home = home_xy(base, place, sc.reach.r_min)
+        home = rg.home(k, spec.stations[sc.station].pose[:2])
         row["home"] = [round(c, 4) for c in home]
         totals = {}
         for key, k_scale in (("plan", scale), ("at_1", 1.0)):
             total = 0.0
+            sw = switch_time(spec, sid, k_scale) if switches else 0.0
             for i, (s, pick, plc) in enumerate(legs):
                 qty = s.qty or 1
-                one = cycle(home, pick, plc, sc.motion, d, sz.value, k_scale)
-                step_s = qty * one["total"]
+                z = sz.steps[s.id]["safe_z"]
+                one = cycle(home, pick, plc, model.motion, d, z, k_scale)
+                switch = sw if s.id in switches else 0.0
+                step_s = qty * one["total"] + switch
                 if key == "plan":
                     row["steps"].append({
                         "id": s.id, "station": s.station, "from": s.from_, "tool": s.tool,
-                        "qty": qty, "pick": list(pick), "place": list(plc),
+                        "qty": qty, "pick": list(pick), "place": list(plc), "safe_z": z,
                         "dist_m": {"home_to_pick": round(plan_dist(home, pick), 4),
                                    "pick_to_place": round(plan_dist(pick, plc), 4),
                                    "place_to_home": round(plan_dist(plc, home), 4)},
-                        "cycle": one, "time_s": round(step_s, 3)})
+                        "cycle": one, "tool_switch_s": round(switch, 4),
+                        "time_s": round(step_s, 3)})
                 else:
                     row["steps"][i]["time_s_at_1"] = round(step_s, 3)
                 total += step_s
             totals[key] = total
+            if key == "plan":
+                row["switch_s"] = round(sw, 4)
         row["total_s"] = round(totals["plan"], 3)
         row["total_s_at_1"] = round(totals["at_1"], 3)
         row["load_pct"] = round(100.0 * totals["plan"] / budget, 1)
@@ -227,9 +240,10 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
 
 
 def station_times(spec: LineSpec, doc: dict) -> dict:
-    """Per station with a SCARA or drive step (D-011, D-012):
+    """Per station with a SCARA, drive or actuate step (D-011..D-013):
 
-        station_time = SCARA step times + drive time + slide time + index_s
+        station_time = SCARA step times (tool switches in) + drive time + slide time
+                       + actuate time + index_s
 
     SCARA step times are the estimate's per-step times at plan_speed_scale (home and back); drive
     time = gang head `drive_s` x passes, passes = ceil(qty / spindles); slide time = `slide.t_in +
@@ -241,17 +255,24 @@ def station_times(spec: LineSpec, doc: dict) -> dict:
     rows: dict = {}
     for sid, st in sorted(spec.stations.items(), key=lambda kv: kv[1].index):
         steps = [s for s in spec.sequence if s.status == "active" and s.station == sid
-                 and (s.capability in ROBOT_CAPABILITIES and robot_served(s)
-                      or s.capability == "drive")]
+                 and (robot_served(s) or s.capability in ("drive", "actuate"))]
         if not steps:
             continue
-        row = {"scara_s": 0.0, "drive_s": 0.0, "slide_s": 0.0, "index_s": idx,
+        row = {"scara_s": 0.0, "drive_s": 0.0, "slide_s": 0.0, "actuate_s": 0.0, "index_s": idx,
                "total_s": None, "takt_s": takt, "status": "UNRESOLVED", "steps": [],
                "unresolved": []}
         if idx is None:
             row["unresolved"].append("index time: conveyor.pitch or layout.conveyor.belt_speed "
                                      "is null")
         for s in steps:
+            if s.capability == "actuate":
+                if s.duration_s is None:
+                    row["unresolved"].append(f"{s.id}: duration_s null (actuate {s.device})")
+                else:
+                    row["actuate_s"] += s.duration_s
+                    row["steps"].append({"id": s.id, "kind": "actuate", "device": s.device,
+                                         "time_s": s.duration_s})
+                continue
             if s.capability != "drive":
                 t = step_s.get(s.id)
                 if t is None:
@@ -284,10 +305,10 @@ def station_times(spec: LineSpec, doc: dict) -> dict:
                 row["slide_s"] += slide
                 entry["slide_s"] = round(slide, 3)
             row["steps"].append(entry)
-        for k in ("scara_s", "drive_s", "slide_s"):
+        for k in ("scara_s", "drive_s", "slide_s", "actuate_s"):
             row[k] = round(row[k], 3)
         if not row["unresolved"]:
-            total = row["scara_s"] + row["drive_s"] + row["slide_s"] + idx
+            total = row["scara_s"] + row["drive_s"] + row["slide_s"] + row["actuate_s"] + idx
             row["total_s"] = round(total, 3)
             row["status"] = "PASS" if total <= takt else "FAIL"
         rows[sid] = row
@@ -295,33 +316,34 @@ def station_times(spec: LineSpec, doc: dict) -> dict:
 
 
 def print_station_table(rows: dict) -> None:
-    print(f"{'station':<24}{'scara_s':>9}{'drive_s':>9}{'slide_s':>9}{'index_s':>9}"
-          f"{'total_s':>9}{'takt_s':>8}  status")
+    print(f"{'station':<24}{'scara_s':>9}{'drive_s':>9}{'slide_s':>9}{'actuate':>9}"
+          f"{'index_s':>9}{'total_s':>9}{'takt_s':>8}  status")
     for sid, r in rows.items():
         def f(v):
             return f"{v:>9.3f}" if v is not None else f"{'-':>9}"
-        print(f"{sid:<24}{f(r['scara_s'])}{f(r['drive_s'])}{f(r['slide_s'])}{f(r['index_s'])}"
+        print(f"{sid:<24}{f(r['scara_s'])}{f(r['drive_s'])}{f(r['slide_s'])}"
+              f"{f(r.get('actuate_s', 0.0))}{f(r['index_s'])}"
               f"{f(r['total_s'])}{r['takt_s']:>8g}  {r['status']}")
 
 
 def print_table(doc: dict) -> None:
     scale = doc["plan_speed_scale"]
     head = f"@{scale:g}" if scale is not None else "@plan"
-    print(f"{'scara':<25}{'step':<19}{'from':<14}{'qty':>4}{'safe_z':>8}"
+    print(f"{'scara':<25}{'step':<19}{'from':<14}{'qty':>4}{'safe_z':>8}{'switch':>8}"
           f"{'step_s ' + head:>14}{'step_s @1':>11}")
-    print("-" * 95)
+    print("-" * 103)
     for sid, g in doc["scaras"].items():
-        sz = g["safe_z"]["safe_z"]
         for s in g["steps"]:
             print(f"{sid:<25}{s['id']:<19}{s['from'] or '-':<14}{s['qty']:>4}"
-                  f"{sz:>8.3f}{s['time_s']:>14.3f}{s['time_s_at_1']:>11.3f}")
+                  f"{s['safe_z']:>8.3f}{s['tool_switch_s']:>8.3f}{s['time_s']:>14.3f}"
+                  f"{s['time_s_at_1']:>11.3f}")
         if g["total_s"] is not None:
-            print(f"{'':<25}{'budget':<19}{'':<14}{'':>4}{'':>8}{g['budget_s']:>14.3f}"
+            print(f"{'':<25}{'budget':<19}{'':<14}{'':>4}{'':>8}{'':>8}{g['budget_s']:>14.3f}"
                   f"{g['budget_s']:>11.3f}   {g['load_pct']:.1f}% / {g['load_pct_at_1']:.1f}%"
                   f"  {g['status']}" + (f" ({'; '.join(g['errors'])})" if g["errors"] else ""))
         else:
-            print(f"{sid:<25}{'total':<19}{'-':>51}   {g['status']}")
-        print("-" * 95)
+            print(f"{sid:<25}{'total':<19}{'-':>59}   {g['status']}")
+        print("-" * 103)
     if doc["transfer_s"] is not None:
         print(f"budget = takt {doc['takt_s']:g} s - transfer {doc['transfer_s']:g} s "
               f"(index {doc['index_s']:g} s = pitch / belt_speed, + stop unit) "
@@ -365,8 +387,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"DEV MODE: {len(merged.placeholders)} placeholder value(s) from the overlay; "
               "results are not deliverable")
     print_table(doc)
-    print("station_time = SCARA steps + drive_s x passes + slide t_in/t_out + index "
-          "(pitch / belt_speed):")
+    print("station_time = SCARA steps (+ tool switches) + drive_s x passes + slide t_in/t_out "
+          "+ actuate + index (pitch / belt_speed):")
     print_station_table(rows)
     print(f"-> {report}")
     return 0 if doc["passed"] else 1

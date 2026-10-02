@@ -77,20 +77,21 @@ def test_each_scara_controller_covers_j1_to_j4(run):
         assert joints_of(config, f"{sid}_controller") == [f"{sid}_j{k}" for k in (1, 2, 3, 4)]
 
 
-def test_scara_limits_come_from_reach_stroke_and_motion(run, pass_raw):
-    """L1 = L2 = r_max / 2; the elbow folds the TCP in to r_min; j3 is the z stroke (D-012)."""
+def test_scara_limits_come_from_the_robot_model(run, pass_raw):
+    """D-013: j1/j2/j4 at +/- the model's joint_limits, j3 its z stroke, j1/j2 velocity the TCP
+    v_max over that link, j4 velocity its j4_speed."""
     code, doc, _, _ = run()
     assert code == 0, doc["errors"] + doc["missing"]
-    sc = pass_raw["scaras"]["scara_place"]
+    m = pass_raw["robot_models"]["test_scara"]
     lim = doc["joint_limits"]
-    link = sc["reach"]["r_max"] / 2.0
-    elbow = lim["scara_place_j2"]["max"]
-    assert 2.0 * link * math.cos(elbow / 2.0) == pytest.approx(sc["reach"]["r_min"])
-    assert lim["scara_place_j2"]["min"] == -elbow
-    assert (lim["scara_place_j1"]["min"], lim["scara_place_j1"]["max"]) == (-math.pi, math.pi)
-    assert (lim["scara_place_j3"]["min"], lim["scara_place_j3"]["max"]) == (0.0, sc["z_stroke"])
-    assert lim["scara_place_j3"]["v_max"] == sc["motion"]["v_max"]
-    assert lim["scara_place_j1"]["v_max"] == pytest.approx(sc["motion"]["v_max"] / link)
+    for j in ("j1", "j2", "j4"):
+        assert (lim[f"scara_place_{j}"]["min"], lim[f"scara_place_{j}"]["max"]) == \
+            (-m["joint_limits"][j], m["joint_limits"][j])
+    assert (lim["scara_place_j3"]["min"], lim["scara_place_j3"]["max"]) == (0.0, m["z_stroke"])
+    assert lim["scara_place_j3"]["v_max"] == m["motion"]["v_max"]
+    assert lim["scara_place_j1"]["v_max"] == pytest.approx(m["motion"]["v_max"] / m["link1"])
+    assert lim["scara_place_j2"]["v_max"] == pytest.approx(m["motion"]["v_max"] / m["link2"])
+    assert lim["scara_place_j4"]["v_max"] == m["motion"]["j4_speed"]
     assert lim["scara_place_j3"]["type"] == "prismatic"
     assert lim["scara_place_j4"]["type"] == "revolute"
 
@@ -125,10 +126,10 @@ def test_tolerances_follow_the_joint_type(run):
 
 def test_a_null_limit_fails_naming_the_spec_key(run, pass_raw):
     raw = copy.deepcopy(pass_raw)
-    raw["scaras"]["scara_pod"]["motion"]["v_max"] = None
+    raw["robot_models"]["test_scara"]["motion"]["v_max"] = None
     code, doc, config, out = run(raw)
     assert code == 1
-    assert doc["missing"] == ["scaras.scara_pod.motion.v_max"]
+    assert "robot_models.test_scara.motion.v_max" in doc["missing"]
     assert not out.exists(), "a generator that fails writes nothing"
 
 

@@ -111,26 +111,26 @@ def world(tmp_path, monkeypatch, pass_raw):
     return go
 
 
-def manifest(name="Station_Load", spec_path="stations.st_load.pose", pose=(0.0, 0.0, 0.1)):
+def manifest(name="Station_Load", spec_path="stations.st_load.pose", pose=(0.0, 0.0, 0.0)):
     return {name: {"kind": "station", "spec_path": spec_path, "pose": list(pose)}}
 
 
 def test_a_model_at_its_spec_pose_passes(world, pass_raw):
-    doc = world({"Station_Load": [0.0, 0.0, 0.1]}, manifest())
+    doc = world({"Station_Load": [0.0, 0.0, 0.0]}, manifest())
     assert doc["errors"] == []
     assert doc["models"]["Station_Load"]["status"] == "PASS"
     assert doc["models"]["Station_Load"]["from_"] == "stations.st_load.pose"
 
 
 def test_a_model_at_the_wrong_pose_fails(world):
-    doc = world({"Station_Load": [0.0, 0.0, 0.1042]}, manifest())
+    doc = world({"Station_Load": [0.0, 0.0, 0.0042]}, manifest())
     assert doc["models"]["Station_Load"]["status"] == "FAIL"
     assert doc["models"]["Station_Load"]["error_mm"] == pytest.approx(4.2, abs=0.01)
     assert any("Station_Load" in e for e in doc["errors"])
 
 
 def test_the_tolerance_is_the_one_it_is_given(world):
-    live = {"Station_Load": [0.0, 0.0, 0.1008]}          # 0.8 mm out
+    live = {"Station_Load": [0.0, 0.0, 0.0008]}          # 0.8 mm out
     assert world(live, manifest(), tol_mm=1.0)["errors"] == []
     assert world(live, manifest(), tol_mm=0.5)["errors"] != []
 
@@ -140,11 +140,11 @@ def test_it_compares_against_the_spec_not_against_the_world_file(world):
     doc = world({"Station_Load": [0.0, 0.0, 0.5]},
                 manifest(pose=(0.0, 0.0, 0.5)))          # manifest and world agree with each other
     assert doc["models"]["Station_Load"]["status"] == "FAIL"
-    assert doc["models"]["Station_Load"]["expected_m"] == [0.0, 0.0, 0.1]      # the spec's
+    assert doc["models"]["Station_Load"]["expected_m"] == [0.0, 0.0, 0.0]      # the spec's
 
 
 def test_a_cell_is_checked_at_its_station_pose_plus_cell_pitch(world, pass_raw):
-    station = pass_raw["stations"]["st_test"]
+    station = spec_mod.resolve_anchors(pass_raw)[0]["stations"]["st_test"]
     expected = list(station["pose"][:3])
     expected[world_measure.CELL_AXIS] += 2 * station["cell_pitch"]
     doc = world({"Station_Test_Cell3": expected},
@@ -154,7 +154,7 @@ def test_a_cell_is_checked_at_its_station_pose_plus_cell_pitch(world, pass_raw):
 
 
 def test_a_cell_at_the_wrong_pitch_fails(world, pass_raw):
-    station = pass_raw["stations"]["st_test"]
+    station = spec_mod.resolve_anchors(pass_raw)[0]["stations"]["st_test"]
     wrong = list(station["pose"][:3])
     wrong[world_measure.CELL_AXIS] += 2 * station["cell_pitch"] + 0.01
     doc = world({"Station_Test_Cell3": wrong},
@@ -178,7 +178,7 @@ def test_a_model_that_did_not_load_fails(world):
 
 
 def test_a_model_the_manifest_does_not_know_about_is_reported(world):
-    doc = world({"Station_Load": [0.0, 0.0, 0.1], "Ground": [0, 0, 0], "Stray": [1, 1, 1]},
+    doc = world({"Station_Load": [0.0, 0.0, 0.0], "Ground": [0, 0, 0], "Stray": [1, 1, 1]},
                 manifest())
     assert doc["extra_models"] == ["Stray"]              # Ground is the world's own
     assert doc["errors"] == []                           # worth saying, not a failure
