@@ -1,8 +1,8 @@
 """Where the robots stand, what they reach, and how high they must travel (D-012, D-013). Plain
 floats, no ROS, no CAD.
 
-Shared by check_line.py (`scara_reach`, `scara_clearance`, `safe_z`, `payload`, `wrist_inertia`),
-estimate_moves.py and
+Shared by check_line.py (`scara_reach`, `scara_clearance`, `safe_z`, `park_clearance`,
+`slide_clearance`, `payload`, `wrist_inertia`), estimate_moves.py, choose_park.py and
 tools/cad/layout.py, so the checks, the estimate and the drawing cannot disagree about a base, a
 footprint or a height.
 
@@ -20,6 +20,11 @@ Heights. A part's top in the stack is `z_in_stack + height`, height from its `en
 its generator is the authority on that geometry (D-003), so it is read from the generator's report,
 reports/cad_<part>.json (`.dev.json` under --dev), bbox z in the part's own frame, whose z = 0 is
 the rest plane. A missing report makes that height UNRESOLVED, never a guess.
+
+The arm (D-014). The parked arm is checked as capsules sized from the vendor STEP: one per link
+(J1 -> J2, J2 -> the Z shaft), a disc for the shaft and one for the end-effector's tools, each
+over its z range. tools/cad/vendor.py measures them into reports/vendor_<robot model>.json (no
+`.dev`: the STEP is not a placeholder); a missing report makes the park clearance UNRESOLVED.
 """
 
 from __future__ import annotations
@@ -140,6 +145,17 @@ class CadHeights:
     def path(self, part: str) -> Path:
         return self.directory / f"cad_{part}{'.dev' if self.dev else ''}.json"
 
+    def vendor(self, model: str) -> dict | None:
+        """The arm capsules tools/cad/vendor.py measured in a robot model's STEP (D-014)."""
+        key = f"vendor:{model}"
+        if key not in self._cache:
+            try:
+                doc = json.loads((self.directory / f"vendor_{model}.json").read_text())
+            except (OSError, ValueError):
+                doc = None
+            self._cache[key] = doc if doc and doc.get("capsules") else None
+        return self._cache[key]
+
     def bbox(self, part: str) -> dict | None:
         if part not in self._cache:
             try:
@@ -230,6 +246,16 @@ class HeadBox:
     z1: float | None = None
     slide_from: str | None = None         # "+y"/"-y": the side it comes in from, if on a slide
     unresolved: list[str] = field(default_factory=list)
+    # The slide frame (D-014): [(name, rect, z0, z1)] for "Rail" and "Post"; frame_unresolved says
+    # why it is missing (the head itself can still be placed without it).
+    frame: list = field(default_factory=list)
+    frame_unresolved: list[str] = field(default_factory=list)
+
+    def working_envelope(self) -> list:
+        """[(name, rect, z0, z1)]: the head at its working position plus its slide frame."""
+        if self.working is None:
+            return []
+        return [("head (working)", self.working, self.z0, self.z1)] + list(self.frame)
 
 
 def head_box(spec: LineSpec, hid: str, cad: CadHeights) -> HeadBox:
@@ -273,7 +299,34 @@ def head_box(spec: LineSpec, hid: str, cad: CadHeights) -> HeadBox:
     out.rect = centred(pose[0], pose[1] + dy, box[0], box[1])
     out.z0 = pose[2] + top + lift
     out.z1 = out.z0 + box[2]
+    if h.slide is not None:
+        _slide_frame(spec, hid, out, pose, box, dy)
     return out
+
+
+def _slide_frame(spec: LineSpec, hid: str, out: HeadBox, pose, box, dy: float) -> None:
+    """The rail and post that carry a head on its slide (D-014). The rail runs along the slide
+    axis from the head's outer face at its working position to the far side of the post, centred
+    on the head's top face (the head's carriage runs in it); the post stands beyond the retracted
+    head, from the floor to the rail's top."""
+    fr = spec.gang_heads[hid].slide.frame
+    wh = spec.line.work_height
+    if fr is None or None in fr.post or None in fr.rail:
+        out.frame_unresolved.append(f"gang_heads.{hid}.slide.frame (post, rail) is null")
+        return
+    if wh is None:
+        out.frame_unresolved.append("line.work_height is null (the post stands on the floor)")
+        return
+    sign = 1.0 if dy >= 0 else -1.0
+    y_work = pose[1] + sign * box[1] / 2.0             # the head's outer face, working
+    y_back = y_work + dy                               # the same face, retracted
+    y_end = y_back + sign * fr.post[1]                 # the post's far face
+    rail_z0, rail_z1 = out.z1 - fr.rail[1] / 2.0, out.z1 + fr.rail[1] / 2.0
+    out.frame = [
+        ("rail", Rect(pose[0] - fr.rail[0] / 2.0, pose[0] + fr.rail[0] / 2.0,
+                      min(y_work, y_end), max(y_work, y_end)), rail_z0, rail_z1),
+        ("post", Rect(pose[0] - fr.post[0] / 2.0, pose[0] + fr.post[0] / 2.0,
+                      min(y_back, y_end), max(y_back, y_end)), -wh, rail_z1)]
 
 
 # ---------------------------------------------------------------- kinematics (D-013)
@@ -363,6 +416,30 @@ def joint_path(k: Kin, a: tuple[float, float], b: tuple[float, float]
     p, q = min(pairs, key=lambda pq: abs(pq[0][0] - pq[1][0]) + abs(pq[0][1] - pq[1][1]))
     return [fk(k, p[0] + (q[0] - p[0]) * t / PATH_SAMPLES, p[1] + (q[1] - p[1]) * t / PATH_SAMPLES)
             for t in range(PATH_SAMPLES + 1)]
+
+
+def joint_path_j(k: Kin, p: tuple[float, float], q: tuple[float, float]
+                 ) -> list[tuple[float, float]]:
+    """The plan path of a move between two joint poses (j1, j2), joints interpolated."""
+    return [fk(k, p[0] + (q[0] - p[0]) * t / PATH_SAMPLES, p[1] + (q[1] - p[1]) * t / PATH_SAMPLES)
+            for t in range(PATH_SAMPLES + 1)]
+
+
+def leg_path(k: Kin, a, b, ja=None, jb=None) -> list[tuple[float, float]] | None:
+    """A leg's plan path: from joint pose `ja` (else plan point `a`) to `jb` (else `b`). An end
+    given as joints is held; the other end takes its IK solution on the same elbow side with the
+    least j1 travel."""
+    if ja is None and jb is None:
+        return joint_path(k, a, b)
+    fixed = ja if ja is not None else jb
+    other, _ = ik(k, *(b if ja is not None else a))
+    other = [o for o in other if (o[1] >= 0) == (fixed[1] >= 0)]
+    if ja is not None and jb is not None:
+        return joint_path_j(k, ja, jb)
+    if not other:
+        return None
+    o = min(other, key=lambda o: abs(o[0] - fixed[0]))
+    return joint_path_j(k, ja, o) if ja is not None else joint_path_j(k, o, jb)
 
 
 def home(k: Kin, station_xy: tuple[float, float]) -> tuple[float, float] | None:
@@ -529,15 +606,50 @@ def tool_switches(spec: LineSpec, sid: str) -> list[str]:
     return out
 
 
+def park_steps(spec: LineSpec, sid: str) -> tuple[set[str], set[str]]:
+    """(steps that end at park_pose, steps that start from it), D-014: while a gang head at the
+    SCARA's station is in its working position the SCARA is parked, so the SCARA step right
+    before each active drive step there ends at park, and the next SCARA step (read cyclically:
+    the next drone's first) starts from it."""
+    st = spec.scaras[sid].station
+    seq = [s for s in spec.sequence if s.status == "active" and s.station == st]
+    mine = [s.id for s in seq if robot_served(s)]
+    ends, starts = set(), set()
+    if not mine:
+        return ends, starts
+    for i, s in enumerate(seq):
+        if s.capability != "drive" or s.head is None:
+            continue
+        before = [x.id for x in seq[:i] if x.id in mine]
+        after = [x.id for x in seq[i + 1:] if x.id in mine]
+        ends.add(before[-1] if before else mine[-1])
+        starts.add(after[0] if after else mine[0])
+    return ends, starts
+
+
+def park_joints(spec: LineSpec, sid: str) -> tuple[float, float] | None:
+    pp = spec.scaras[sid].park_pose
+    return None if pp is None or pp.j1 is None or pp.j2 is None else (pp.j1, pp.j2)
+
+
 def step_legs(spec: LineSpec, sid: str, step, k: Kin):
-    """[(label, a, b, carrying)] of one pick-and-place from home, or a `remove` (lift off the
-    pallet, put down on the return path): home -> pick, pick -> place carrying, place -> home."""
+    """[(label, a, b, carrying, ja, jb)] of one pick-and-place, or a `remove` (lift off the
+    pallet, put down on the return path): start -> pick, pick -> place carrying, place -> end.
+    Start and end are home, or park_pose where `park_steps` says (ja / jb: its joints)."""
     pick, place = step_points(spec, step)
     hm = home(k, spec.stations[spec.scaras[sid].station].pose[:2])
     if pick is None or place is None or hm is None:
         return None
-    return [("home_to_pick", hm, pick[:2], False), ("pick_to_place", pick[:2], place[:2], True),
-            ("place_to_home", place[:2], hm, False)]
+    ends, starts = park_steps(spec, sid)
+    pj = park_joints(spec, sid) if step.id in ends | starts else None
+    if step.id in ends | starts and pj is None:
+        return None
+    park = fk(k, *pj) if pj is not None else None
+    s_pt, s_j, s_lab = (park, pj, "park") if step.id in starts else (hm, None, "home")
+    e_pt, e_j, e_lab = (park, pj, "park") if step.id in ends else (hm, None, "home")
+    return [(f"{s_lab}_to_pick", s_pt, pick[:2], False, s_j, None),
+            ("pick_to_place", pick[:2], place[:2], True, None, None),
+            (f"place_to_{e_lab}", place[:2], e_pt, False, None, e_j)]
 
 
 def step_points(spec: LineSpec, step):
@@ -590,15 +702,18 @@ def step_safe_z(spec: LineSpec, sid: str, step, cad: CadHeights, switch: bool = 
             pr_c = pr + ((t.offset_r or 0.0) if t else 0.0)
     legs = step_legs(spec, sid, step, k)
     if legs is None:
-        out.unresolved.append(f"{step.id}: pick, place or home pose not known")
+        out.unresolved.append(f"{step.id}: pick, place, home or park pose not known"
+                              + (f" (scaras.{sid}.park_pose is null)"
+                                 if step.id in set.union(*park_steps(spec, sid))
+                                 and park_joints(spec, sid) is None else ""))
     items, missing = _plan_items(spec, sid, step, cad)
     out.unresolved += missing
     if out.unresolved:
         return out
     need: list[tuple[float, str, float, tuple[str, float]]] = []   # (z, item, top, hang)
     under: dict[str, float] = {}
-    for label, a, b, carrying in legs:
-        path = joint_path(k, a, b)
+    for label, a, b, carrying, ja, jb in legs:
+        path = leg_path(k, a, b, ja, jb)
         if path is None:
             out.unresolved.append(f"{step.id}: {label} has no joint path inside the limits "
                                   "(see scara_reach)")
@@ -706,3 +821,234 @@ def wrist_load(spec: LineSpec, sid: str, cad: CadHeights) -> dict:
             "payload_rated": m.payload_rated, "tools_inertia": round(tools_i, 6),
             "part_inertia": round(worst_i, 6), "inertia": round(tools_i + worst_i, 6),
             "inertia_rated": m.inertia_rated, "missing": sorted(set(missing))}
+
+
+# ---------------------------------------------------------------- clearances (D-014)
+
+def _seg_point(ax, ay, bx, by, px, py) -> float:
+    dx, dy = bx - ax, by - ay
+    n = dx * dx + dy * dy
+    t = 0.0 if n == 0.0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / n))
+    return math.hypot(ax + t * dx - px, ay + t * dy - py)
+
+
+def _segs_cross(a, b, c, d) -> bool:
+    def side(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+    d1, d2, d3, d4 = side(c, d, a), side(c, d, b), side(a, b, c), side(a, b, d)
+    return d1 * d2 < 0 and d3 * d4 < 0
+
+
+def seg_rect_dist(a, b, rect: Rect) -> float:
+    """Plan distance from segment a-b to a rectangle (0 when they touch or overlap)."""
+    if rect.dist_from(*a) == 0.0 or rect.dist_from(*b) == 0.0:
+        return 0.0
+    corners = [(rect.x0, rect.y0), (rect.x1, rect.y0), (rect.x1, rect.y1), (rect.x0, rect.y1)]
+    edges = list(zip(corners, corners[1:] + corners[:1]))
+    if any(_segs_cross(a, b, c, d) for c, d in edges):
+        return 0.0
+    return min([rect.dist_from(*a), rect.dist_from(*b)]
+               + [_seg_point(a[0], a[1], b[0], b[1], *c) for c in corners])
+
+
+def capsule_box_clearance(a, b, radius: float, z0: float, z1: float, rect: Rect,
+                          c0: float, c1: float) -> float:
+    """3D clearance between a vertical capsule prism (plan segment a-b swept by `radius`, over
+    z0..z1) and an axis-aligned box (rect, c0..c1); negative = overlap (the plan depth, or the
+    vertical depth when that is smaller)."""
+    plan = seg_rect_dist(a, b, rect) - radius
+    vert = max(c0 - z1, z0 - c1)                     # > 0: apart in z
+    if vert > 0.0 and plan > 0.0:
+        return math.hypot(plan, vert)
+    if vert > 0.0:
+        return vert
+    if plan > 0.0:
+        return plan
+    return max(plan, vert)                           # both overlapping: the shallower way out
+
+
+@dataclass
+class Capsule:
+    name: str
+    a: tuple[float, float]
+    b: tuple[float, float]
+    radius: float
+    z0: float
+    z1: float
+
+
+def arm_capsules(spec: LineSpec, sid: str, j1: float, j2: float, cad: CadHeights
+                 ) -> tuple[list[Capsule], list[str]]:
+    """The arm at (j1, j2) with the TCP at the top of its stroke, as capsules in the line frame
+    (D-014): link1 J1 -> J2, link2 J2 -> TCP and the shaft, sized from the vendor STEP
+    (reports/vendor_<model>.json, z relative to the TCP), plus the end-effector: a disc of
+    `end_effector_radius` from the TCP down by its longest tool reach (dims[2])."""
+    k = kin(spec, sid)
+    model = spec.scaras[sid].model
+    if k is None:
+        return [], [f"{sid}: base pose is null"]
+    if k.links is None:
+        return [], [f"robot_models.{model}.link1/link2 null"]
+    rep = cad.vendor(model)
+    missing = []
+    if rep is None:
+        missing.append(f"{sid}: no arm capsules for {model} (run tools/cad/vendor.py <STEP> "
+                       f"--model {model} -> vendor_{model}.json)")
+    ee = end_effector_radius(spec, sid)
+    reach = [spec.tools[t].dims[2] for t in spec.scaras[sid].tools]
+    if ee is None or None in reach:
+        missing.append(f"{sid}: tool dims/offset_r null (the end-effector's envelope)")
+    if missing:
+        return [], missing
+    l1, l2 = k.links
+    a = k.yaw + j1
+    elbow = (k.base[0] + l1 * math.cos(a), k.base[1] + l1 * math.sin(a))
+    tcp = fk(k, j1, j2)
+    j1xy = (k.base[0], k.base[1])
+    top = k.z_hi
+    caps = rep["capsules"]
+    out = [Capsule("link1", j1xy, elbow, caps["link1"]["radius_m"],
+                   top + caps["link1"]["z_m"][0], top + caps["link1"]["z_m"][1]),
+           Capsule("link2", elbow, tcp, caps["link2"]["radius_m"],
+                   top + caps["link2"]["z_m"][0], top + caps["link2"]["z_m"][1]),
+           Capsule("shaft", tcp, tcp, caps["shaft"]["radius_m"],
+                   top + caps["shaft"]["z_m"][0], top + caps["shaft"]["z_m"][1])]
+    if spec.scaras[sid].tools:
+        out.append(Capsule("tools", tcp, tcp, ee, top - max(reach), top))
+    return out, []
+
+
+def head_envelopes(spec: LineSpec, sid: str, cad: CadHeights
+                   ) -> tuple[dict[str, list], list[str]]:
+    """{head: working envelope [(name, rect, z0, z1)]} for every gang head driven at the SCARA's
+    station, and what is missing (a null slide frame is listed, the head box is still used)."""
+    st = spec.scaras[sid].station
+    out, missing = {}, []
+    for hid in spec.gang_heads:
+        hb = head_box(spec, hid, cad)
+        if hb.station != st:
+            continue
+        if hb.working is None:
+            missing += hb.unresolved
+            continue
+        missing += hb.frame_unresolved
+        out[hid] = hb.working_envelope()
+    return out, missing
+
+
+def park_clearance(spec: LineSpec, sid: str, joints: tuple[float, float], cad: CadHeights
+                   ) -> dict:
+    """The parked arm against every working envelope at its station: the smallest clearance
+    (negative = overlap), between which arm capsule and which envelope part, and every pair."""
+    caps, missing = arm_capsules(spec, sid, *joints, cad)
+    envs, miss2 = head_envelopes(spec, sid, cad)
+    missing += miss2
+    pairs = []
+    for hid, env in envs.items():
+        for name, rect, c0, c1 in env:
+            for c in caps:
+                pairs.append({"arm": c.name, "head": hid, "part": name,
+                              "clearance_m": round(capsule_box_clearance(
+                                  c.a, c.b, c.radius, c.z0, c.z1, rect, c0, c1), 4)})
+    best = min(pairs, key=lambda p: p["clearance_m"]) if pairs else None
+    return {"clearance_m": best and best["clearance_m"], "nearest": best, "pairs": pairs,
+            "heads": sorted(envs), "unresolved": missing}
+
+
+PARK_CLEAR_M = 0.03       # an auto-chosen park pose clears the working envelope by this much
+PARK_STEP_DEG = 0.5
+
+
+def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CLEAR_M) -> dict:
+    """The dev park pose (D-014): j2 folded to its limit on the elbow side of the place pose,
+    j1 searched over its limits in PARK_STEP_DEG steps for the value closest to the place pose's
+    j1 whose park_clearance is >= `need`. {"j1", "j2", "clearance_m", "place_j", ...} or
+    {"error"}."""
+    k = kin(spec, sid)
+    st = spec.stations[spec.scaras[sid].station].pose
+    if k is None or k.links is None or None in st[:2]:
+        return {"error": f"{sid}: base, links or station pose null"}
+    sols, why = ik(k, st[0], st[1])
+    if not sols:
+        return {"error": f"{sid}: place pose not reachable ({why})"}
+    best = None
+    n = int(math.floor(math.degrees(k.j1_lim) / PARK_STEP_DEG))
+    for pj1, pj2 in sols:
+        j2 = math.copysign(k.j2_lim, pj2 if pj2 != 0 else 1.0)
+        for i in range(-n, n + 1):
+            j1 = math.radians(i * PARK_STEP_DEG)
+            pc = park_clearance(spec, sid, (j1, j2), cad)
+            if pc["unresolved"] and pc["clearance_m"] is None:
+                return {"error": "; ".join(pc["unresolved"])}
+            if pc["clearance_m"] is None or pc["clearance_m"] < need - EPS:
+                continue
+            key = (abs(j1 - pj1), abs(j2 - pj2))
+            if best is None or key < best[0]:
+                best = (key, j1, j2, pc, (pj1, pj2))
+    if best is None:
+        return {"error": f"{sid}: no j1 within ±{math.degrees(k.j1_lim):g}° clears its "
+                         f"station's gang head(s) by {need:g} m"}
+    _, j1, j2, pc, place = best
+    return {"j1": round(j1, 4), "j2": round(j2, 6), "j1_deg": round(math.degrees(j1), 1),
+            "j2_deg": round(math.degrees(j2), 1), "clearance_m": pc["clearance_m"],
+            "nearest": pc["nearest"], "place_j": [round(place[0], 4), round(place[1], 4)],
+            "unresolved": pc["unresolved"]}
+
+
+def slide_clearance(spec: LineSpec, hid: str, cad: CadHeights) -> dict:
+    """The swept path of every part a SCARA carries at the head's station against the head
+    waiting retracted on its slide (D-014): per carrying leg, the part's band (its radius +
+    the tool's offset_r) at every path sample, over z from its bottom at the step's safe_z (or
+    down to the pick/place z at the two ends) to the safe_z, against the head box. Smallest
+    clearance per step."""
+    hb = head_box(spec, hid, cad)
+    out = {"head": hid, "station": hb.station, "steps": {}, "clearance_m": None,
+           "unresolved": list(hb.unresolved)}
+    if hb.rect is None or hb.station is None:
+        return out
+    sid = scara_id(hb.station)
+    if sid not in spec.scaras:
+        return out
+    k = kin(spec, sid)
+    for step in scara_steps(spec, sid):
+        if not step.part:
+            continue
+        sz = step_safe_z(spec, sid, step, cad)
+        ext, pr = part_extent(spec, step.part, cad), part_radius(spec, step.part, cad)
+        legs = step_legs(spec, sid, step, k) if k is not None else None
+        if sz.unresolved or ext is None or pr is None or legs is None:
+            out["unresolved"] += sz.unresolved or [f"{step.id}: part size, legs or safe_z unknown"]
+            continue
+        t = spec.tools.get(step.tool)
+        band = pr + ((t.offset_r or 0.0) if t else 0.0)
+        pick, place = step_points(spec, step)
+        label, a, b, _, ja, jb = legs[1]
+        path = leg_path(k, a, b, ja, jb)
+        if path is None:
+            out["unresolved"].append(f"{step.id}: no joint path for {label}")
+            continue
+        travel = sz.value
+        worst = None
+        for i, (x, y) in enumerate(path):
+            lo = travel - ext[1]
+            if i == 0:
+                lo = min(lo, pick[2])
+            elif i == len(path) - 1:
+                lo = min(lo, place[2])
+            c = capsule_box_clearance((x, y), (x, y), band, lo, travel, hb.rect, hb.z0, hb.z1)
+            worst = c if worst is None else min(worst, c)
+        out["steps"][step.id] = {"part": step.part, "band_m": round(band, 4),
+                                 "safe_z": round(travel, 4), "clearance_m": round(worst, 4)}
+    vals = [d["clearance_m"] for d in out["steps"].values()]
+    out["clearance_m"] = min(vals) if vals else None
+    return out
+
+
+def step_payload(spec: LineSpec, sid: str, step) -> float | None:
+    """What the arm carries on a step: every tool on the end-effector + the part and what rides
+    in it (D-014: compared with the robot model's standard_cycle payload)."""
+    ms = [spec.tools[t].mass for t in spec.scaras[sid].tools]
+    if None in ms:
+        return None
+    part = part_mass(spec, step.part) if step.part else 0.0
+    return None if part is None else sum(ms) + part

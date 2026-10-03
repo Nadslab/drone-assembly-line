@@ -173,11 +173,53 @@ def test_a_head_on_a_slide_waits_opposite_its_scara_with_a_slide_envelope(tmp_pa
     head = next(s for s in doc["solids"] if s["name"] == "GangHead_Top")["bbox_mm"]
     slide = next(s for s in doc["solids"] if s["name"] == "GangHead_Top_Slide")
     assert slide["group"] == "Reference" and slide["category"] == "envelope"
-    # scara_place is on +y, so the head waits 0.25 m out on -y: y -0.35 .. -0.15.
-    assert (head["min"][1], head["max"][1]) == pytest.approx((-350.0, -150.0), abs=1e-2)
+    # scara_place is on +y, so the head waits 0.30 m out on -y: y -0.40 .. -0.20.
+    assert (head["min"][1], head["max"][1]) == pytest.approx((-400.0, -200.0), abs=1e-2)
     assert (slide["bbox_mm"]["min"][1], slide["bbox_mm"]["max"][1]) == pytest.approx(
-        (-350.0, 100.0), abs=1e-2)
+        (-400.0, 100.0), abs=1e-2)
     assert code == 0, doc["errors"]
+
+
+def test_a_head_on_a_slide_has_a_rail_and_a_post_in_the_robots_group(tmp_path, pass_raw):
+    """D-014: the rail runs from the working head's outer face (y -0.1) past the waiting head to
+    the far face of the post (y -0.5); the post stands on the floor. The head riding in its rail
+    and the rail on its post are allowed; both are in the interference check otherwise."""
+    from conftest import _slide_at_place
+    raw = layout_raw(pass_raw)
+    _slide_at_place(0.5, 0.5)(raw)
+    code, doc = run(tmp_path, raw)
+    assert code == 0, doc["errors"]
+    rail = next(s for s in doc["solids"] if s["name"] == "GangHead_Top_Rail")
+    post = next(s for s in doc["solids"] if s["name"] == "GangHead_Top_Post")
+    assert rail["group"] == post["group"] == "Robots"
+    assert rail["category"] == post["category"] == "slide_frame"
+    assert (rail["bbox_mm"]["min"][1], rail["bbox_mm"]["max"][1]) == pytest.approx(
+        (-500.0, -100.0), abs=1e-2)
+    assert post["bbox_mm"]["min"][2] == pytest.approx(-raw["line"]["work_height"] * 1000.0)
+    assert "gang_heads.gh_top.slide.frame.post[0]" in post["dims"]["size_x"]["spec_keys"]
+    assert "gang_head ∩ slide_frame (same gang head)" in doc["interference"]["allowed_rules"]
+    assert doc["park"]["st_place"]["capsule_clearance_m"] == pytest.approx(0.3432, abs=1e-4)
+
+
+def test_a_slide_frame_on_something_else_is_an_interference(tmp_path, pass_raw):
+    """Same-owner only: fd_mid_plate moved onto gh_top's post is an interference."""
+    from conftest import _slide_at_place
+    raw = layout_raw(pass_raw)
+    _slide_at_place(0.5, 0.5)(raw)
+    raw["feeders"]["fd_mid_plate"]["offset"] = [0.0, -0.45, 0.15, 0.0]
+    code, doc = run(tmp_path, raw)
+    assert code == 1
+    pairs = [{f["a"], f["b"]} for f in doc["interference"]["failures"]]
+    assert {"GangHead_Top_Post", "Feeder_MidPlate"} in pairs
+
+
+def test_queue_slots_are_drawn_at_slot_pitch(clean):
+    """One slot after each station (0.5 m gaps, 0.25 m pitch), 0.25 m downstream of it."""
+    raw, _, doc = clean
+    slots = {s["name"]: s["bbox_mm"] for s in doc["solids"] if s["name"].startswith("Pallet_Slot")}
+    assert sorted(slots) == [f"Pallet_Slot_{n}_1" for n in range(1, 6)]
+    centre = (slots["Pallet_Slot_1_1"]["min"][0] + slots["Pallet_Slot_1_1"]["max"][0]) / 2.0
+    assert centre == pytest.approx(250.0, abs=1e-3)
 
 
 def test_one_fence_round_the_line_and_a_partition_per_milestone_boundary(clean):

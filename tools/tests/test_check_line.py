@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import subprocess
 import sys
 import time
@@ -202,14 +203,14 @@ def test_payload_and_wrist_inertia_report_every_scara(pass_raw):
 
 
 def test_safe_z_counts_a_waiting_gang_head_only_when_it_is_under_a_path(pass_raw):
-    """gh_top on a slide at st_place waits slide.stroke out on -y (scara_place is on +y): 0.25 m
+    """gh_top on a slide at st_place waits slide.stroke out on -y (scara_place is on +y): 0.30 m
     out it is clear of the SCARA's paths, 0.05 m out it is under the place."""
     import robot_geometry as rg
     FIXTURE["slide_too_slow"](pass_raw)
     spec = spec_mod.parse_spec(pass_raw)
     cad = rg.CadHeights()
     hb = rg.head_box(spec, "gh_top", cad)
-    assert hb.slide_from == "-y" and hb.rect.y1 == pytest.approx(-0.15)
+    assert hb.slide_from == "-y" and hb.rect.y1 == pytest.approx(-0.20)
     assert not any("gh_top" in n for n, _ in rg.safe_z(spec, "scara_place", cad).items)
     pass_raw["gang_heads"]["gh_top"]["slide"]["stroke"] = 0.05
     items = dict(rg.safe_z(spec_mod.parse_spec(pass_raw), "scara_place", cad).items)
@@ -221,7 +222,9 @@ def test_slide_time_is_part_of_the_station_time(pass_raw):
     r = by_name(check_line.run_checks(pass_raw)[0])["station_time"]
     row = r.info["stations"]["st_place"]
     assert row["slide_s"] == pytest.approx(18.0)
-    assert row["total_s"] == pytest.approx(row["scara_s"] + 3.0 + 18.0 + 0.5 / 0.3, abs=1e-3)
+    # D-014: the index is the 0.25 m from st_place's queue slot / 0.3 m/s + the 0.5 s stop.
+    assert row["index_s"] == pytest.approx(0.25 / 0.3 + 0.5)
+    assert row["total_s"] == pytest.approx(row["scara_s"] + 3.0 + 18.0 + row["index_s"], abs=1e-3)
     assert r.status == "FAIL" and "slide 18.00" in r.findings[0][1]
 
 
@@ -282,7 +285,11 @@ def test_repo_spec_parses_and_lists_unresolved():
     raw = spec_mod.load_raw()
     spec_mod.parse_spec(raw)  # exact §3 example must parse
     paths = list(check_line._walk_nulls(raw))
-    assert "robot_models.epson_ls10b_700_z300.link1" in paths
+    assert "robot_models.epson_ls10b_700_z300.motion.v_max" in paths
+    assert "robot_models.epson_ls10b_700_z300.link1" not in paths      # measured (D-014)
+    assert "scaras.scara_build_frame.park_pose.j1" in paths
+    assert "layout.slot_gap" in paths
+    assert "scara_defaults.cycle_derate" in paths
     assert "scaras.scara_fit_top_plate.offset[1]" in paths
     assert "stations.st_build_frame.anchor.gap" in paths
     assert "drone.arm_tooling_holes[0][0]" in paths
@@ -399,15 +406,24 @@ def dev_cad_reports():
     return spec_mod.REPO / "reports"
 
 
-def test_repo_dev_overlay_records_the_d013_result(dev_cad_reports):
-    """D-013 on the dev overlay: five SCARA stations, every one inside takt, every safe_z inside
-    the Epson's 0.30 m stroke, no shared reach zone, payload and wrist inertia under rating.
-    Only gap B stays open (WARN: four drive steps name no fastener)."""
+def test_repo_dev_overlay_records_the_d014_result(dev_cad_reports):
+    """D-014 on the dev overlay: five SCARA stations, every one inside takt, every safe_z inside
+    the Epson's 0.30 m stroke, no shared reach zone, payload and wrist inertia under rating, every
+    parked arm and every carried part clear of the heads. Gap B stays open (WARN: four drive steps
+    name no fastener), and A's spider in its carrier is over the standard cycle's 2 kg."""
     results, passed = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
                                             dev=True)
     got = by_name(results)
     assert passed
-    assert {r.name: r.status for r in results if r.status != "PASS"} == {"actors": "WARN"}
+    assert {r.name: r.status for r in results if r.status != "PASS"} == {"actors": "WARN",
+                                                                        "robot_load": "WARN"}
+    assert [m for lvl, m in got["robot_load"].findings if lvl == "WARN"] == [
+        "scara_build_frame: place_spider: payload 2.100 kg (tools + carrier_spider) > the "
+        "standard cycle's 2 kg: its times are optimistic"]
+    assert set(got["park_clearance"].info["stations"]) == set(got["slide_clearance"].info[
+        "stations"]) == {"st_build_frame", "st_seat_esc", "st_fit_pod", "st_fit_side_plates",
+                         "st_fit_top_plate"}
+    assert all(d["clearance_m"] >= 0.03 for d in got["park_clearance"].info["stations"].values())
     assert sorted(m.split()[1].rstrip(":") for lvl, m in got["actors"].findings
                   if lvl == "WARN") == ["drive_esc", "drive_pod", "drive_side_plates",
                                         "drive_top_plate"]
@@ -446,7 +462,8 @@ def test_repo_spec_every_feeder_and_buffer_is_drawn_and_every_drive_has_a_driver
 
 
 def test_index_time_is_derived_never_stated(pass_raw):
-    """D-010: conveyor.index_s is gone; the index time is pitch / belt_speed."""
+    """D-010: conveyor.index_s is gone. D-014: pitch / belt_speed is only the old index, kept to
+    compare with the per-station one."""
     s = spec_mod.parse_spec(pass_raw)
     assert spec_mod.index_s(s) == pytest.approx(0.5 / 0.3)
     pass_raw["conveyor"]["index_s"] = 2.0
@@ -540,3 +557,92 @@ def test_anchors_resolve_to_line_poses_and_carry_their_placeholders(tmp_path, pa
     spec_path.write_text(yaml.safe_dump(pass_raw))
     with pytest.raises(spec_mod.SpecError, match="both `anchor` and `pose`"):
         spec_mod.load_merged(spec_path)
+
+
+# ------------------------------------------------------------------ D-014
+
+
+def test_queue_slots_fill_each_gap_at_slot_pitch_and_set_the_index(pass_raw):
+    """0.5 m gaps at a 0.25 m slot pitch (0.20 pallet + 0.05 gap): one slot each, and the pallet
+    enters from it over 0.25 m. The first station is entered from the in-feed slot."""
+    s = spec_mod.parse_spec(pass_raw)
+    gaps = spec_mod.queue_gaps(s)
+    assert [(g["after"], g["slots"], g["enter_m"]) for g in gaps] == [
+        ("st_load", 1, 0.25), ("st_place", 1, 0.25), ("st_drive", 1, 0.25),
+        ("st_test", 1, 0.25), ("st_spider", 1, 0.25)]
+    idx = spec_mod.station_index(s)
+    assert idx["st_place"]["index_s"] == pytest.approx(0.25 / 0.3 + 0.5)
+    assert idx["st_place"]["from"] == "slot 1 after st_load"
+    assert idx["st_load"]["from"] == "in-feed slot (pallet return)"
+    # A 1.2 m gap holds 3 slots (4 x 0.25 would leave no pitch before the station): 0.45 m in.
+    pass_raw["stations"]["st_place"]["anchor"]["gap"] = 1.2
+    g = spec_mod.queue_gaps(spec_mod.parse_spec(pass_raw))[0]
+    assert (g["slots"], g["enter_m"]) == (3, pytest.approx(0.45))
+    # No room for a slot: the pallet comes straight from the station before.
+    pass_raw["stations"]["st_place"]["anchor"]["gap"] = 0.4
+    g = spec_mod.queue_gaps(spec_mod.parse_spec(pass_raw))[0]
+    assert (g["slots"], g["enter_m"]) == (0, pytest.approx(0.4))
+    assert spec_mod.station_index(spec_mod.parse_spec(pass_raw))["st_place"]["from"] == "st_load"
+
+
+def test_a_milestone_keeps_the_gap_into_its_first_station(pass_raw):
+    sub = spec_mod.milestone_subset(pass_raw, "back")
+    assert sub["entry"]["after"] == "st_drive"
+    idx = spec_mod.station_index(spec_mod.parse_spec(sub))
+    assert idx["st_test"]["index_s"] == pytest.approx(0.25 / 0.3 + 0.5)
+
+
+@pytest.mark.parametrize("check, case, level, message", [
+    ("park_clearance", "parked_arm_in_the_working_head", "FAIL",
+     "scara_place parked at j1 0.0°, j2 0.0°: its tools overlaps gh_top head (working) by"),
+    ("park_clearance", "null_park_pose", "WARN",
+     "UNRESOLVED scaras.scara_place.park_pose is null (st_place drives a gang head)"),
+    ("slide_clearance", "part_lands_on_the_retracted_head", "FAIL",
+     "st_place: place carries mid_plate (band 0.141 m, at safe_z 0.301) -141.4 mm from gh_top "
+     "retracted on its slide; needs 20 mm"),
+])
+def test_each_d014_rule_says_what_and_where(pass_raw, check, case, level, message):
+    FIXTURE[case](pass_raw)
+    r = by_name(check_line.run_checks(pass_raw)[0])[check]
+    assert any(lvl == level and message in m for lvl, m in r.findings), r.findings
+
+
+def test_a_head_on_a_slide_parks_its_scara_and_both_clearances_pass(pass_raw):
+    """gh_top 0.30 m out on its slide at st_place: the parked arm (j1 2.5, folded) is 0.343 m
+    from the head's working envelope, the mid plate's band 58.6 mm from the waiting head."""
+    from conftest import _slide_at_place
+    _slide_at_place(0.5, 0.5)(pass_raw)
+    got = by_name(check_line.run_checks(pass_raw)[0])
+    assert got["park_clearance"].status == got["slide_clearance"].status == "PASS"
+    assert got["park_clearance"].info["stations"]["st_place"]["clearance_m"] == \
+        pytest.approx(0.3432, abs=1e-4)
+    assert got["slide_clearance"].info["stations"]["st_place"]["clearance_m"] == \
+        pytest.approx(0.0586, abs=1e-4)
+    heads = got["park_clearance"].info["stations"]["st_place"]["heads"]
+    assert heads == ["gh_top"]
+
+
+def test_the_slide_frame_runs_from_the_working_head_to_a_post_beyond_the_waiting_one(pass_raw):
+    import robot_geometry as rg
+    from conftest import _slide_at_place
+    _slide_at_place(0.5, 0.5)(pass_raw)
+    hb = rg.head_box(spec_mod.parse_spec(pass_raw), "gh_top", rg.CadHeights())
+    rail, post = dict((n, (r, z0, z1)) for n, r, z0, z1 in hb.frame).values()
+    assert (rail[0].y0, rail[0].y1) == pytest.approx((-0.1 - 0.3 - 0.1, -0.1))
+    assert (rail[1], rail[2]) == pytest.approx((hb.z1 - 0.03, hb.z1 + 0.03))
+    assert (post[0].y0, post[0].y1) == pytest.approx((-0.5, -0.4))
+    assert post[1] == pytest.approx(-pass_raw["line"]["work_height"]) and post[2] == rail[2]
+    assert [n for n, *_ in hb.working_envelope()] == ["head (working)", "rail", "post"]
+
+
+def test_park_choice_is_the_nearest_clearing_j1(pass_raw):
+    import robot_geometry as rg
+    from conftest import _parked_over_the_head
+    _parked_over_the_head(pass_raw)
+    spec = spec_mod.parse_spec(pass_raw)
+    c = rg.choose_park(spec, "scara_place", rg.CadHeights())
+    assert c["clearance_m"] >= rg.PARK_CLEAR_M
+    # One step nearer the place pose does not clear.
+    nearer = c["j1"] - math.copysign(math.radians(rg.PARK_STEP_DEG), c["j1"] - c["place_j"][0])
+    pc = rg.park_clearance(spec, "scara_place", (nearer, c["j2"]), rg.CadHeights())
+    assert pc["clearance_m"] < rg.PARK_CLEAR_M

@@ -201,11 +201,25 @@ class RobotJointLimits(Model):
 
 class RobotMotion(Model):
     """TCP limits, Cartesian (the trapezoid estimate_moves.py plans with), and the wrist speed
-    that times a dual-tool switch (180 deg about J4)."""
+    that times a dual-tool switch (180 deg about J4). D-014: v_max/a_max are calibrated so the
+    move model reproduces the model's `standard_cycle` (estimate_moves.py --calibrate); moves run
+    at them x scara_defaults.cycle_derate."""
 
     v_max: Pos | None
     a_max: Pos | None
     j4_speed: Pos | None = None     # rad/s
+
+
+class StandardCycle(Model):
+    """The vendor's published standard cycle (D-014): `time_s` for a round trip of
+    `horizontal_m` across with a `vertical_m` lift at each end, carrying `payload_kg`. Moves are
+    calibrated to reproduce it (grip and settle excluded)."""
+
+    time_s: Pos
+    horizontal_m: Pos
+    vertical_m: Pos
+    payload_kg: Pos
+    motion: Literal["round_trip_arch"]
 
 
 class RobotModel(Model):
@@ -225,6 +239,7 @@ class RobotModel(Model):
     link1: Pos | None
     link2: Pos | None
     motion: RobotMotion
+    standard_cycle: StandardCycle | None = None
 
     @model_validator(mode="after")
     def _links(self):
@@ -232,6 +247,14 @@ class RobotModel(Model):
                 and abs(self.link1 + self.link2 - self.reach) > 1e-6:
             raise ValueError(f"link1 {self.link1} + link2 {self.link2} != reach {self.reach}")
         return self
+
+
+class ParkPose(Model):
+    """Joint angles (rad, j1 from the base yaw) the SCARA holds while its station's gang head is
+    in its working position (D-014). The TCP is at the top of its stroke there."""
+
+    j1: float | None
+    j2: float | None
 
 
 class Scara(Model):
@@ -247,6 +270,7 @@ class Scara(Model):
     offset: Pose | None = None
     pose: Pose | None = None
     tools: list[str]
+    park_pose: ParkPose | None = None
 
 
 class ScaraDefaults(Model):
@@ -258,18 +282,28 @@ class ScaraDefaults(Model):
     # safe_z is derived per SCARA (tools/robot_geometry.py): the tallest item in its reach
     # envelope, plus the part it carries, plus this margin.
     z_margin: NonNeg | None
-    # Moves are planned at this fraction of v_max/a_max (D-007's linear-axis value; re-derive for
-    # a SCARA, D-012).
-    plan_speed_scale: Annotated[float, Field(gt=0, le=1)] | None
+    # Moves run at this fraction of the calibrated v_max/a_max (D-014): the vendor standard cycle
+    # is speed-optimised, a real cycle is slower.
+    cycle_derate: Annotated[float, Field(gt=0, le=1)] | None
+
+
+class SlideFrame(Model):
+    """What carries a head on its slide (D-014): a rail along the slide axis, from the head's
+    outer face at its working position to a post beyond its retracted position; the post stands
+    on the floor. Placed from the head's working pose (so anchored to its station)."""
+
+    post: Vec2              # [x, y] footprint
+    rail: Vec2              # [width (x), height (z)]; centred on the head's top face
 
 
 class Slide(Model):
     """A gang head that shares its station with a SCARA rides in on a slide from the side
-    opposite the SCARA (D-012): place, SCARA clears, slide in, drive, slide out."""
+    opposite the SCARA (D-012): place, SCARA parks, slide in, drive, slide out."""
 
     stroke: Pos | None      # m, retracted position to the working position, along y
     t_in: NonNeg | None     # s
     t_out: NonNeg | None    # s
+    frame: SlideFrame | None = None
 
 
 class GangHead(Model):
@@ -312,8 +346,9 @@ class Drone(Model):
 
 
 class Conveyor(Model):
-    # No index time here: the pallet advances one pitch at layout.conveyor.belt_speed, so the
-    # index time is derived (`index_s()`), never stated twice (D-010).
+    # No index time here (D-010). D-014: the index is per station, from the distance the pallet
+    # travels to enter it (`station_index()`); `pitch` only sets how far the belt runs past the
+    # end stations, and the old pitch / belt_speed index (`index_s()`) is reported for comparison.
     pitch: Pos | None
 
 
@@ -397,7 +432,8 @@ class Layout(Model):
     pallet_block: PalletBlock
     stop_unit_length: Pos | None
     stop_unit_cycle_s: NonNeg | None = None    # stop, lift/locate, release: part of each transfer
-    buffer_slots_between_stations: NonNegInt | None
+    # Queue slots fill each gap at pallet_block.length + slot_gap (D-014; `queue_gaps()`).
+    slot_gap: NonNeg | None
     scara_base: ScaraBase
     gang_head_box: Vec3         # [x, y, z] envelope of a gang head body (layout, safe_z)
     # [w (x), d (y), h (floor to top)] keyed by feeder or buffer id: both stand on the floor.
@@ -407,6 +443,14 @@ class Layout(Model):
     test_branch: TestBranch | None = None
     operator_aisle: OperatorAisle
     guard_offset: Pos | None    # robot reach envelopes to the guard line, all round
+
+
+class Entry(Model):
+    """Set only by milestone_subset (D-014): the station upstream of the milestone's first one,
+    and its resolved pose, so that station's index is still the gap the pallet crosses."""
+
+    after: str
+    pose: Pose
 
 
 class LineSpec(Model):
@@ -434,6 +478,7 @@ class LineSpec(Model):
     # Set only by milestone_subset (D-013): the parts already on the pallet when it reaches this
     # milestone's first station (a carrier riding along from upstream). None on the whole line.
     pallet_in: list[str] | None = None
+    entry: Entry | None = None
 
     @model_validator(mode="after")
     def _scaras(self):
@@ -718,6 +763,11 @@ def milestone_subset(raw: dict, name: str) -> dict:
         elif s["part"] not in carried:
             carried.append(s["part"])
     out["pallet_in"] = carried
+    upstream = [k for k in index if index[k] < first]
+    if upstream:
+        prev = max(upstream, key=lambda k: index[k])
+        out["entry"] = {"after": prev, "pose": list(raw["stations"][prev].get("pose")
+                                                    or [None] * 4)}
     out["milestones"] = {name: list(milestones[name])}
     out["stations"] = {k: v for k, v in (raw.get("stations") or {}).items() if k in keep}
     steps = [s for s in raw.get("sequence") or [] if s.get("station") in keep]
@@ -750,12 +800,73 @@ def milestone_subset(raw: dict, name: str) -> dict:
 
 
 def index_s(spec: LineSpec) -> float | None:
-    """Seconds the pallet takes to advance one station: conveyor.pitch / layout.conveyor.belt_speed.
-    The only index time there is (D-010); None while either is unknown."""
+    """The pre-D-014 index: conveyor.pitch / layout.conveyor.belt_speed, one fixed time for every
+    station. Kept only to report next to `station_index()`, which replaced it."""
     lay = spec.layout
     if spec.conveyor.pitch is None or lay is None or lay.conveyor.belt_speed is None:
         return None
     return spec.conveyor.pitch / lay.conveyor.belt_speed
+
+
+def queue_gaps(spec: LineSpec) -> list[dict]:
+    """Every gap between consecutive stations (line order) with its queue slots (D-014). Slots
+    stand at slot pitch p = pallet_block.length + slot_gap from the upstream station's datum, as
+    many as fit with p left before the downstream one: floor(gap / p) - 1. `enter_m` is how far
+    the pallet travels into the downstream station: from the last slot, or from the upstream
+    station when there is none. Unknown values are None."""
+    lay = spec.layout
+    length = lay.pallet_block.length if lay else None
+    gap_s = lay.slot_gap if lay else None
+    pitch = None if length is None or gap_s is None else length + gap_s
+    order = sorted(spec.stations, key=lambda s: spec.stations[s].index)
+    poses = {s: spec.stations[s].pose for s in order}
+    if spec.entry is not None and order:           # a milestone subset: its upstream station
+        poses[spec.entry.after] = spec.entry.pose
+        order = [spec.entry.after] + order
+    out = []
+    for a, b in zip(order, order[1:]):
+        pa, pb = poses[a], poses[b]
+        gap = None if None in (pa[0], pa[1], pb[0], pb[1]) else math.hypot(pb[0] - pa[0],
+                                                                            pb[1] - pa[1])
+        slots = enter = None
+        if gap is not None and pitch is not None:
+            slots = max(int(math.floor(gap / pitch + 1e-9)) - 1, 0)
+            enter = gap - slots * pitch
+        out.append({"after": a, "before": b, "gap_m": gap and round(gap, 6),
+                    "slot_pitch_m": pitch and round(pitch, 6), "slots": slots,
+                    "enter_m": enter if enter is None else round(enter, 6)})
+    return out
+
+
+def station_index(spec: LineSpec) -> dict[str, dict]:
+    """Per station, the index time (D-014): the distance the pallet travels to enter it
+    (`queue_gaps` enter_m) / layout.conveyor.belt_speed + layout.stop_unit_cycle_s. The line's
+    first station is entered from the in-feed slot the pallet return delivers to, one slot
+    pitch upstream. {station: {index_s, enter_m, from, unresolved}}."""
+    lay = spec.layout
+    speed = lay.conveyor.belt_speed if lay else None
+    stop = lay.stop_unit_cycle_s if lay else None
+    out: dict[str, dict] = {}
+    order = sorted(spec.stations, key=lambda s: spec.stations[s].index)
+    gaps = queue_gaps(spec)
+    if order and spec.entry is None:
+        pitch = None
+        if lay is not None and lay.pallet_block.length is not None and lay.slot_gap is not None:
+            pitch = lay.pallet_block.length + lay.slot_gap
+        gaps = [{"after": None, "before": order[0], "slots": 0, "enter_m": pitch,
+                 "from": "in-feed slot (pallet return)"}] + gaps
+    for g in gaps:
+        missing = [k for k, v in (("layout.conveyor.belt_speed", speed),
+                                  ("layout.stop_unit_cycle_s", stop),
+                                  ("layout.pallet_block.length / layout.slot_gap / station poses",
+                                   g["enter_m"])) if v is None]
+        src = g.get("from") or (f"slot {g['slots']} after {g['after']}" if g["slots"]
+                                else g["after"])
+        out[g["before"]] = {
+            "index_s": None if missing else round(g["enter_m"] / speed + stop, 6),
+            "enter_m": g["enter_m"], "from": src,
+            "unresolved": [f"index of {g['before']}: {m} null" for m in missing]}
+    return out
 
 
 class SpecError(Exception):

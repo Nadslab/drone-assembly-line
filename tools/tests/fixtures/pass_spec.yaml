@@ -84,13 +84,14 @@ tools:
 
 # One SCARA per pick-and-place station, all on +y, 0.24 m out, facing the line; each source sits
 # 0.2 m upstream of its station, 0.3 m out. Reach 0.24 m keeps neighbouring envelopes (0.5 m apart)
-# clear.
+# clear. park_pose (D-014) is used only where the station drives a gang head: swung 143° round
+# to +x/+y, folded, away from the pallet.
 scaras:
-  scara_load: {station: st_load, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: []}
-  scara_place: {station: st_place, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_plate]}
-  scara_spider: {station: st_spider, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_carrier]}
-  scara_pod: {station: st_pod, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_carrier]}
-scara_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03, plan_speed_scale: 0.5}
+  scara_load: {station: st_load, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [], park_pose: {j1: 2.5, j2: 2.281994}}
+  scara_place: {station: st_place, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_plate], park_pose: {j1: 2.5, j2: 2.281994}}
+  scara_spider: {station: st_spider, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_carrier], park_pose: {j1: 2.5, j2: 2.281994}}
+  scara_pod: {station: st_pod, model: test_scara, offset: [0.0, 0.24, 0.0, -1.570796], tools: [tool_carrier], park_pose: {j1: 2.5, j2: 2.281994}}
+scara_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03, cycle_derate: 0.5}
 gang_heads:
   gh_top: {direction: down, spindles: 8, pattern_from: bottom_plate.arm_holes, stroke: 0.05,
            v_max: 0.1, a_max: 0.5, drive_s: 3.0, offset: [0.0, 0.0, 0.0, 0.0]}
@@ -129,7 +130,7 @@ layout:
   pallet_block: {length: 0.20, width: 0.20, thickness: 0.02}
   stop_unit_length: 0.20
   stop_unit_cycle_s: 0.5
-  buffer_slots_between_stations: 1
+  slot_gap: 0.05                  # 0.25 m slot pitch: one slot in each 0.5 m gap
   scara_base: {diameter: 0.10, height: 1.2}
   gang_head_box: [0.20, 0.20, 0.15]
   feeder_footprints:

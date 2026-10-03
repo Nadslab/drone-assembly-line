@@ -40,6 +40,8 @@ tools/.venv/bin/python tools/spec.py
 tools/.venv/bin/python tools/check_line.py --dev   # merge line_spec.dev.yaml placeholders
 tools/.venv/bin/python tools/check_line.py --dev --milestone frame   # one milestone only
 tools/.venv/bin/python tools/estimate_moves.py --dev   # per-SCARA pick-and-place time vs takt
+tools/.venv/bin/python tools/estimate_moves.py --dev --calibrate   # v_max/a_max from the standard cycle
+tools/.venv/bin/python tools/choose_park.py --dev --write   # dev park poses -> line_spec.dev.yaml
 tools/.venv/bin/python tools/gen_sw_params.py      # spec -> cad_params.txt (SolidWorks variables)
 tools/.venv/bin/python tools/mesh_pipeline.py      # raw SolidWorks STL -> checked Gazebo meshes
 tools/.venv/bin/python tools/cad/pallet.py --dev   # build123d pallet + pins -> cad_out/
@@ -47,9 +49,9 @@ tools/.venv/bin/python tools/cad/build_all.py --dev  # every generator + mesh_pi
 tools/.venv/bin/python tools/cad/layout.py --dev   # line layout STEP + top SVG + interference check
                                                    # -> C:\Users\Admin\Documents\drone-line-cad\60_layout\dev\
 tools/.venv/bin/python tools/cad/layout.py --dev --milestone frame   # -> 60_layout\dev\frame\
-                                                   # (also reports/render/<name>_{top,iso}.png;
-                                                   # --no-render skips them)
-tools/.venv/bin/python tools/cad/vendor.py <STEP>  # joints measured in a vendor SCARA STEP
+                                                   # (also reports/render/<name>_{top,iso}.png and
+                                                   # <station>_park.png; --no-render skips them)
+tools/.venv/bin/python tools/cad/vendor.py <STEP> --model <id>  # joints + arm capsules -> reports/vendor_<id>.json
 tools/.venv/bin/python tools/gen_models.py --dev   # spec + cad reports -> models/<id>/model.sdf
 tools/.venv/bin/python tools/gen_world.py --dev    # spec -> worlds/main_line.sdf
 tools/.venv/bin/python tools/gen_controllers.py --dev   # spec -> config/controllers.yaml
@@ -75,7 +77,7 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | A work location on the main line | **station** | `st_build_frame` | `Station_BuildFrame` |
 | Parallel copies of a station | **cell** | `st_test.cell_3` | `Station_Test_Cell3` |
 | Carrier riding the conveyor | **pallet** | `pallet` | `Pallet_<n>` |
-| Queued pallet position between two stations | **queue slot** | count in `layout.buffer_slots_between_stations` | `Pallet_Slot_<n>_<k>` (after station index n, k-th) |
+| Queued pallet position between two stations | **queue slot** | count derived per gap at `layout.pallet_block.length + layout.slot_gap` (`spec.queue_gaps`) | `Pallet_Slot_<n>_<k>` (after station index n, k-th) |
 | Returnable fixture carrying a subassembly | **carrier** | `carrier_spider`, `carrier_pod` | `Carrier_Spider` |
 | Chute or conveyor taking an empty carrier back to its sub-line | **return path** | `rt_<carrier>` (`rt_carrier_spider`) | `ReturnPath_CarrierSpider`, its end `ReturnSink_CarrierSpider` |
 | Part source at a fixed pick pose | **feeder** | `fd_mid_plate` | `Feeder_MidPlate` |
@@ -83,7 +85,10 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | Pick-and-place robot, one per station | **scara** | `scara_<station without st_>` (`scara_build_frame`) | `Scara_<Name>` (`Scara_BuildFrame`); layout `Scara_<Name>_Base` (pedestal), `Scara_<Name>_<Part>` (vendor arm), `Scara_<Name>_Envelope` |
 | SCARA product used by a scara | **robot model** | `robot_models.<id>` (`epson_ls10b_700_z300`) | — |
 | Run of consecutive stations built and checked together | **milestone** | `milestones.<name>` (`frame`) | partition `Guard_Partition_<A>_<B>` at its boundary; the line's one fence `Guard_Fence` |
-| Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich`; on a slide, `GangHead_<Name>_Slide` |
+| Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich`; on a slide, `GangHead_<Name>_Slide` (envelope) |
+| Rail and post carrying a gang head on its slide | **slide frame** | `gang_heads.<id>.slide.frame` | `GangHead_<Name>_Rail`, `GangHead_<Name>_Post` |
+| Where a SCARA waits while its station's gang head works | **park pose** | `scaras.<id>.park_pose` | close-up `reports/render/<station>_park.png` |
+| Vendor's published reference move the motion is calibrated to | **standard cycle** | `robot_models.<id>.standard_cycle` | — |
 | Interchangeable SCARA tooling | **tool** | `tool_plate_vacuum` (`tools:`) | `Tool_PlateVacuum` |
 | SCARA end-effector carrying two tools 180° apart, switched by a J4 turn | **dual-tool** | `scaras.<id>.tools: [<tool>, <tool>]` | — |
 | SCARA tool taking a whole set in one pick | **gang gripper** | `<part>_gang` (`standoff_gang`) | `Tool_StandoffGang` |
@@ -127,4 +132,6 @@ Rules:
   SolidWorks is Y-up, so the assembly is rotated -90° about X right before writing, mapping spec
   `(x, y, z)` to STEP `(x, z, -y)` so SolidWorks' Top view shows the plan view.
 - **Headless only.** No GUI launches during verification.
+- **Never run layout.py and pytest concurrently;** the full-line layout peaks around 1.7 GB on a
+  7.8 GB machine.
 - **No STL over 5 MB is ever committed.**

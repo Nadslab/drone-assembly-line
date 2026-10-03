@@ -48,13 +48,28 @@ def _drive_at_place(s):
     s["stations"]["st_test"]["anchor"] = {"after": "st_place", "gap": 1.0}
 
 
-def _slide_at_place(t_in, t_out):
-    """gh_top at st_place, on a slide (it shares the station with scara_place, D-012)."""
+def _slide_at_place(t_in, t_out, stroke=0.30):
+    """gh_top at st_place, on a slide with its frame (it shares the station with scara_place,
+    D-012, D-014). 0.30 m out the mid plate's band (0.141 m) clears the waiting head by 58.6 mm."""
     def mutate(s):
         _drive_at_place(s)
         _seq(s, "drive")["duration_s"] = 5.0          # place 6 + drive 5: inside the 20 s takt
-        s["gang_heads"]["gh_top"]["slide"] = {"stroke": 0.25, "t_in": t_in, "t_out": t_out}
+        s["gang_heads"]["gh_top"]["slide"] = {"stroke": stroke, "t_in": t_in, "t_out": t_out,
+                                              "frame": {"post": [0.1, 0.1], "rail": [0.08, 0.06]}}
     return mutate
+
+
+def _parked_over_the_head(s):
+    """scara_place parks stretched out over the pallet (j1 = j2 = 0) with its stroke lowered to
+    0.25 m, so its tools (z 0.23..0.25) sit in gh_top's working box (z 0.118..0.268)."""
+    _slide_at_place(0.5, 0.5)(s)
+    s["robot_models"]["test_scara"]["z_stroke"] = 0.25
+    s["scaras"]["scara_place"]["park_pose"] = {"j1": 0.0, "j2": 0.0}
+
+
+def _park_pose_unknown(s):
+    _slide_at_place(0.5, 0.5)(s)
+    s["scaras"]["scara_place"]["park_pose"] = {"j1": None, "j2": None}
 
 
 def _second_head(station, requires):
@@ -253,6 +268,13 @@ FAILING = [
     # D-009: the pallet is moving for pitch/belt_speed + stop_unit_cycle_s of every takt.
     ("robot_load", "transfer_eats_the_budget", _set(["layout", "stop_unit_cycle_s"], 16.0),
      "FAIL"),
+    # park_clearance (D-014): the arm parked while the head works stays out of its envelope.
+    ("park_clearance", "parked_arm_in_the_working_head", _parked_over_the_head, "FAIL"),
+    ("park_clearance", "null_park_pose", _park_pose_unknown, "WARN"),
+    # slide_clearance (D-014): 0.05 m out the head waits under the place.
+    ("slide_clearance", "part_lands_on_the_retracted_head", _slide_at_place(0.5, 0.5, 0.05),
+     "FAIL"),
+    ("slide_clearance", "null_slide_stroke", _slide_at_place(0.5, 0.5, None), "WARN"),
     # station_time with a slide (D-012): place + 1 pass x 3 s + 9 + 9 s of slide + index > 20 s.
     ("station_time", "slide_too_slow", _slide_at_place(9.0, 9.0), "FAIL"),
     ("station_time", "null_slide_time", _slide_at_place(None, 0.5), "WARN"),

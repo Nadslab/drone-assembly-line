@@ -1,0 +1,27 @@
+{
+  "generator": "tools/tests (fixture: a small arm, not measured from a STEP)",
+  "model": "test_scara",
+  "capsules": {
+    "link1": {
+      "radius_m": 0.03,
+      "z_m": [
+        0.01,
+        0.05
+      ]
+    },
+    "link2": {
+      "radius_m": 0.03,
+      "z_m": [
+        0.02,
+        0.08
+      ]
+    },
+    "shaft": {
+      "radius_m": 0.01,
+      "z_m": [
+        0.0,
+        0.2
+      ]
+    }
+  }
+}

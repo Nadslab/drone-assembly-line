@@ -35,25 +35,32 @@ Everything not listed in §8 is unchanged.
 ## 3. Main line — current station plan
 
 Line balancing: each station combines steps until its time approaches takt with margin.
-Times below are **placeholder estimates** (dev spec, SCARA at 0.5 × placeholder speed); a pick-and-
-place is ~3.3 s, a carrier/tray removal is assumed to cost the same as a pick-and-place, slide in+out
-1.0 s, index 2.0 s.
+Times below are **placeholder estimates** from the dev spec (D-014):
+- the SCARA runs at 0.5 × motion calibrated to Epson's 0.41 s standard cycle, so a pick-and-place
+  is ~1.8–2.3 s, including the move to and from its park pose around the drive;
+- a carrier/tray removal is timed as its own lift-off and put-down;
+- slide in+out takes 1.0 s;
+- the index is per station: 1.83 s from the last queue slot, 2.33 s after a 1.4 m gap, stop unit
+  included. It was a fixed 2.0 s.
 
 | Station | ID | Steps (in order) | Robot / head | Part sources | Est. time | % of 20.2 s |
 |---|---|---|---|---|---|---|
 | Loader | `st_load_pallet` | Bottom plate onto pallet at the pallet return | Sub-line C loader | `buf_plate` | — | — |
-| **A — Frame** | `st_build_frame` | Pins extend → place spider **in its carrier** → place mid plate between arms and suspended ESC → drive arm sandwich (~8) | SCARA A (carrier gripper + plate vacuum) + `gh_arm_sandwich` | `buf_spider`, `fd_mid_plate` | ~12.5 s | ~62% |
-| **B — ESC** | `st_seat_esc` | Install 4 standoffs (one gang pick) → ESC set onto stack positions, drive 4 → lift carrier off → empty carrier to return | SCARA B (standoff gang + carrier gripper) + `gh_esc` | `fd_standoff`, `rt_carrier_spider` | ~12.6 s | ~62% |
-| **C — Pod** | `st_fit_pod` | Place pod **in its tray** → drive pod screws → lift tray off → empty tray to return | SCARA C (tray gripper) + `gh_pod` | `buf_pod`, `rt_carrier_pod` | ~13.9 s | ~69% |
-| **D — Sides** | `st_fit_side_plates` | Place both side plates (paired pick) → opposed horizontal heads drive (2 passes) → **servo mount (parked)** | SCARA D (pair gripper) + `gh_side_plates` | `fd_side_plate` | ~12.3 s + servo | ~61% + servo |
-| **E — Top** | `st_fit_top_plate` | Place top plate → drive ~5 countersunk screws from above | SCARA E (plate vacuum) + `gh_top_plate` | `fd_top_plate` | ~9.4 s | ~46% |
+| **A — Frame** | `st_build_frame` | Pins extend → place spider **in its carrier** → place mid plate between arms and suspended ESC → drive arm sandwich (~8) | SCARA A (carrier gripper + plate vacuum) + `gh_arm_sandwich` | `buf_spider`, `fd_mid_plate` | ~10.8 s | ~53% |
+| **B — ESC** | `st_seat_esc` | Install 4 standoffs (one gang pick) → ESC set onto stack positions, drive 4 → lift carrier off → empty carrier to return | SCARA B (standoff gang + carrier gripper) + `gh_esc` | `fd_standoff`, `rt_carrier_spider` | ~10.3 s | ~51% |
+| **C — Pod** | `st_fit_pod` | Place pod **in its tray** → drive pod screws → lift tray off → empty tray to return | SCARA C (tray gripper) + `gh_pod` | `buf_pod`, `rt_carrier_pod` | ~10.3 s | ~51% |
+| **D — Sides** | `st_fit_side_plates` | Place both side plates (paired pick) → opposed horizontal heads drive (2 passes) → **servo mount (parked)** | SCARA D (pair gripper) + `gh_side_plates` | `fd_side_plate` | ~10.7 s + servo | ~53% + servo |
+| **E — Top** | `st_fit_top_plate` | Place top plate → drive ~5 countersunk screws from above | SCARA E (plate vacuum) + `gh_top_plate` | `fd_top_plate` | ~8.1 s | ~40% |
 
 **5 SCARAs** (down from 6), **5 gang heads**, all on slides.
 
 Why 5 working stations, not 4: the design summary §5 includes three steps the first merge missed —
 pod screws, spider-carrier removal and pod-tray removal. With them, a combined ESC + pod station is
-~24.5 s, over takt. Once real SCARA speeds replace the placeholder, B and C may merge again; the
-spec makes that a one-line change and the takt check will say whether it fits.
+~24.5 s, over takt (D-013 speeds). With the D-014 estimate the work of B plus C is
+8.46 + 6.93 s, plus one 1.83 s index: ~17.2 s, inside takt. A merge would also need two gang heads
+at one station, which the one-head rule (D-012) forbids. Those speeds rest on a placeholder derate
+and a non-physical calibrated v_max (§7), so do not merge on them. The spec makes the merge a one-line change, and the takt
+check will say whether it fits.
 
 ### Spider carrier (unchanged from summary §5, confirmed)
 - The carrier holds the 4 arms at final spacing and the ESC at its final height above the mid-plate
@@ -122,9 +129,11 @@ the loader stays in scope.
 
 | Item | Blocks |
 |---|---|
-| Real SCARA motion parameters → replace `plan_speed_scale` placeholder | Final station times; whether B+C can merge |
+| Real SCARA motion: Epson's v_max/a_max ratio (the standard-cycle calibration gives a non-physical 14.2 m/s v_max with the dev ratio, D-014 K) and a measured `cycle_derate` | Final station times; whether B+C can merge |
+| Park moves timed on TCP distance (A swings j1 101°, D-014 L); slide frame vs the arm's place paths not checked (D-014 M) | Station A time; slide frame design |
 | Wrist inertia of carrier + end-effector (§4) | SCARA speed settings |
 | Spider carrier geometry: bridge must leave room for the mid plate and the arm-sandwich head | Station A |
+| Slide frame dimensions (post, rail) — PLACEHOLDER | Gang head design |
 | Retractable pin actuation (where pins extend/retract) | Pallet design (P4 B2) |
 | Carrier / tray return path routing | Layout |
 | Gap B: fastener lengths for ESC, pod, side plates, top plate | Gang head design |
@@ -153,4 +162,5 @@ the loader stays in scope.
 - §14 "Gantry axis spec" open item → replaced by "real SCARA motion parameters".
 
 Decision log entries in the repo: D-009 (zoned gantries), D-010/D-011 (actor audit, station time),
-D-012 (SCARA per station), **D-013 (this update)**.
+D-012 (SCARA per station), **D-013 (this update)**, D-014 (park pose, real links, per-station
+index, Epson calibration, slide frames).

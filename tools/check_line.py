@@ -40,6 +40,8 @@ DATUM_TOL_M = 1e-4
 PIN_CLEAR_SCREW_D = 2.0
 # Plates that sit on the pallet pins and must share datum positions (summary §7.2).
 PLATE_STACK = ("bottom_plate", "mid_plate", "top_plate")
+# A carried part's swept path clears a head waiting retracted on its slide by this much (D-014).
+SLIDE_CLEAR_M = 0.02
 
 
 @dataclass
@@ -589,28 +591,38 @@ def check_scara_clearance(spec: LineSpec, r: Result) -> None:
 
 
 def check_robot_load(spec: LineSpec, r: Result) -> None:
-    """Each SCARA's pick-and-place time per drone (tools/estimate_moves.py), at
-    plan_speed_scale, must fit the budget: takt_s - transfer_s."""
+    """Each SCARA's pick-and-place time per drone (tools/estimate_moves.py), at the calibrated
+    motion x cycle_derate (D-014), must fit its budget: takt_s - its station's index. FAIL when
+    the stored v_max/a_max no longer reproduce the model's standard_cycle; WARN at a step whose
+    payload exceeds the standard cycle's (its times are optimistic)."""
     doc = estimate_moves.estimate(spec, r.cfg["cad"])
+    for e in doc["errors"]:
+        if e.startswith("robot_models."):
+            r.add(FAIL, e)
     for sid, row in doc["scaras"].items():
         for u in row["unresolved"]:
             r.unresolved(f"{sid}: {u}")
-        if row["total_s"] is not None and row["total_s"] > doc["budget_s"]:
-            r.add(FAIL, f"{sid}: {row['total_s']:.2f} s of moves per drone at scale "
-                        f"{doc['plan_speed_scale']:g} > budget {doc['budget_s']:.2f} s "
-                        f"(takt {doc['takt_s']:g} - transfer {doc['transfer_s']:.2f})")
+        for w in row["warnings"]:
+            r.add(WARN, f"{sid}: {w}")
+        if row["total_s"] is not None and row["total_s"] > row["budget_s"]:
+            r.add(FAIL, f"{sid}: {row['total_s']:.2f} s of moves per drone at derate "
+                        f"{doc['cycle_derate']:g} > budget {row['budget_s']:.2f} s "
+                        f"(takt {doc['takt_s']:g} - index {row['index_s']:.2f})")
     r.info["load_pct"] = {sid: g["load_pct"] for sid, g in doc["scaras"].items()}
     r.info["total_s"] = {sid: g["total_s"] for sid, g in doc["scaras"].items()}
-    r.info["budget_s"] = doc["budget_s"]
-    r.info["transfer_s"] = doc["transfer_s"]
+    r.info["budget_s"] = {sid: g["budget_s"] for sid, g in doc["scaras"].items()}
+    r.info["calibration"] = doc["calibration"]
+    r.info["payload_warnings"] = doc["warnings"]
 
 
 def check_station_time(spec: LineSpec, r: Result) -> None:
-    """Per station (D-011, D-012): its SCARA step times + gang head drive_s x passes + slide
-    t_in + t_out + the index time (pitch / belt_speed) must fit in takt_s
-    (tools/estimate_moves.py station_times)."""
-    rows = estimate_moves.station_times(spec, estimate_moves.estimate(spec, r.cfg["cad"]))
+    """Per station (D-011..D-014): its SCARA step times (park moves in) + gang head drive_s x
+    passes + slide t_in + t_out + actuate + its index (the distance the pallet travels to enter
+    it / belt_speed + stop unit) must fit in takt_s (tools/estimate_moves.py station_times)."""
+    doc = estimate_moves.estimate(spec, r.cfg["cad"])
+    rows = estimate_moves.station_times(spec, doc)
     r.info["stations"] = rows
+    r.info["queue_gaps"] = doc["queue_gaps"]
     for sid, row in rows.items():
         for u in row["unresolved"]:
             r.unresolved(f"{sid}: {u}")
@@ -619,6 +631,68 @@ def check_station_time(spec: LineSpec, r: Result) -> None:
             slide = f", slide {row['slide_s']:.2f}" if row["slide_s"] else ""
             r.add(FAIL, f"{sid}: {row['total_s']:.2f} s ({parts}{slide}, index "
                         f"{row['index_s']:.2f}) > takt {row['takt_s']:g} s")
+
+
+def check_park_clearance(spec: LineSpec, r: Result) -> None:
+    """D-014: while a station's gang head is in its working position its SCARA is at
+    `park_pose`. The arm there — link capsules sized from the vendor STEP (vendor_<model>.json),
+    the shaft and the end-effector's tools, TCP at the top of its stroke — against every head's
+    working envelope at that station (the head at its working position plus its slide frame).
+    FAIL on any overlap or a park pose outside the joint limits; the clearance per station is
+    reported. A null park pose, a missing capsule report or a null frame is UNRESOLVED."""
+    r.info["stations"] = {}
+    for sid, sc in spec.scaras.items():
+        ends, starts = rg.park_steps(spec, sid)
+        if not ends and not starts:
+            continue
+        joints = rg.park_joints(spec, sid)
+        if joints is None:
+            r.unresolved(f"scaras.{sid}.park_pose is null ({sc.station} drives a gang head)")
+            continue
+        k = rg.kin(spec, sid)
+        if k is not None and (abs(joints[0]) > k.j1_lim + rg.EPS
+                              or abs(joints[1]) > k.j2_lim + rg.EPS):
+            r.add(FAIL, f"{sid}: park_pose j1 {math.degrees(joints[0]):.1f}°, j2 "
+                        f"{math.degrees(joints[1]):.1f}° is outside ±"
+                        f"{math.degrees(k.j1_lim):g}° / ±{math.degrees(k.j2_lim):g}°")
+        pc = rg.park_clearance(spec, sid, joints, r.cfg["cad"])
+        for u in pc["unresolved"]:
+            r.unresolved(u)
+        r.info["stations"][sc.station] = {
+            "scara": sid, "park_pose_deg": [round(math.degrees(j), 2) for j in joints],
+            "heads": pc["heads"], "clearance_m": pc["clearance_m"], "nearest": pc["nearest"]}
+        for pair in pc["pairs"]:
+            if pair["clearance_m"] < -rg.EPS:
+                r.add(FAIL, f"{sid} parked at j1 {math.degrees(joints[0]):.1f}°, j2 "
+                            f"{math.degrees(joints[1]):.1f}°: its {pair['arm']} overlaps "
+                            f"{pair['head']} {pair['part']} by {-pair['clearance_m'] * 1000:.1f} "
+                            "mm")
+
+
+def check_slide_clearance(spec: LineSpec, r: Result) -> None:
+    """D-014: at every station with a head on a slide, the swept path of every part its SCARA
+    carries (the part's radius + its tool's offset_r, from its bottom at the step's safe_z down
+    to the pick/place at the ends) must clear the head waiting retracted on the slide by
+    SLIDE_CLEAR_M."""
+    need = r.cfg.get("slide_clear", SLIDE_CLEAR_M)
+    r.info["need_m"] = need
+    r.info["stations"] = {}
+    for hid, h in spec.gang_heads.items():
+        if h.slide is None:
+            continue
+        sc = rg.slide_clearance(spec, hid, r.cfg["cad"])
+        for u in sc["unresolved"]:
+            r.unresolved(f"{hid}: {u}")
+        if sc["station"] is None:
+            continue
+        r.info["stations"][sc["station"]] = {"head": hid, "clearance_m": sc["clearance_m"],
+                                             "steps": sc["steps"]}
+        for step, d in sc["steps"].items():
+            if d["clearance_m"] < need - rg.EPS:
+                r.add(FAIL, f"{sc['station']}: {step} carries {d['part']} (band "
+                            f"{d['band_m']:.3f} m, at safe_z {d['safe_z']:.3f}) "
+                            f"{d['clearance_m'] * 1000:.1f} mm from {hid} retracted on its "
+                            f"slide; needs {need * 1000:g} mm")
 
 
 def check_safe_z(spec: LineSpec, r: Result) -> None:
@@ -823,6 +897,8 @@ CHECKS = [
     ("scara_reach", check_scara_reach),
     ("scara_clearance", check_scara_clearance),
     ("safe_z", check_safe_z),
+    ("park_clearance", check_park_clearance),
+    ("slide_clearance", check_slide_clearance),
     ("payload", check_payload),
     ("wrist_inertia", check_wrist_inertia),
     ("robot_load", check_robot_load),
@@ -873,15 +949,22 @@ def _summary(r: Result) -> str:
         return f"{r.info.get('count', 0)} null value(s)"
     if r.name == "line_balance" and "bottleneck" in r.info:
         return f"bottleneck {r.info['bottleneck']} at {r.info['bottleneck_pct']}%"
-    if r.name == "robot_load" and r.status != WARN and r.info.get("load_pct"):
-        return (", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None)
-                + f" of {r.info['budget_s']:g} s")
+    if r.name == "robot_load" and r.info.get("load_pct") \
+            and any(p is not None for p in r.info["load_pct"].values()):
+        return ", ".join(f"{g} {p}%" for g, p in r.info["load_pct"].items() if p is not None) \
+            + " of takt - index" + (" — " + _count(r) if r.status == FAIL else "")
     if r.name == "station_time" and r.status != WARN and r.info.get("stations"):
         done = {s: row for s, row in r.info["stations"].items() if row["total_s"] is not None}
         if done:
             top = max(done, key=lambda s: done[s]["total_s"])
             return (f"max {top} {done[top]['total_s']:.2f} s of {done[top]['takt_s']:g} s"
                     + (" — " + _count(r) if r.status == FAIL else ""))
+    if r.name in ("park_clearance", "slide_clearance") and r.info.get("stations") \
+            and any(d["clearance_m"] is not None for d in r.info["stations"].values()):
+        return ", ".join(f"{st} {d['clearance_m'] * 1000:.0f} mm"
+                         for st, d in r.info["stations"].items()
+                         if d["clearance_m"] is not None) \
+            + (" — " + _count(r) if r.status == FAIL else "")
     if r.name == "safe_z" and r.status != WARN and r.info.get("safe_z"):
         return f"max {max(d['safe_z'] for d in r.info['safe_z'].values() if d['safe_z'] is not None):.3f} m" \
             + (" — " + _count(r) if r.status == FAIL else "") \
@@ -909,19 +992,22 @@ def print_table(results: list[Result], passed: bool, verbose: bool) -> None:
     print("-" * 60)
     for r in results:
         for lvl, msg in r.findings:
-            # The shared reach zones are always shown: each one needs an interlock (D-012).
+            # The shared reach zones are always shown: each one needs an interlock (D-012); so is
+            # a payload above the standard cycle's (D-014).
             if lvl == FAIL or (verbose and lvl in (WARN, SKIP)) \
-                    or (r.name == "scara_clearance" and lvl == WARN
+                    or (r.name in ("scara_clearance", "robot_load") and lvl == WARN
                         and not msg.startswith("UNRESOLVED")):
                 print(f"  [{lvl}] {r.name}: {msg}")
     st = next((r for r in results if r.name == "station_time"), None)
     if st is not None and st.info.get("stations"):
-        print("station_time = SCARA steps (+ tool switches) + drive_s x passes + slide "
-              "t_in/t_out + actuate + index (pitch / belt_speed):")
+        print("station_time = SCARA steps (+ tool switches, park moves) + drive_s x passes + "
+              "slide t_in/t_out + actuate + index (enter distance / belt_speed + stop unit):")
         estimate_moves.print_station_table(st.info["stations"])
+        estimate_moves.print_gaps({"queue_gaps": st.info.get("queue_gaps", [])})
         print("-" * 60)
     warns = sum(1 for r in results for lvl, m in r.findings
-                if lvl == WARN and (r.name != "scara_clearance" or m.startswith("UNRESOLVED")))
+                if lvl == WARN and (r.name not in ("scara_clearance", "robot_load")
+                                    or m.startswith("UNRESOLVED")))
     if warns and not verbose:
         print(f"  ({warns} warning(s) not shown; -v or see the report)")
     print("line_check:", "PASS" if passed else "FAIL")

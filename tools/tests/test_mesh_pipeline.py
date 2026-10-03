@@ -33,7 +33,7 @@ robot_models: {}
 tools: {}
 scaras: {}
 scara_defaults: {grip_s: 0.2, release_s: 0.2, settle_s: 0.1, z_margin: 0.03,
-                 plan_speed_scale: 0.5}
+                 cycle_derate: 0.5}
 gang_heads: {}
 conveyor: {pitch: null}
 stations: {}

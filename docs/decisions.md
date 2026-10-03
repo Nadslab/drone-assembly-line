@@ -889,3 +889,149 @@ verified.
 - Gap B (no fastener for drive_esc, drive_pod, drive_side_plates, drive_top_plate) and gap C
   (mount_servo parked) carried; the spider-carrier bridge vs the mid plate and the arm-sandwich
   head (docs/12 §7) is not modelled; plan_speed_scale 0.5 still the D-007 linear-axis value.
+
+## D-014 — Park pose, real links, slide stroke and frames, per-station index, Epson calibration
+
+**Date:** 2026-10-02
+
+**Context.** D-013 left three issues open: H (the folded arm at A met gh_arm_sandwich), I (the
+link split was a placeholder) and J (no slide frame under any head). Two timing inputs were also
+weak. The index was one fixed pitch / belt_speed for every station. The SCARA speed was D-007's
+gantry `plan_speed_scale`.
+
+**Decision — park pose + `park_clearance` (fixes H).** Each SCARA has `park_pose {j1, j2}` (rad;
+null in base). While its station's gang head is in its working position, the SCARA holds that
+pose with the TCP at the top of its stroke.
+- **Timing.** The SCARA step before a drive step ends at park, and the next step starts there,
+  read cyclically (`robot_geometry.park_steps`). place → park and park → pick replace the two
+  home legs, so the park move is in `station_time`. Both legs also count in path-based safe_z.
+- **Dev values.** `tools/choose_park.py --dev --write` folds j2 to its limit on the place pose's
+  elbow side. It searches j1 over ±132° in 0.5° steps for the value nearest the place j1 that
+  clears the working envelope by ≥ 0.03 m. The working envelope is the head at its working
+  position plus its slide frame. Results are tagged `# PLACEHOLDER (auto-chosen)`.
+- **New check `park_clearance`.** It models the arm at park_pose as capsules sized from the
+  vendor STEP:
+  - link1 (J1 → J2), radius 60.6 mm, z +21..+88 mm above the TCP;
+  - link2 (J2 → shaft), radius 80.5 mm, z +47..+321 mm;
+  - the shaft, radius 21 mm;
+  - the end-effector disc (`end_effector_radius`), down by its longest tool reach.
+
+  The capsules are measured by `tools/cad/vendor.py --model <id>`, which writes
+  `reports/vendor_<id>.json`; layout.py rewrites it on every run. Posing the STEP inside
+  check_line was rejected: about 0.5 GB and 10 s per load. The check FAILs on any overlap or a
+  park pose outside the joint limits, and reports the clearance per station.
+- **Cross-check.** layout.py poses the real STEP at park_pose and intersects it with the same
+  envelope (`layout.json park`). Any overlap is a layout FAIL. It also renders
+  `reports/render/<station>_park.png`.
+
+**Decision — real link lengths (fixes I).** `link1 = 0.325`, `link2 = 0.375` in the base spec,
+"measured from Epson STEP LS10-B703S". The dev placeholder (0.425 / 0.275) and layout.py's
+mismatch warning are gone. The xacro, the IK, r_min and the reach checks now use the real split.
+
+**Decision — slide stroke as a requirement.** `gh_arm_sandwich.slide.stroke: 0.40` moves from the
+overlay to the base spec as a requirement: the carrier must clear the parked head at
+st_build_frame (measured need ≥ 0.36 m, D-013). The other heads keep their 0.40 m PLACEHOLDER.
+New check **`slide_clearance`**, run for every head on a slide:
+- it takes the swept band of each part the station's SCARA carries (the part's radius plus the
+  tool's offset_r);
+- along the carrying leg, the band spans from the part's bottom at the step's safe_z down to the
+  pick or place at the two ends;
+- that band must clear the head waiting retracted by ≥ 0.02 m (3D: plan gap, vertical gap, or
+  both).
+
+**Decision — slide frames (fixes J).** `gang_heads.<id>.slide.frame {post: [x, y], rail: [w, h]}`
+is null in base; dev uses post 0.12 × 0.12 and rail 0.10 × 0.08 (PLACEHOLDER). The frame is
+placed from the head's working pose, so it is anchored to the station.
+- **Rail.** It runs along the slide axis from the head's outer face at the working position to
+  the far face of the post. It is centred on the head's top face, so the head's carriage runs in
+  it.
+- **Post.** It stands beyond the retracted head, from the floor to the rail top.
+
+layout.py draws `GangHead_<Name>_Rail` and `GangHead_<Name>_Post` in Robots (category
+`slide_frame`) and adds them to the fence's extent. They are in the interference check, which
+allows only head-on-rail and rail-on-post, and only within the same head
+(`ALLOWED_SAME_OWNER`, `Item.owner`). The rail starts at the head's outer face rather than over
+the pallet: a rail over the pallet would sit in link2's z band (0.347..0.621 m) where the arm
+reaches in to place.
+
+**Decision — per-station index.**
+- **Queue slots.** `layout.buffer_slots_between_stations` is replaced by `layout.slot_gap`
+  (null; dev 0.05). Slots fill each gap at pitch p = pallet length + slot_gap:
+  floor(gap / p) − 1 of them, leaving one pitch before the next station (`spec.queue_gaps`).
+- **Index.** A station's index (`spec.station_index`) is the distance the pallet travels to
+  enter it (from the last slot, or the previous station when there is none) / belt_speed +
+  stop_unit_cycle_s.
+- **Edge cases.** The line's first station is entered from an in-feed slot one pitch upstream:
+  the pallet return's queue position, which the spec does not lay out. A milestone subset
+  records the station upstream of it (`entry`), so its first station keeps the real gap.
+- **Where it is used.** `station_time` uses this per-station index. `robot_load` compares each
+  SCARA with takt − its station's index. The old pitch / belt_speed is reported as `idx_old`;
+  it never included the stop unit.
+
+**Decision — Epson standard-cycle calibration, replacing `plan_speed_scale`.**
+- **Standard cycle.** `robot_models.<id>.standard_cycle {time_s 0.41, horizontal_m 0.300,
+  vertical_m 0.025, payload_kg 2.0, motion round_trip_arch}` is in the base spec ("Epson LS10-B
+  700 mm spec sheet").
+- **Calibration.** `estimate_moves.py --calibrate` keeps the a_max / v_max ratio and solves the
+  one factor at which the move model covers that round trip in 0.41 s. The round trip is up, across,
+  down, and back; grip and settle are excluded. The ratio kept is the earlier dev 10 / 2.
+- **Result.** v_max 14.2089 m/s, a_max 71.0444 m/s² (×7.10), stored in the overlay as
+  "PLACEHOLDER (derived from standard_cycle)". The ratio is a placeholder, so they are too.
+  Every run recomputes the standard-cycle time at the stored values and FAILs when it misses
+  0.41 s by more than 1 ms.
+- **Derate.** `scara_defaults.cycle_derate` (null; dev 0.5 PLACEHOLDER, "vendor standard cycle is
+  speed-optimised; replace with a measured ratio"). Moves and the J4 switch run at the
+  calibrated values × cycle_derate. `plan_speed_scale` is gone from the schema, spec, tools and
+  tests.
+- **Payload.** A WARN marks every step whose payload exceeds standard_cycle.payload_kg, because
+  its times are optimistic there. The payload counts every tool on the end-effector plus the part
+  and what rides in it.
+
+**Result on the dev overlay (PLACEHOLDER values, not deliverable).** pytest: 457 passed.
+`check_line.py --dev` PASS on the full line and on each milestone. `estimate_moves.py --dev`
+PASS. `layout.py --dev`: 138 solids, 0 interferences, STEP hierarchy and opacity verified.
+`descriptions.sh --dev` PASS (26 joint limits, 25 spindle frames).
+
+| station | SCARA (+ switches, park) | drive | slide | actuate | index old | index new | total | D-013 total |
+|---|---|---|---|---|---|---|---|---|
+| st_build_frame | 4.46 | 3.0 | 1.0 | 0.5 | 2.00 | 1.83 | **10.79** | 14.47 |
+| st_seat_esc | 4.46 | 3.0 | 1.0 | — | 2.00 | 1.83 | **10.29** | 14.13 |
+| st_fit_pod | 3.93 | 3.0 | 1.0 | — | 2.00 | 2.33 | **10.27** | 13.79 |
+| st_fit_side_plates | 1.86 | 6.0 | 1.0 | — | 2.00 | 1.83 | **10.69** | 12.53 |
+| st_fit_top_plate | 1.82 | 3.0 | 1.0 | — | 2.00 | 2.33 | **8.15** | 9.38 |
+
+Queue slots: 3 / 7 / 4 / 7 / 4 per gap (gaps 1.0 / 2.0 / 1.4 / 2.0 / 1.4 m). The pallet enters
+over 0.25 m from a slot (0.40 m after a 1.4 m gap), so the index is 1.83 or 2.33 s.
+
+The other dev results:
+
+| station | park pose j1 | park_clearance | slide_clearance | robot_load (takt − index) |
+|---|---|---|---|---|
+| st_build_frame | +46° | 32 mm (link2 to head) | 40 mm | 24.3% |
+| st_seat_esc | −52.5° | 30 mm (tools to head) | 40 mm | 24.3% |
+| st_fit_pod | −55° | 52 mm | 180 mm | 22.0% |
+| st_fit_side_plates | −55° | 55 mm | 194 mm | 10.1% |
+| st_fit_top_plate | −46° | 30 mm | 73 mm | 10.2% |
+
+Every park pose folds j2 to +150°. layout.py's STEP overlap at every park pose is 0 mm³. A parks
+on the far side: folding on the place side puts its 0.135 m dual-tool disc over the head. The one
+payload WARN is scara_build_frame place_spider: 2.10 kg (tools 1.65 + carrier and spider 0.45) >
+2.0 kg.
+
+**Why the times fell ~3.5 s.** The calibrated motion at ×0.5 (7.1 m/s, 35.5 m/s²) is far faster
+than D-013's 1 m/s, 5 m/s². A pick-and-place is now ~1.8–2.3 s, against ~3.3 s before.
+
+**Unresolved (not tuned away):**
+- **K. The calibrated v_max is not physical.** With the dev ratio kept, every leg of the
+  standard cycle is triangular, so the 0.41 s fixes only a_max; v_max comes out at 14.2 m/s. The
+  vendor's arch motion blends the vertical and horizontal moves, and the model runs them in
+  series, so it puts all of that blending on acceleration. Fix: take the real ratio (or a
+  measured v_max) from Epson and re-run `--calibrate`. Replace cycle_derate with a measured ratio.
+- **L. Park legs are timed on TCP distance.** A swings j1 by 101° (−55° → +46°) while its TCP
+  moves ~0.4 m, and the model times the TCP's straight line. The real move is likely slower.
+- **M. The slide frame is checked only against the parked arm and the folded layout pose,** not
+  along the place paths. With the rail outboard, the arm's reach to the pallet stays clear in
+  plan, but no check proves it.
+- Wrist inertia, the spider-carrier bridge vs the mid plate and head, gap B (fasteners for
+  drive_esc / drive_pod / drive_side_plates / drive_top_plate) and gap C (mount_servo parked) are
+  carried.

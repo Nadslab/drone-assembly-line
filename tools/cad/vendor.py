@@ -1,6 +1,8 @@
 """A vendor SCARA STEP, posed by its joints, for the layout (D-013).
 
-    tools/.venv/bin/python tools/cad/vendor.py STEP      # print what was measured in it
+    tools/.venv/bin/python tools/cad/vendor.py STEP [--model ID]   # print what was measured;
+                                                    # with --model also write the capsules to
+                                                    # reports/vendor_<ID>.json
 
 The Epson LS10-B STEP (robot_models.<id>.step) is one static assembly: base, J1 link, J2 link
 (a sub-assembly), Z shaft and a cable duct, in Epson's frame — Y up, the base mounting face at
@@ -20,11 +22,19 @@ arm.
 
 A file that is missing or not shaped like this raises VendorError; layout.py then keeps its
 cylinder placeholder and WARNs.
+
+Capsules (D-014): `capsules()` sizes the arm for tools/robot_geometry.py's park clearance — link1
+around the segment J1 -> J2, link2 (without the shaft) around J2 -> the shaft axis, the shaft
+around its axis: each radius is the farthest tessellated point of those solids from the segment,
+in plan, and each z range is relative to the TCP at the top of its stroke (the shaft's lower
+end). Written to reports/vendor_<robot model>.json by `--model`, and by layout.py.
 """
 
 from __future__ import annotations
 
+import argparse
 import copy
+import json
 import math
 import sys
 from dataclasses import dataclass
@@ -149,6 +159,59 @@ def load(path: str) -> Scara:
                  shaft_bottom=zb.min.Z, j1_step=j1_step, j2_step=j2_step)
 
 
+TESS_TOL_MM = 1.0
+REPORTS = Path(__file__).resolve().parent.parent.parent / "reports"
+
+
+def _seg_dist(a, b, p) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    n = dx * dx + dy * dy
+    t = 0.0 if n == 0.0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / n))
+    return math.hypot(a[0] + t * dx - p[0], a[1] + t * dy - p[1])
+
+
+def capsules(model: Scara) -> dict:
+    """{link1, link2, shaft: {radius_m, z_m: [lo, hi]}}, metres, z relative to the TCP at the top
+    of its stroke. Tessellated points, so a curved face counts, not just its edges' vertices."""
+    def points(solids):
+        pts = []
+        for _, s in solids:
+            pts += [(v.X, v.Y, v.Z) for v in s.vertices()]
+            try:
+                verts, _ = s.tessellate(TESS_TOL_MM, 0.5)
+            except AttributeError:          # a face OCCT cannot mesh: mesh the others alone
+                verts = []
+                for f in s.faces():
+                    try:
+                        verts += f.tessellate(TESS_TOL_MM, 0.5)[0]
+                    except AttributeError:
+                        continue
+            pts += [(v.X, v.Y, v.Z) for v in verts]
+        return pts
+
+    link2 = [(n, s) for n, s in model.link2 if n != "Shaft"]
+    shaft = [(n, s) for n, s in model.link2 if n == "Shaft"]
+    out = {}
+    for name, solids, a, b in (("link1", model.link1, (0.0, 0.0), model.j2_axis),
+                               ("link2", link2, model.j2_axis, model.shaft_xy),
+                               ("shaft", shaft, model.shaft_xy, model.shaft_xy)):
+        pts = points(solids)
+        out[name] = {"radius_m": round(max(_seg_dist(a, b, p) for p in pts) / 1000.0, 4),
+                     "z_m": [round((min(p[2] for p in pts) - model.shaft_bottom) / 1000.0, 4),
+                             round((max(p[2] for p in pts) - model.shaft_bottom) / 1000.0, 4)]}
+    return out
+
+
+def write_report(model: Scara, model_id: str, directory: Path = REPORTS) -> Path:
+    """reports/vendor_<model id>.json: what was measured and the capsules (robot_geometry)."""
+    path = directory / f"vendor_{model_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"generator": "tools/cad/vendor.py", "model": model_id,
+                                **model.measured(), "capsules": capsules(model)}, indent=2)
+                    + "\n")
+    return path
+
+
 def placed(model: Scara, j1: float, j2: float, x_mm: float, y_mm: float, z_mm: float,
            yaw: float) -> list[tuple[str, object]]:
     """The posed arm with its mounting face at (x, y, z) mm, j1 = 0 along `yaw` (rad)."""
@@ -159,5 +222,15 @@ def placed(model: Scara, j1: float, j2: float, x_mm: float, y_mm: float, z_mm: f
 
 
 if __name__ == "__main__":
-    m = load(sys.argv[1])
+    ap = argparse.ArgumentParser(description="Measure a vendor SCARA STEP")
+    ap.add_argument("step")
+    ap.add_argument("--model", help="robot_models id: write reports/vendor_<ID>.json")
+    args = ap.parse_args()
+    try:
+        m = load(args.step)
+    except VendorError as exc:
+        print(f"vendor: FAIL — {exc}", file=sys.stderr)
+        sys.exit(1)
     print(m.measured())
+    if args.model:
+        print(f"vendor: capsules {capsules(m)} -> {write_report(m, args.model)}")

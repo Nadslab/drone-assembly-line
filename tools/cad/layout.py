@@ -7,7 +7,8 @@ Simple solids in the line frame (origin = pallet datum at st_load_pallet, Z up; 
 z = -line.work_height), exported in millimetres:
 
   Conveyor   Conveyor, Pallet_<n> (one block at station n's pose, n = its index), and
-             Pallet_Slot_<n>_<k> (queued-pallet outlines between station n and the next)
+             Pallet_Slot_<n>_<k> (queued-pallet outlines after station n, at slot pitch =
+             pallet length + layout.slot_gap, as many as fit: spec.queue_gaps, D-014)
   Stations   Station_<Name> (stop_unit_length x conveyor width, floor to belt top), and for a
              station with count > 1 one Station_<Name>_Cell<k> per cell on the test branch
   Robots     Scara_<Name>_Base (a layout.scara_base pedestal from the floor to the mounting face
@@ -15,7 +16,9 @@ z = -line.work_height), exported in millimetres:
              (tools/cad/vendor.py), posed folded (j1 = 0, j2 at its limit); with no STEP the
              pedestal is a layout.scara_base.height cylinder and the run WARNs — and
              GangHead_<Name> (a layout.gang_head_box at its working pose — or, on a slide, where
-             it waits while the SCARA works; tools/robot_geometry.head_box)
+             it waits while the SCARA works; tools/robot_geometry.head_box) with, on a slide,
+             its frame (D-014): GangHead_<Name>_Rail along the slide axis and GangHead_<Name>_Post
+             beyond the retracted head
   Carriers   Carrier_<Name> on the pallet at every station it rides through (placed, not yet
              removed: robot_geometry.stack_parts), from its generator's STEP in cad_out/[dev/]
              (its bbox as a box when the STEP is not built)
@@ -39,7 +42,16 @@ changes colour. The numbers typed below are envelopes (floor slab, guard wall, o
 listed in the report as constants — no spec value comes from them.
 
 Interference: every pair of solids is intersected (bbox first, then the boolean). Only the pairs in
-ALLOWED_OVERLAPS may share volume; anything else above VOLUME_TOL_MM3 is a FAIL naming both solids.
+ALLOWED_OVERLAPS may share volume, and those in ALLOWED_SAME_OWNER when both belong to the same
+gang head (its head in its rail, its rail on its post); anything else above VOLUME_TOL_MM3 is a
+FAIL naming both solids.
+
+Park (D-014): for every SCARA that parks while its station's gang head works, the vendor STEP is
+posed at its park_pose and intersected with the head at its working position and its slide frame
+(layout.json `park`: overlap volumes, next to robot_geometry's capsule clearance; any overlap is a
+FAIL), and reports/render/<station>_park.png shows that cell with the arm parked and the head in.
+The arm capsules robot_geometry checks with are measured from the same STEP into
+reports/vendor_<model>.json on every run.
 
 Axes: all of the above — layout.json, bbox_mm, the interference/straddle checks — stay in the spec
 (line) frame, Z up. Only the exported STEP is rotated: SolidWorks is Y-up, so the whole assembly is
@@ -88,12 +100,13 @@ import vendor  # noqa: E402
 from common import Values, lookup, pascal  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, LineSpec, SpecError, add_dev_argument,  # noqa: E402
                   load_merged,
-                  milestone_subset, parse_spec, report_path, scara_ids)
+                  milestone_subset, parse_spec, queue_gaps, report_path, scara_ids)
 
 DEFAULT_OUT = Path("/mnt/c/Users/Admin/Documents/drone-line-cad/60_layout/line_layout.step")
 PHYSICAL_NAME = "line_layout_physical.step"   # the same assembly, Reference group dropped
 SVG_NAME = "line_layout_top.svg"
 GROUPS = ("Conveyor", "Stations", "Robots", "Feeders", "Buffers", "Returns", "Reference")
+PARK_WINDOW = 0.9        # m either side of a station's x drawn in its park close-up
 CAD_OUT = Path(__file__).resolve().parent.parent.parent / "cad_out"
 REPORTS = Path(__file__).resolve().parent.parent.parent / "reports"
 CARRIER_STEPS = {"carrier_spider": "spider_carrier.step", "carrier_pod": "pod_tray.step"}
@@ -127,6 +140,11 @@ ALLOWED_OVERLAPS = (
     ("envelope", "*"),           # a reach/slide envelope is a volume a robot sweeps, not a body
     ("floor", "*"),
 )
+# Pairs that may share volume only when both solids belong to the same gang head (D-014).
+ALLOWED_SAME_OWNER = (
+    ("gang_head", "slide_frame"),    # the head's carriage runs in its rail
+    ("slide_frame", "slide_frame"),  # the rail sits on its post
+)
 
 # Every solid is always coloured by category, placeholder or not: placeholder status shows only
 # in the `_PH` name suffix and in layout.json, never as a colour override.
@@ -134,13 +152,13 @@ CATEGORY_COLOUR = {
     "floor": "reference", "aisle": "reference", "guard": "reference", "envelope": "reference",
     "conveyor": "conveyor", "pallet": "pallet", "station": "station", "robot": "robot",
     "gang_head": "gang_head", "feeder": "feeder", "buffer": "buffer", "carrier": "carrier",
-    "return": "return",
+    "return": "return", "slide_frame": "slide_frame",
 }
 COLOURS = {                      # by colour bucket, RGB 0-1
     "reference": (0.80, 0.80, 0.82), "conveyor": (0.45, 0.45, 0.47), "pallet": (0.20, 0.45, 0.85),
     "station": (0.25, 0.65, 0.35), "robot": (0.00, 0.55, 0.55), "gang_head": (0.65, 0.38, 0.15),
     "feeder": (0.95, 0.80, 0.20), "buffer": (0.55, 0.25, 0.70), "carrier": (0.85, 0.20, 0.25),
-    "return": (0.95, 0.55, 0.65),
+    "return": (0.95, 0.55, 0.65), "slide_frame": (0.50, 0.52, 0.58),
 }
 PLACEHOLDER_COLOUR = (1.0, 0.55, 0.0)  # SVG placeholder outline only — never a STEP fill colour
 
@@ -229,6 +247,7 @@ class Item:
     cuts: list[tuple[tuple[Dim, Dim, Dim], tuple[Dim, Dim, Dim]]] = field(default_factory=list)
     shape: object = None
     solid: object = None                        # a ready shape (vendor STEP, carrier), mm
+    owner: str | None = None                    # the gang head a slide frame belongs to
 
     def dims(self) -> list[Dim]:
         out = list(self.centre) + list(self.size)
@@ -339,10 +358,13 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
     for s in stations:
         items.append(Item(f"Pallet_{index[s]}", "pallet", "Conveyor",
                           (pose[s][0], pose[s][1], belt_top + pallet[2] / 2.0), pallet))
-    slots = v.plain(f"{L}.buffer_slots_between_stations")
+    gaps = {(g["after"], g["before"]): g for g in queue_gaps(spec)}
+    slot_pitch = q(f"{L}.pallet_block.length") + q(f"{L}.slot_gap")
     for a, b in zip(stations, stations[1:]):
-        for k in range(1, int(slots or 0) + 1):
-            f = k / (int(slots) + 1)
+        g = gaps.get((a, b)) or {}
+        dist = math.hypot(pose[b][0].value - pose[a][0].value, pose[b][1].value - pose[a][1].value)
+        for k in range(1, int(g.get("slots") or 0) + 1):
+            f = slot_pitch * (k / dist if dist else 0.0)
             at = (pose[a][0] + (pose[b][0] - pose[a][0]) * f,
                   pose[a][1] + (pose[b][1] - pose[a][1]) * f)
             rim = const("OUTLINE_RIM") * 2.0
@@ -428,18 +450,14 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
             items.append(Item(f"{name}_Base", "robot", "Robots", (bx, by, floor_z + base_h / 2.0),
                               (base_d, base_d, base_h), cylinder=True))
         else:
-            measured = model.measured()
-            notes["vendor"][sid] = measured
-            links = (lookup(v.raw, f"{rm}.link1"), lookup(v.raw, f"{rm}.link2"))
-            if None not in links and rm not in notes["vendor_warned"] \
-                    and any(abs(a * 1000.0 - b) > 1.0 for a, b in
-                                         zip(links, (measured["link1_mm"], measured["link2_mm"]))):
-                notes["vendor_warned"].add(rm)
-                notes["warnings"].append(
-                    f"{rm}: link1/link2 {links[0]:g}/{links[1]:g} m"
-                    f"{' (PLACEHOLDER)' if v.is_placeholder(rm + '.link1') else ''} but the "
-                    f"vendor STEP measures {measured['link1_mm'] / 1000:g}/"
-                    f"{measured['link2_mm'] / 1000:g} m")
+            notes["vendor"][sid] = model.measured()
+            mid = rm.removeprefix("robot_models.")
+            if mid not in notes["vendor_warned"]:          # the capsules park_clearance uses
+                notes["vendor_warned"].add(mid)
+                try:
+                    vendor.write_report(model, mid, cad.directory)
+                except OSError as exc:
+                    notes["warnings"].append(f"{mid}: cannot write vendor_{mid}.json ({exc})")
             # The STEP's shaft is at the top of its stroke: its lower end is the TCP's z top.
             mount = bz + stroke - derived(model.shaft_bottom / 1000.0, {f"{rm}.step"})
             items.append(Item(f"{name}_Base", "robot", "Robots",
@@ -475,7 +493,7 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
         items.append(Item(name, "gang_head", "Robots",
                           (derived((rect.x0 + rect.x1) / 2.0, keys),
                            derived((rect.y0 + rect.y1) / 2.0, keys), z0 + box[2] / 2.0),
-                          tuple(box)))
+                          tuple(box), owner=hid))
         lo_y, hi_y = min(rect.y0, hb.working.y0), max(rect.y1, hb.working.y1)
         if hb.slide_from:
             items.append(Item(f"{name}_Slide", "envelope", "Reference",
@@ -485,6 +503,20 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
         reach_rects.setdefault(st, []).append(
             (derived(rect.x0, keys), derived(rect.x1, keys), derived(lo_y, keys),
              derived(hi_y, keys)))
+        if hb.slide_from and not hb.frame:
+            v.missing += [f"gang head {hid}: {u}" for u in hb.frame_unresolved]
+        fkeys = keys | {f"{g}.slide.frame.post[0]", f"{g}.slide.frame.post[1]",
+                        f"{g}.slide.frame.rail[0]", f"{g}.slide.frame.rail[1]", "line.work_height"}
+        for part, fr, f0, f1 in hb.frame:
+            items.append(Item(f"{name}_{part.capitalize()}", "slide_frame", "Robots",
+                              (derived((fr.x0 + fr.x1) / 2.0, fkeys),
+                               derived((fr.y0 + fr.y1) / 2.0, fkeys),
+                               derived((f0 + f1) / 2.0, fkeys)),
+                              (derived(fr.x1 - fr.x0, fkeys), derived(fr.y1 - fr.y0, fkeys),
+                               derived(f1 - f0, fkeys)), owner=hid))
+            reach_rects.setdefault(st, []).append(
+                (derived(fr.x0, fkeys), derived(fr.x1, fkeys), derived(fr.y0, fkeys),
+                 derived(fr.y1, fkeys)))
 
     # Feeders and buffers: floor-standing, footprint centred on the spec pose.
     for kind, coll, prefix in (("feeder", "feeders", "fd_"), ("buffer", "buffers", "buf_")):
@@ -641,12 +673,105 @@ def carrier_shape(part: str, cad: rg.CadHeights, notes: dict):
     return Pos(*(lo[i] + size[i] / 2.0 for i in range(3))) * Box(*size)
 
 
+# ---------------------------------------------------------------- park (D-014)
+
+def park(v: Values, spec: LineSpec, cad: rg.CadHeights, items: list[Item], out_dir: Path | None
+         ) -> dict:
+    """Every SCARA that parks while its station's gang head works: its vendor STEP posed at
+    park_pose against the head at its working position and its slide frame (boolean volumes),
+    robot_geometry's capsule clearance next to it, and — when `out_dir` is given — the close-up
+    <station>_park.png: the cell with that arm parked and the head in, everything else as built."""
+    out: dict = {}
+    for sid in scara_ids(v.raw):
+        ends, starts = rg.park_steps(spec, sid)
+        joints = rg.park_joints(spec, sid)
+        if not ends and not starts:
+            continue
+        st = spec.scaras[sid].station
+        row: dict = {"scara": sid, "park_pose": joints, "overlaps": [], "max_overlap_mm3": 0.0}
+        out[st] = row
+        if joints is None:
+            row["error"] = f"scaras.{sid}.park_pose is null"
+            continue
+        m = spec.scaras[sid].model
+        rm = spec.robot_models[m]
+        k = rg.kin(spec, sid)
+        try:
+            model = vendor.load(rm.step) if rm.step else None
+        except vendor.VendorError as exc:
+            model, row["error"] = None, str(exc)
+        pc = rg.park_clearance(spec, sid, joints, cad)
+        row["capsule_clearance_m"] = pc["clearance_m"]
+        row["capsule_nearest"] = pc["nearest"]
+        if model is None or k is None:
+            continue
+        mount = k.z_hi - model.shaft_bottom / 1000.0
+        arm = vendor.placed(model, joints[0], joints[1], k.base[0] * 1000.0,
+                            k.base[1] * 1000.0, mount * 1000.0, k.yaw)
+        envs, _ = rg.head_envelopes(spec, sid, cad)
+        boxes = []
+        for hid, env in envs.items():
+            for part, rect, z0, z1 in env:
+                boxes.append((hid, part, Pos((rect.x0 + rect.x1) * 500.0,
+                                             (rect.y0 + rect.y1) * 500.0, (z0 + z1) * 500.0)
+                              * Box((rect.x1 - rect.x0) * 1000.0, (rect.y1 - rect.y0) * 1000.0,
+                                    (z1 - z0) * 1000.0)))
+        for role, solid in arm:
+            bb = solid.bounding_box()
+            for hid, part, box in boxes:
+                b = box.bounding_box()
+                if (bb.min.X >= b.max.X or b.min.X >= bb.max.X or bb.min.Y >= b.max.Y
+                        or b.min.Y >= bb.max.Y or bb.min.Z >= b.max.Z or b.min.Z >= bb.max.Z):
+                    continue
+                common = solid & box
+                vol = sum(x.volume for x in common.solids()) if common is not None else 0.0
+                if vol > VOLUME_TOL_MM3:
+                    row["overlaps"].append({"arm": role, "head": hid, "part": part,
+                                            "volume_mm3": round(vol, 1)})
+        row["max_overlap_mm3"] = max((o["volume_mm3"] for o in row["overlaps"]), default=0.0)
+        if out_dir is None:
+            continue
+        name = f"Scara_{pascal(sid.removeprefix('scara_'))}"
+        x0 = spec.stations[st].pose[0]
+        heads = {f"GangHead_{pascal(h.removeprefix('gh_'))}" for h in envs}
+        shown = []
+        for it in items:
+            if it.group == "Reference" or it.shape is None:
+                continue
+            if it.subgroup == name or it.name in heads:
+                continue                     # this arm folded, the head retracted: redrawn below
+            if abs(it.centre[0].value - x0) > PARK_WINDOW:
+                continue
+            shown.append(it)
+        for role, solid in arm:
+            solid.label, solid.color = f"{name}_{role}_Park", Color(*colour_of("robot"), OPAQUE)
+            shown.append(Item(f"{name}_{role}_Park", "robot", "Robots", (Dim(0.0),) * 3,
+                              (Dim(0.0),) * 3, subgroup=f"{name} (parked)", shape=solid))
+        for hid, part, box in boxes:
+            if part.startswith("head"):
+                box.label = f"GangHead_{pascal(hid.removeprefix('gh_'))} (working)"
+                shown.append(Item(box.label, "gang_head", "Robots", (Dim(0.0),) * 3,
+                                  (Dim(0.0),) * 3, shape=box))
+        clear = pc["clearance_m"]
+        title = (f"{st}: {sid} parked j1 {math.degrees(joints[0]):.1f} deg, j2 "
+                 f"{math.degrees(joints[1]):.1f} deg; capsule clearance "
+                 + (f"{clear * 1000:.0f} mm" if clear is not None else "unknown")
+                 + f"; STEP overlap {row['max_overlap_mm3']:g} mm3")
+        shot = render_png.render_panels(shown, colour_of, out_dir / f"{st}_park.png", title,
+                                        window=((x0 - PARK_WINDOW) * 1000.0,
+                                                (x0 + PARK_WINDOW) * 1000.0))
+        row["render"] = shot.get("png") or shot.get("error")
+    return out
+
+
 # ---------------------------------------------------------------- checks
 
-def allowed(a: str, b: str) -> bool:
+def allowed(a: str, b: str, owner_a: str | None = None, owner_b: str | None = None) -> bool:
     for x, y in ALLOWED_OVERLAPS:
         if {a, b} == {x, y} or (y == "*" and x in (a, b)):
             return True
+    if owner_a is not None and owner_a == owner_b:
+        return any(sorted((a, b)) == sorted(pair) for pair in ALLOWED_SAME_OWNER)
     return False
 
 
@@ -655,7 +780,8 @@ def interference(items: list[Item]) -> dict:
     boxes = [it.shape.bounding_box() for it in items]
     out = {"pairs": 0, "bbox_candidates": 0, "allowed_overlaps": 0, "failures": [],
            "volume_tol_mm3": VOLUME_TOL_MM3,
-           "allowed_rules": [f"{a} ∩ {b}" for a, b in ALLOWED_OVERLAPS]}
+           "allowed_rules": [f"{a} ∩ {b}" for a, b in ALLOWED_OVERLAPS]
+           + [f"{a} ∩ {b} (same gang head)" for a, b in ALLOWED_SAME_OWNER]}
     for i in range(len(items)):
         for j in range(i + 1, len(items)):
             out["pairs"] += 1
@@ -664,7 +790,7 @@ def interference(items: list[Item]) -> dict:
                     or b.min.Y >= a.max.Y or a.min.Z >= b.max.Z or b.min.Z >= a.max.Z):
                 continue
             out["bbox_candidates"] += 1
-            if allowed(items[i].category, items[j].category):
+            if allowed(items[i].category, items[j].category, items[i].owner, items[j].owner):
                 out["allowed_overlaps"] += 1
                 continue
             common = items[i].shape & items[j].shape
@@ -1008,6 +1134,14 @@ def main(argv: list[str] | None = None) -> int:
         else:
             doc["outputs"]["render"] = shots
 
+    doc["park"] = park(v, spec, rg.CadHeights(args.cad_reports, args.dev), items,
+                       None if args.no_render else REPORTS / "render")
+    for st, row in doc["park"].items():
+        for o in row["overlaps"]:
+            doc["errors"].append(f"park: {row['scara']} parked at {st}: {o['arm']} ∩ {o['head']} "
+                                 f"{o['part']} = {o['volume_mm3']} mm3")
+        if "error" in row:
+            doc["warnings"].append(f"park {st}: {row['error']}")
     timing["render"] = round(time.monotonic() - t0, 2)
     rss("render")
     t0 = time.monotonic()

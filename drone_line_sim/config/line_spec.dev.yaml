@@ -142,15 +142,13 @@ return_paths:
     length: 1.4                          # PLACEHOLDER
     width: 0.20                          # PLACEHOLDER
 
-# The Epson's link split and motion limits are not in the spec yet (docs/12 §4). Note: the vendor
-# STEP's joint axes measure ~0.325 / 0.375 m, not this split (D-013) — settle it from the datasheet.
+# Motion (D-014): v_max/a_max derived from standard_cycle by estimate_moves.py --calibrate, keeping
+# the earlier dev ratio a_max / v_max = 10 / 2 (that ratio is the placeholder in them).
 robot_models:
   epson_ls10b_700_z300:
-    link1: 0.425                         # PLACEHOLDER
-    link2: 0.275                         # PLACEHOLDER
     motion:
-      v_max: 2.0                         # PLACEHOLDER (m/s, TCP)
-      a_max: 10.0                        # PLACEHOLDER (m/s^2, TCP)
+      v_max: 14.2089                     # PLACEHOLDER (derived from standard_cycle; m/s, TCP)
+      a_max: 71.0444                     # PLACEHOLDER (derived from standard_cycle; m/s^2, TCP)
       j4_speed: 20.0                     # PLACEHOLDER (rad/s, times the dual-tool switch)
 
 tools:
@@ -179,22 +177,26 @@ tools:
 scaras:
   scara_build_frame:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER (beside the belt on -y, facing +y)
+    park_pose: {j1: 0.8029, j2: 2.617994}     # PLACEHOLDER (auto-chosen) j1 46°, j2 150°, clears 31 mm
   scara_seat_esc:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER
+    park_pose: {j1: -0.9163, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -52.5°, j2 150°, clears 30 mm
   scara_fit_pod:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER
+    park_pose: {j1: -0.9599, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -55°, j2 150°, clears 52 mm
   scara_fit_side_plates:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER
+    park_pose: {j1: -0.9599, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -55°, j2 150°, clears 55 mm
   scara_fit_top_plate:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER
+    park_pose: {j1: -0.8029, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -46°, j2 150°, clears 30 mm
 scara_defaults:
   grip_s: 0.2                            # PLACEHOLDER
   release_s: 0.2                         # PLACEHOLDER
   settle_s: 0.1                          # PLACEHOLDER
   z_margin: 0.03                         # PLACEHOLDER
-  # From the D-007 linear-axis measurement (a 50 kg axis lagged above half of a_max). It says
-  # nothing about a SCARA's arm and must be re-derived for one before any time here is trusted.
-  plan_speed_scale: 0.5                  # PLACEHOLDER
+  # vendor standard cycle is speed-optimised; replace with a measured ratio
+  cycle_derate: 0.5                      # PLACEHOLDER
 gang_heads:
   gh_arm_sandwich:
     stroke: 0.05                         # PLACEHOLDER
@@ -202,12 +204,9 @@ gang_heads:
     a_max: 0.50                          # PLACEHOLDER (m/s^2, ram)
     drive_s: 3.0                         # PLACEHOLDER (s per pass)
     slide:
-      # Sized from safe_z (D-013): the carrier's swept band reaches y = 0.21 m on +y (half-diagonal
-      # 0.16 + tool offset_r 0.05), so the head (0.15 half-width) must wait at >= 0.36 m. At 0.35
-      # it was under the band and safe_z needed 0.49 > z_stroke 0.30.
-      stroke: 0.40                       # PLACEHOLDER
       t_in: 0.5                          # PLACEHOLDER
       t_out: 0.5                         # PLACEHOLDER
+      frame: {post: [0.12, 0.12], rail: [0.10, 0.08]}   # PLACEHOLDER
   gh_side_plates:
     spindles: 4                          # PLACEHOLDER
     stroke: 0.05                         # PLACEHOLDER
@@ -218,6 +217,7 @@ gang_heads:
       stroke: 0.40                       # PLACEHOLDER (as gh_arm_sandwich)
       t_in: 0.5                          # PLACEHOLDER
       t_out: 0.5                         # PLACEHOLDER
+      frame: {post: [0.12, 0.12], rail: [0.10, 0.08]}   # PLACEHOLDER
   gh_esc:
     spindles: 4                          # PLACEHOLDER (one per screw, drive_esc qty)
     stroke: 0.05                         # PLACEHOLDER
@@ -228,6 +228,7 @@ gang_heads:
       stroke: 0.40                       # PLACEHOLDER
       t_in: 0.5                          # PLACEHOLDER
       t_out: 0.5                         # PLACEHOLDER
+      frame: {post: [0.12, 0.12], rail: [0.10, 0.08]}   # PLACEHOLDER
   gh_pod:
     spindles: 4                          # PLACEHOLDER
     stroke: 0.05                         # PLACEHOLDER
@@ -238,6 +239,7 @@ gang_heads:
       stroke: 0.40                       # PLACEHOLDER
       t_in: 0.5                          # PLACEHOLDER
       t_out: 0.5                         # PLACEHOLDER
+      frame: {post: [0.12, 0.12], rail: [0.10, 0.08]}   # PLACEHOLDER
   gh_top_plate:
     spindles: 5                          # PLACEHOLDER (one per screw, drive_top_plate qty)
     stroke: 0.05                         # PLACEHOLDER
@@ -248,6 +250,7 @@ gang_heads:
       stroke: 0.40                       # PLACEHOLDER
       t_in: 0.5                          # PLACEHOLDER
       t_out: 0.5                         # PLACEHOLDER
+      frame: {post: [0.12, 0.12], rail: [0.10, 0.08]}   # PLACEHOLDER
 
 conveyor:
   pitch: 0.6                             # PLACEHOLDER
@@ -266,7 +269,7 @@ layout:
     thickness: 0.02                      # PLACEHOLDER
   stop_unit_length: 0.30                 # PLACEHOLDER
   stop_unit_cycle_s: 1.0                 # PLACEHOLDER
-  buffer_slots_between_stations: 1       # PLACEHOLDER
+  slot_gap: 0.05                         # PLACEHOLDER (pallets queue at 0.25 m pitch)
   scara_base:
     diameter: 0.20                       # PLACEHOLDER
     height: 1.25                         # PLACEHOLDER (floor to the shoulder, 0.3 m over the datum)
