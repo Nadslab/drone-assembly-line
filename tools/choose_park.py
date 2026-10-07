@@ -7,7 +7,8 @@ stations): j2 folded to its limit (on the elbow side of the place pose), j1 sear
 joint limits for the value closest to the place pose's j1 whose arm (vendor STEP capsules,
 tools/robot_geometry.py) clears the head's working envelope — the head at its working position
 plus its slide frame — by at least robot_geometry.PARK_CLEAR_M in plan (D-015), keeps clear of
-its station's refill envelopes, and leaves every path robot_geometry.PATH_CLEAR_M clear of the
+its station's refill envelopes (refilled buffers and, D-016, operator-refilled magazines; j2 is
+never eased for a magazine: the SCARA is reported instead), and leaves every path robot_geometry.PATH_CLEAR_M clear of the
 waiting heads and their slide frames (robot_geometry.choose_park).
 
 `--write` puts the result into line_spec.dev.yaml, on each SCARA's

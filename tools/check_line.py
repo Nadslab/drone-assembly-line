@@ -619,9 +619,10 @@ def check_robot_load(spec: LineSpec, r: Result) -> None:
 
 
 def check_station_time(spec: LineSpec, r: Result) -> None:
-    """Per station (D-011..D-014): its SCARA step times (park moves in) + gang head drive_s x
-    passes + slide t_in + t_out + actuate + its index (the distance the pallet travels to enter
-    it / belt_speed + stop unit) must fit in takt_s (tools/estimate_moves.py station_times)."""
+    """Per station (D-011..D-016): its SCARA step times (park moves in) + gang head drive_s x
+    passes + slide t_in + t_out + actuate + load (a load step no SCARA serves, D-016) + its
+    index (the distance the pallet travels to enter it / belt_speed + stop unit) must fit in
+    takt_s (tools/estimate_moves.py station_times)."""
     doc = estimate_moves.estimate(spec, r.cfg["cad"])
     rows = estimate_moves.station_times(spec, doc)
     r.info["stations"] = rows
@@ -703,25 +704,36 @@ def check_path_clearance(spec: LineSpec, r: Result) -> None:
 
 
 def check_refill_clearance(spec: LineSpec, r: Result) -> None:
-    """D-015: a buffer a source refills while the SCARA is parked keeps its refill envelope (the
-    column over its footprint from its pick plane up) free: the parked arm and its legs into and
-    out of park must not cross it. A leg out of park that picks from that buffer is excluded (the
-    refill finishes first). FAIL on any crossing."""
+    """D-015, D-016: while the SCARA is parked its station's sources are refilled — a buffer by
+    its source, a magazine or nest (`feeders` of type magazine/nest) by an operator's hand. Each
+    keeps its refill envelope (the open-topped column over its footprint) free in plan, at every
+    height: the parked arm, its legs into and out of park, and the station's gang head (working,
+    retracted, and its slide frame) must not cross it. A leg out of park that picks from that
+    source is excluded for that source (the refill finishes first). FAIL on any crossing."""
     r.info["stations"] = {}
     for sid, sc in spec.scaras.items():
         rc = rg.refill_clearance(spec, sid, r.cfg["cad"])
         for u in rc["unresolved"]:
             r.unresolved(u)
-        if not rc["buffers"]:
+        if not rc["envelopes"]:
             continue
         r.info["stations"][sc.station] = {"scara": sid, "clearance_m": rc["clearance_m"],
-                                          "nearest": rc["nearest"], "buffers": rc["buffers"],
+                                          "nearest": rc["nearest"],
+                                          "head_clearance_m": rc["head_clearance_m"],
+                                          "envelopes": rc["envelopes"],
                                           "excluded": rc["excluded"]}
-        for bid, row in rc["buffers"].items():
-            for where, d in row.items():
-                if d["clearance_m"] < -rg.EPS:
-                    r.add(FAIL, f"{sid}: {d['at']}: its {d['arm']} crosses {bid}'s refill "
-                                f"envelope by {-d['clearance_m'] * 1000:.1f} mm")
+        for eid, row in rc["envelopes"].items():
+            for where in ("parked", "path"):
+                d = row.get(where)
+                if d is not None and d["clearance_m"] < -rg.EPS:
+                    r.add(FAIL, f"{sid}: {d['at']}: its {d['arm']} crosses {eid}'s refill "
+                                f"envelope ({row['kind']}) by {-d['clearance_m'] * 1000:.1f} mm "
+                                f"in plan")
+            d = row.get("head")
+            if d is not None and d["clearance_m"] < -rg.EPS:
+                r.add(FAIL, f"{sc.station}: {d['head']} {d['part']} stands over {eid}'s refill "
+                            f"envelope ({row['kind']}) by {-d['clearance_m'] * 1000:.1f} mm in "
+                            f"plan")
 
 
 def check_slide_clearance(spec: LineSpec, r: Result) -> None:

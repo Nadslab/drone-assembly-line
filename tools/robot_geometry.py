@@ -29,7 +29,8 @@ over its z range. tools/cad/vendor.py measures them into reports/vendor_<robot m
 D-015: the parked arm is held clear in plan; the same capsules, the shaft and tools following the
 TCP's z, are swept along every joint path against the waiting heads and their slide frames
 (`path_clearance`), and the parked arm and its park legs against the refill column of every
-buffer a source refills at the station (`refill_clearance`).
+buffer a source refills at the station (`refill_clearance`); D-016: of every magazine or nest an
+operator refills there too, in plan, and the station's gang head with them.
 """
 
 from __future__ import annotations
@@ -1085,44 +1086,72 @@ def path_clearance(spec: LineSpec, sid: str, cad: CadHeights) -> dict:
     return out
 
 
-def refill_envelopes(spec: LineSpec, sid: str) -> tuple[dict[str, tuple[Rect, float]], list[str]]:
-    """{buffer: (plan footprint, pick plane z)} of every buffer at the SCARA's station that a
-    source refills (D-015): the source drops into it from above, so its refill envelope is the
-    column over its footprint from its pick plane up."""
+OPERATOR_REFILLED = ("magazine", "nest")   # feeder types an operator refills by hand (D-016)
+
+
+def refill_envelopes(spec: LineSpec, sid: str
+                     ) -> tuple[dict[str, tuple[Rect, float, str]], list[str]]:
+    """{id: (plan footprint, pick plane z, kind)} of every refill envelope at the SCARA's
+    station: a buffer a source refills (D-015, kind "buffer"), and a magazine or nest an operator
+    refills by hand (D-016, kind "magazine"). Either is refilled from above while the SCARA is
+    parked, so its refill envelope is the open-topped column over its footprint; it is checked
+    in plan, i.e. at every height (the source's own body fills the column below its pick
+    plane)."""
     st = spec.scaras[sid].station
     out, missing = {}, []
     filled = {src.buffer for src in spec.sources.values()}
-    for bid, b in spec.buffers.items():
-        if b.station != st or bid not in filled:
+    items = [(bid, b, "buffer", "buffers") for bid, b in spec.buffers.items()
+             if b.station == st and bid in filled]
+    items += [(fid, f, "magazine", "feeders") for fid, f in spec.feeders.items()
+              if f.station == st and f.type in OPERATOR_REFILLED]
+    for eid, e, kind, group in items:
+        rect = source_rect(spec, eid)
+        if rect is None or e.pose is None or e.pose[2] is None:
+            missing.append(f"{group}.{eid}: pose null (its refill envelope)")
             continue
-        rect = source_rect(spec, bid)
-        if rect is None or b.pose is None or b.pose[2] is None:
-            missing.append(f"buffers.{bid}: pose null (its refill envelope)")
-            continue
-        fp = spec.layout.feeder_footprints.get(bid) if spec.layout else None
+        fp = spec.layout.feeder_footprints.get(eid) if spec.layout else None
         if fp is None or None in fp[:2]:
-            missing.append(f"layout.feeder_footprints.{bid} null (its refill envelope)")
+            missing.append(f"layout.feeder_footprints.{eid} null (its refill envelope)")
             continue
-        out[bid] = (rect, b.pose[2])
+        out[eid] = (rect, e.pose[2], kind)
     return out, missing
 
 
-REFILL_TOP = 100.0        # m: the refill column has no top (the source drops in from above)
-
-
 def refill_clearance(spec: LineSpec, sid: str, cad: CadHeights) -> dict:
-    """D-015: while the SCARA is parked its station's source may refill a buffer, so the parked
-    arm and its paths into and out of park must not cross that buffer's refill envelope (the
-    column over its footprint, from its pick plane up). A leg out of park that picks from that
-    same buffer ends in it by design: it is listed as `excluded` (the refill must be done before
-    the SCARA goes in — an interlock, not a geometry). Clearance per buffer, in plan wherever the
-    arm is above the pick plane (3D otherwise); negative = the arm crosses the envelope."""
-    out = {"scara": sid, "buffers": {}, "clearance_m": None, "nearest": None, "excluded": [],
-           "unresolved": []}
+    """D-015, D-016: while the SCARA is parked its station's sources may be refilled — a buffer
+    by its source, a magazine or nest by an operator's hand — so nothing may stand over a refill
+    envelope (the open-topped column over its footprint) then: not the parked arm, not its paths
+    into and out of park, and not its station's gang head (working, retracted, or anywhere on
+    its slide frame). A leg out of park that picks from that same source ends in it by design: it
+    is listed as `excluded` (the refill must be done before the SCARA goes in — an interlock, not
+    a geometry). Clearance per envelope, in plan (the column has no top and its source's body
+    fills it below the pick plane, so height is no separation); negative = it crosses.
+    {"envelopes": {id: {"kind", "parked", "path", "head"}}, "clearance_m", "nearest",
+    "head_clearance_m", "excluded", "unresolved"}."""
+    out = {"scara": sid, "envelopes": {}, "clearance_m": None, "nearest": None,
+           "head_clearance_m": None, "excluded": [], "unresolved": []}
     envs, missing = refill_envelopes(spec, sid)
     out["unresolved"] += missing
     if not envs:
         return out
+    for eid, (_, _, kind) in envs.items():
+        out["envelopes"][eid] = {"kind": kind}
+    heads, miss = head_envelopes(spec, sid, cad)
+    back, _ = head_envelopes(spec, sid, cad, retracted=True)
+    out["unresolved"] += miss
+    hworst = None
+    for hid, env in heads.items():
+        parts = env + [p for p in back.get(hid, []) if p[0] == "head (retracted)"]
+        for name, hrect, _, _ in parts:
+            for eid, (rect, _, _) in envs.items():
+                cl = hrect.gap(rect)
+                row = out["envelopes"][eid]
+                if "head" not in row or cl < row["head"]["clearance_m"]:
+                    row["head"] = {"clearance_m": round(cl, 4), "head": hid, "part": name}
+                if hworst is None or cl < hworst:
+                    hworst = cl
+    if hworst is not None:
+        out["head_clearance_m"] = round(hworst, 4)
     k = kin(spec, sid)
     joints = park_joints(spec, sid)
     if k is None or k.links is None:
@@ -1147,31 +1176,35 @@ def refill_clearance(spec: LineSpec, sid: str, cad: CadHeights) -> dict:
         for label, a, b, _, ja, jb in legs:
             if "park" not in label:
                 continue
-            if label.startswith("park") and step.from_ in envs:
+            skip = step.from_ in envs and label.startswith("park")
+            if skip:
                 out["excluded"].append(f"{step.id} {label}: picks from {step.from_}")
-                continue
             js = leg_joints(k, a, b, ja, jb)
             if js is None:
                 out["unresolved"].append(f"{step.id}: no joint path for {label}")
                 continue
             samples += [(f"{step.id} {label}", j, _leg_tcp_z(label, i, len(js) - 1, sz.value,
-                                                             pick[2], place[2], k.z_hi))
+                                                             pick[2], place[2], k.z_hi),
+                         step.from_ if skip else None)
                         for i, j in enumerate(js)]
+    samples[0] = samples[0] + (None,)
     worst = None
-    for label, j, tz in samples:
+    for label, j, tz, skip in samples:
         caps, miss = arm_capsules(spec, sid, j[0], j[1], cad, tcp=tz)
         if miss:
             out["unresolved"] += miss
             break
-        for bid, (rect, z0) in envs.items():
+        for eid, (rect, _, _) in envs.items():
+            if eid == skip:
+                continue
             for c in caps:
-                cl = capsule_box_clearance(c.a, c.b, c.radius, c.z0, c.z1, rect, z0, REFILL_TOP)
+                cl = plan_clearance(c, rect)
                 where = "parked" if label == "parked" else "path"
-                row = out["buffers"].setdefault(bid, {})
+                row = out["envelopes"][eid]
                 if where not in row or cl < row[where]["clearance_m"]:
                     row[where] = {"clearance_m": round(cl, 4), "at": label, "arm": c.name}
                 if worst is None or cl < worst[0]:
-                    worst = (cl, {"buffer": bid, "at": label, "arm": c.name})
+                    worst = (cl, {"envelope": eid, "at": label, "arm": c.name})
     out["unresolved"] = list(dict.fromkeys(out["unresolved"]))
     if worst is not None:
         out["clearance_m"] = round(worst[0], 4)
@@ -1190,30 +1223,46 @@ PARK_STEP_DEG = 0.5
 PARK_FOLD_STEP_DEG = 5.0  # D-015: j2 eased off its limit in these steps when no folded pose clears
 
 
-def _parked_refill(spec: LineSpec, sid: str, joints, cad: CadHeights) -> float | None:
-    """Plan/3D clearance of the parked arm alone to the station's refill envelopes (cheap: no
-    paths), for choose_park's first cut."""
+def _parked_refill(spec: LineSpec, sid: str, joints, cad: CadHeights) -> dict[str, float]:
+    """{kind: plan clearance} of the parked arm alone to the station's refill envelopes of that
+    kind (cheap: no paths), for choose_park's first cut."""
     envs, _ = refill_envelopes(spec, sid)
-    if not envs:
-        return None
     caps, miss = arm_capsules(spec, sid, *joints, cad)
-    if miss:
-        return None
-    return min(capsule_box_clearance(c.a, c.b, c.radius, c.z0, c.z1, rect, z0, REFILL_TOP)
-               for rect, z0 in envs.values() for c in caps)
+    if not envs or miss:
+        return {}
+    out: dict[str, float] = {}
+    for rect, _, kind in envs.values():
+        cl = min(plan_clearance(c, rect) for c in caps)
+        out[kind] = min(out.get(kind, cl), cl)
+    return out
+
+
+def _refill_by_kind(rc: dict) -> dict[str, float]:
+    """{kind: smallest arm clearance (parked or path)} from a refill_clearance result."""
+    out: dict[str, float] = {}
+    for row in rc["envelopes"].values():
+        for where in ("parked", "path"):
+            if where in row:
+                cl = row[where]["clearance_m"]
+                out[row["kind"]] = min(out.get(row["kind"], cl), cl)
+    return out
 
 
 def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CLEAR_M) -> dict:
-    """The dev park pose (D-014, D-015): j2 folded on the elbow side of the place pose, j1
+    """The dev park pose (D-014..D-016): j2 folded on the elbow side of the place pose, j1
     searched over its limits in PARK_STEP_DEG steps for the value closest to the place pose's j1
     that
       - clears its station's working envelope(s) in plan by >= `need` (park_clearance),
-      - keeps the parked arm >= `need` clear of every refill envelope at the station, and its
-        legs into and out of park clear of them (refill_clearance >= 0),
+      - keeps the parked arm >= `need` clear in plan of every refill envelope at the station
+        (refilled buffers and, D-016, operator-refilled magazines), and its legs into and out of
+        park clear of them (refill_clearance >= 0),
       - keeps every path >= PATH_CLEAR_M clear of the waiting heads and their slide frames
         (path_clearance; the park legs change with the pose).
     j2 is at its limit first (D-014). Only when no such pose exists there is j2 eased off the
-    limit in PARK_FOLD_STEP_DEG steps (D-015), the most folded level that works winning.
+    limit in PARK_FOLD_STEP_DEG steps (D-015), the most folded level that works winning. D-016:
+    the fold is never eased for a magazine: the first level where a pose meets every rule but
+    the magazine ones is the last level tried, and if none there clears the magazines too it is
+    an error naming them.
     {"j1", "j2", "clearance_m", "place_j", "fold_eased_deg", ...} or {"error"}."""
     k = kin(spec, sid)
     st = spec.stations[spec.scaras[sid].station].pose
@@ -1240,15 +1289,25 @@ def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CL
                     continue
                 cands.append(((abs(j1 - pj1), abs(j2 - pj2)), j1, j2, pc, (pj1, pj2)))
         tried += len(cands)
+        but_magazine = None          # the nearest pose meeting every rule but the magazine ones
         for key, j1, j2, pc, place in sorted(cands, key=lambda c: c[0]):
+            mag_fail = []
             parked = _parked_refill(spec, sid, (j1, j2), cad)
-            if parked is not None and parked < need - EPS:
+            if parked.get("buffer", need) < need - EPS:
                 rejected["refill (parked)"] = rejected.get("refill (parked)", 0) + 1
                 continue
+            if parked.get("magazine", need) < need - EPS:
+                mag_fail.append("parked")
             trial = with_park(spec, sid, (j1, j2))
             rc = refill_clearance(trial, sid, cad)
-            if rc["clearance_m"] is not None and rc["clearance_m"] < -EPS:
+            kinds = _refill_by_kind(rc)
+            if kinds.get("buffer", 0.0) < -EPS:
                 rejected["refill (path)"] = rejected.get("refill (path)", 0) + 1
+                continue
+            if kinds.get("magazine", 0.0) < -EPS:
+                mag_fail.append("path")
+            if mag_fail and but_magazine is not None:
+                rejected["magazine"] = rejected.get("magazine", 0) + 1
                 continue
             path = path_clearance(trial, sid, cad)
             if path["clearance_m"] is None and path["unresolved"]:
@@ -1256,6 +1315,10 @@ def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CL
                 continue
             if path["clearance_m"] is not None and path["clearance_m"] < PATH_CLEAR_M - EPS:
                 rejected["path"] = rejected.get("path", 0) + 1
+                continue
+            if mag_fail:
+                rejected["magazine"] = rejected.get("magazine", 0) + 1
+                but_magazine = (j1, j2, rc, mag_fail)
                 continue
             return {"j1": round(j1, 4), "j2": round(j2, 6), "j1_deg": round(math.degrees(j1), 1),
                     "j2_deg": round(math.degrees(j2), 1), "clearance_m": pc["clearance_m"],
@@ -1265,6 +1328,17 @@ def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CL
                     "place_j": [round(place[0], 4), round(place[1], 4)],
                     "fold_eased_deg": level * PARK_FOLD_STEP_DEG,
                     "rejected_nearer": rejected, "unresolved": pc["unresolved"]}
+        if but_magazine is not None:
+            j1, j2, rc, why = but_magazine
+            mags = sorted(e for e, r in rc["envelopes"].items() if r["kind"] == "magazine")
+            return {"error": f"{sid}: no park pose at j2 {math.degrees(abs(j2)):.0f}° (fold eased "
+                             f"{level * PARK_FOLD_STEP_DEG:g}°, the most folded level that meets "
+                             f"every other rule) keeps the parked arm >= {need:g} m and its park "
+                             f"legs clear of the refill column of {', '.join(mags)}; easing j2 "
+                             f"for a magazine is not allowed (D-016). Nearest: j1 "
+                             f"{math.degrees(j1):.1f}°, fails {'/'.join(why)} (refill "
+                             f"{rc['clearance_m']} m at {rc['nearest']}); rejected: {rejected}",
+                    "magazine_blocked": True}
     return {"error": f"{sid}: no park pose clears its station's gang head(s) by {need:g} m in "
                      f"plan with its refill envelopes and paths clear ({tried} plan-clear "
                      f"pose(s) tried over every fold; rejected: {rejected})"}

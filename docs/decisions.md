@@ -1189,3 +1189,156 @@ both park poses.
 - **Payload.** A's place_spider carries 2.10 kg, over the standard cycle's 2.0 kg (WARN, carried
   from D-014).
 - Gap B (fasteners for drive_esc etc.) and gap C are carried.
+
+## D-016 — Batch 2: loader row, magazine refill zones, C–E sources and parks
+
+**Date:** 2026-10-07
+
+**Context.** D-015 left four items open: the parked arms over operator-refilled magazines, C–E
+not re-run for the 0.32 m pallet, Epson's per-joint speeds, and no station_time row for the
+loader. This batch covers st_fit_pod (C), st_fit_side_plates (D) and st_fit_top_plate (E). The
+magazine rule is also applied back to A and B.
+
+**Decision — loader row (`load_s`).** `estimate_moves.station_times` (and so the station_time
+check) counts the `duration_s` of a `load` step that no SCARA serves as `load_s`. That step is
+the single-purpose loader's. The loader now has its own row: load 6.00 (PLACEHOLDER) + index
+2.23 = **8.23 s, 40.8 %**, the same as D-015's hand total. A null duration_s is UNRESOLVED. A
+`load` step that a SCARA serves (the test fixture's st_load) is timed as a SCARA step, as before.
+
+**Decision — refill envelopes cover operator-refilled magazines.**
+- **Which sources.** `feeders` of type `magazine` or `nest` (`OPERATOR_REFILLED`) at the
+  SCARA's station, beside D-015's source-refilled buffers. At A that is fd_mid_plate, at B
+  fd_standoff, at D fd_side_plate and at E fd_top_plate. C has none (buf_pod, a buffer, was
+  already covered). Blow feeders are not refilled by hand.
+- **The envelope.** The open-topped column over the footprint, as in D-015.
+- **Plan, at every height (judgement call).** The clearance is now in plan for every refill
+  envelope, buffers included. D-015 used plan above the pick plane and 3D below it. Below the
+  pick plane the source's own body fills the column, so height never separates an arm from it.
+  The D-015 buffer numbers are unchanged (A buf_spider parked 215 mm, path 181 mm).
+- **The head too (judgement call).** The station's gang head must stay out of every column:
+  - in its working position, retracted on its slide, and its rail and post;
+  - plan gap of the box to the footprint, FAIL on overlap.
+  All five stations clear by 105–168 mm.
+- **Exclusion, narrowed (judgement call).** D-015 dropped a park → pick leg from every envelope
+  when it picked from one of them. Now the leg is excluded only from the envelope it picks from,
+  so a leg into fd_mid_plate must still keep out of buf_spider's column. No station's worst
+  value comes from such a leg.
+- **Report shape.** `refill_clearance` reports `envelopes: {id: {kind, parked, path, head}}`
+  (was `buffers`) and `head_clearance_m`.
+
+**Decision — j2 is never eased for a magazine.** `choose_park` still eases the fold only when no
+fully folded pose works (D-015). The first fold level where a pose meets every rule *except* the
+magazine ones is the last level tried. If no pose there clears the magazines too, it returns an
+error naming the SCARA and the magazine (`magazine_blocked`), and nothing is written. That
+station keeps its old park pose and fails `refill_clearance`.
+
+**Decision — C–E sources at y −0.27 m (PLACEHOLDER).** buf_pod, fd_side_plate and fd_top_plate
+moved from −0.25 m to −0.27 m, as A and B did in D-015. Clearance to the 0.32 m pallet lane:
+- fd_top_plate: **13 mm** (≥ 10 mm required; was −7 mm at −0.25);
+- buf_pod: 20 mm;
+- fd_side_plate: 78 mm.
+
+The return chutes (rt_carrier_spider, rt_carrier_pod) stay at −0.25 m. Their footprint starts
+0.25 m out, 90 mm clear of the lane, and D-015 did not move rt_carrier_spider either.
+
+**Decision — parks re-chosen** (`choose_park.py --dev --write --stations st_fit_pod,
+st_fit_side_plates,st_fit_top_plate`, then `--stations st_seat_esc`, because the magazine rule
+now applies to B).
+
+| SCARA | park pose (was) | plan | result |
+|---|---|---|---|
+| A scara_build_frame | −130° / 130° (unchanged) | 32 mm | **blocked**: no pose clears fd_mid_plate |
+| B scara_seat_esc | **127.5° / −150°** (−52.5° / 150°) | 31 mm | the old pose had link2 78 mm into fd_standoff's column |
+| C scara_fit_pod | −55° / 150° (unchanged) | 43 mm | D-014's 52 mm was 3D |
+| D scara_fit_side_plates | **55° / −150°** (−55° / 150°) | 43 mm | the old pose had link2 54 mm into fd_side_plate's column |
+| E scara_fit_top_plate | −46° / 150° (unchanged) | **12 mm** | **blocked**: no pose clears fd_top_plate |
+
+- **A — stopped.** At the 20° eased fold, the most folded level that meets the other rules, the
+  parked tools disc stands 130.8 mm inside fd_mid_plate's column. That level is fixed by
+  buf_spider (D-015). Diagnostic only, not applied: with easing allowed for the magazine too, the
+  chooser still finds no pose at any fold. Every pose that clears one of buf_spider and
+  fd_mid_plate stands over the other, or its park legs cross it. A needs a layout change, not a
+  park pose.
+- **E — stopped.** At the full fold, all 346 plan-clear poses either park over fd_top_plate or
+  sweep link2 across its column on place → park (nearest: j1 46°, leg 80.5 mm into it). Two
+  diagnostics, not applied:
+  - **Without the magazine rule:** the chooser reaches **j1 46°, j2 150°, 31 mm in plan** (vs the
+    12 mm kept). This answers the brief's "what the chooser achieves" for the head alone.
+  - **With easing allowed:** j1 130°, j2 −130° (20° eased), 32 mm plan, refill 172 mm.
+
+  E keeps its D-014 pose (12 mm in plan, below the 30 mm target, still ≥ 0 so park_clearance
+  passes), and its overlay comment now says so.
+- **Seen in the renders, not a rule.** B's and C's parked link2 lie over their return chutes in
+  plan (0 mm³ overlap in the STEP). A chute is not a refill zone: nothing drops onto it while
+  the SCARA is parked.
+
+**Decision — Epson per-joint speeds: assumption kept.** Neither the repo nor the docs give
+LS10-B J1 or J2 maximum speeds separately:
+- docs/12 §4 quotes only Epson's product pages;
+- the spec carries only "J1+J2 max operating speed" 9.8 m/s;
+- cad_raw holds only the STEP.
+
+So the J1/J2 limits stay derived (D-015): v_max / a_max × derate at the joint's link radius.
+- J1: 7.0 rad/s, 50.7 rad/s².
+- J2: 13.1 rad/s, 94.7 rad/s².
+
+**Assumption (explicit):** Epson's separate J1/J2 maximum speeds, which the datasheet gives in
+°/s, are no lower than these. If they are lower, every J1-limited park leg gets slower. Those
+are A's, B's 72° legs, and D's and E's park → pick legs. Replace the derivation when the
+datasheet is in the repo.
+
+**Result on the dev overlay (PLACEHOLDER values, not deliverable).**
+- **pytest:** 482 passed.
+- **check_line.py --dev:** FAILs on the full line, with **4 findings, all refill_clearance at A
+  and E** (parked and place → park each). Every other check passes or WARNs as in D-015.
+- **Batch and milestones.** `--stations st_fit_pod,st_fit_side_plates,st_fit_top_plate` FAILs on
+  E's two refill findings only. The frame milestone FAILs on A's, closeout on E's, and
+  electronics passes.
+- **estimate_moves.py --dev --stations ...:** PASS.
+- **layout.py --dev --stations ...:** 70 solids, 0 interferences, STEP verified, 0 mm³ at all
+  three parks (renders `reports/render/st_fit_*_park.png`). B was re-rendered from an A+B batch,
+  then the C–E batch was re-run so `60_layout/dev/batch/` is batch 2.
+
+| station | SCARA | drive | slide | pins | load | index | total | % takt | D-015 total |
+|---|---|---|---|---|---|---|---|---|---|
+| st_load_pallet | — | — | — | — | 6.00 | 2.23 | 8.23 | 40.8% | 8.23 (by hand) |
+| st_build_frame | 4.79 | 3.00 | 1.00 | 0.50 | — | 3.10 | 12.39 | 61.3% | 12.39 |
+| st_seat_esc | 4.72 | 3.00 | 1.00 | — | — | 2.73 | **11.45** | 56.7% | 11.20 |
+| st_fit_pod | 3.94 | 3.00 | 1.00 | — | — | 3.20 | **11.14** | 55.2% | 11.14 |
+| st_fit_side_plates | 1.92 | 6.00 | 1.00 | — | — | 2.73 | **11.65** | 57.7% | 11.67 |
+| st_fit_top_plate | 1.92 | 3.00 | 1.00 | — | — | 3.20 | **9.12** | 45.1% | 9.10 |
+
+- **B (+0.25 s).** The new park is 72° of j1 from the place pose, so both park legs are
+  J1-limited at 0.32 s (were 0.19 s, j2-limited).
+- **D (−0.02 s) and E (+0.01 s).** fd_side_plate and fd_top_plate moved 20 mm out, and D's park
+  flipped elbow side.
+
+| | C | D | E |
+|---|---|---|---|
+| park pose | −55° / 150° | 55° / −150° | −46° / 150° (kept) |
+| park_clearance (plan / 3D) | 43 / 52 mm (link2 to head) | 43 / 55 mm (link2 to head) | **12** / 30 mm (link2 to head) |
+| path_clearance | 70 mm (link2 to rail, place_pod) | 62 mm (tools to rail, place → park) | 70 mm (link2 to rail, place → park) |
+| slide_clearance | 180 mm | 194 mm | 73 mm |
+| refill parked / path | buf_pod 72 / 71 mm | fd_side_plate 94 / 92 mm | fd_top_plate **−61 / −81 mm** |
+| refill head | 114 mm | 168 mm | 106 mm |
+| wrist inertia (rated 0.02 / max 0.3) | 0.00085 | 0.00144 | 0.00448 |
+
+A and B under the new rule: A fd_mid_plate parked −131 mm (FAIL), buf_spider 215 / 181 mm. B
+fd_standoff 215 / 196 mm.
+
+**Test fixture.** pass_spec.yaml's fd_mid_plate footprint was 0.15 m and is now 0.12 m. With the
+gang head moved to st_place (`_slide_at_place`), the fixture's park pose stood 7.7 mm into the
+magazine's column, so the fixture no longer passed. Moving the magazine instead broke a dozen
+other fixture cases.
+
+**Unresolved (not tuned away):**
+- **A: fd_mid_plate vs buf_spider.** No park pose clears both. Options:
+  - move fd_mid_plate or buf_spider (e.g. both to one side of the SCARA, or the magazine
+    further out in x);
+  - make the mid-plate magazine a drawer refilled from outside the guard;
+  - refill only behind a light curtain with the SCARA locked out.
+- **E: fd_top_plate.** No fully folded pose clears it. Options: move the magazine (or mirror it
+  to −x), or accept a 20° eased fold (needs the user's approval: the brief forbids easing j2 for
+  the magazine). E's plan park clearance stays at 12 mm.
+- **Epson J1/J2 speeds:** the assumption above.
+- Carried: A's payload 2.10 kg over the standard cycle's 2.0 kg (WARN), gaps B and C.

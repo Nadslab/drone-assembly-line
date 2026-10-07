@@ -132,9 +132,8 @@ the loader stays in scope.
 
 | Item | Blocks |
 |---|---|
-| Real SCARA motion: v_max 9.8 m/s is now Epson's (D-015); a_max is still derived from the standard cycle through a series move model, and `cycle_derate` is still a placeholder. Epson's per-joint J1/J2 speeds would bound the park moves | Final station times; whether B+C can merge |
-| Parked arms at A and B stand over operator-refilled magazines (`fd_mid_plate`, `fd_standoff`) in plan; only source-refilled buffers are checked (D-015) | Guarding, refill procedure |
-| C–E not re-run for the 0.32 m pallet (park poses, source offsets; `fd_top_plate` would run 7 mm into the pallet lane) | Batch 2 |
+| Real SCARA motion: v_max 9.8 m/s is now Epson's (D-015); a_max is still derived from the standard cycle through a series move model, and `cycle_derate` is still a placeholder. Epson's per-joint J1/J2 speeds are not in the repo: the derived limits are an explicit assumption (D-016) | Final station times; whether B+C can merge |
+| Operator-refilled magazines now have refill columns (D-016). B and D re-parked clear of theirs, but no park pose clears `fd_mid_plate` at A (buf_spider blocks the other side) or `fd_top_plate` at E at the full fold. Needs a layout change or a refill interlock | Guarding, refill procedure, A/E layout |
 | Wrist inertia of carrier + end-effector (§4) | SCARA speed settings |
 | Spider carrier geometry: bridge must leave room for the mid plate and the arm-sandwich head | Station A |
 | Slide frame dimensions (post, rail) — PLACEHOLDER | Gang head design |
@@ -168,4 +167,5 @@ the loader stays in scope.
 Decision log entries in the repo: D-009 (zoned gantries), D-010/D-011 (actor audit, station time),
 D-012 (SCARA per station), **D-013 (this update)**, D-014 (park pose, real links, per-station
 index, Epson calibration, slide frames), D-015 (batch 1: real SCARA speed, arc park timing,
-path and refill checks, pallet 0.32).
+path and refill checks, pallet 0.32), D-016 (batch 2: loader row, magazine refill zones, C–E
+sources and parks).

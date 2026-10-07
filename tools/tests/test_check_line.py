@@ -408,19 +408,42 @@ def dev_cad_reports():
     return spec_mod.REPO / "reports"
 
 
-def test_repo_dev_overlay_records_the_d015_result(dev_cad_reports):
-    """D-015 on the dev overlay: five SCARA stations, every one inside takt, every safe_z inside
+# D-016: the operator-refilled magazines at A and E have no park pose that keeps their refill
+# column clear at the full fold (easing j2 for a magazine is not allowed). Flagged, not tuned away.
+D016_OPEN = {
+    "st_build_frame": [
+        "scara_build_frame: parked: its tools crosses fd_mid_plate's refill envelope (magazine) "
+        "by 130.8 mm in plan",
+        "scara_build_frame: place_mid_plate place_to_park: its tools crosses fd_mid_plate's "
+        "refill envelope (magazine) by 130.8 mm in plan"],
+    "st_fit_top_plate": [
+        "scara_fit_top_plate: parked: its link2 crosses fd_top_plate's refill envelope (magazine) "
+        "by 61.3 mm in plan",
+        "scara_fit_top_plate: place_top_plate place_to_park: its link2 crosses fd_top_plate's "
+        "refill envelope (magazine) by 80.5 mm in plan"]}
+
+
+def d016_fails(results, stations) -> None:
+    """The only FAILs are D-016's open magazine refill crossings at `stations`."""
+    fails = [(r.name, m) for r in results for lvl, m in r.findings if lvl == "FAIL"]
+    assert fails == [("refill_clearance", m) for st in stations for m in D016_OPEN[st]], fails
+
+
+def test_repo_dev_overlay_records_the_d016_result(dev_cad_reports):
+    """D-016 on the dev overlay: five SCARA stations, every one inside takt, every safe_z inside
     the Epson's 0.30 m stroke, no shared reach zone, payload and wrist inertia under rating; every
     parked arm clear of its working head in plan, every path 20 mm clear of the waiting heads and
-    their slide frames, A's parked arm and park legs clear of buf_spider's refill column. Gap B
-    stays open (WARN: four drive steps name no fastener), and A's spider in its carrier is over
-    the standard cycle's 2 kg."""
+    their slide frames. Refill columns now cover the operator-refilled magazines too: B, C and D
+    clear theirs, A (fd_mid_plate) and E (fd_top_plate) do not (D016_OPEN). Gap B stays open
+    (WARN: four drive steps name no fastener), and A's spider in its carrier is over the standard
+    cycle's 2 kg."""
     results, passed = check_line.run_checks(spec_mod.load_raw(dev=True), cad_dir=dev_cad_reports,
                                             dev=True)
     got = by_name(results)
-    assert passed
-    assert {r.name: r.status for r in results if r.status != "PASS"} == {"actors": "WARN",
-                                                                        "robot_load": "WARN"}
+    assert not passed
+    d016_fails(results, ["st_build_frame", "st_fit_top_plate"])
+    assert {r.name: r.status for r in results if r.status != "PASS"} == {
+        "actors": "WARN", "robot_load": "WARN", "refill_clearance": "FAIL"}
     assert [m for lvl, m in got["robot_load"].findings if lvl == "WARN"] == [
         "scara_build_frame: place_spider: payload 2.100 kg (tools + carrier_spider) > the "
         "standard cycle's 2 kg: its times are optimistic"]
@@ -428,13 +451,18 @@ def test_repo_dev_overlay_records_the_d015_result(dev_cad_reports):
                 "st_fit_top_plate"}
     assert set(got["park_clearance"].info["stations"]) == set(got["slide_clearance"].info[
         "stations"]) == set(got["path_clearance"].info["stations"]) == stations
-    # A and B were re-chosen in plan (D-015); C-E keep their D-014 poses, still clear in plan.
+    # B, C, D re-chosen with the magazines (D-016); A and E keep theirs (no pose clears).
     park = got["park_clearance"].info["stations"]
-    assert park["st_build_frame"]["clearance_m"] >= 0.03 and park["st_seat_esc"]["clearance_m"] \
-        >= 0.03
-    assert all(d["clearance_m"] >= 0.0 for d in park.values())
+    assert all(park[st]["clearance_m"] >= 0.03 for st in stations - {"st_fit_top_plate"})
+    assert park["st_fit_top_plate"]["clearance_m"] == pytest.approx(0.0118)
     assert all(d["clearance_m"] >= 0.02 for d in got["path_clearance"].info["stations"].values())
-    assert set(got["refill_clearance"].info["stations"]) == {"st_build_frame", "st_fit_pod"}
+    refill = got["refill_clearance"].info["stations"]
+    assert set(refill) == stations
+    assert {st: sorted(d["envelopes"]) for st, d in refill.items()} == {
+        "st_build_frame": ["buf_spider", "fd_mid_plate"], "st_seat_esc": ["fd_standoff"],
+        "st_fit_pod": ["buf_pod"], "st_fit_side_plates": ["fd_side_plate"],
+        "st_fit_top_plate": ["fd_top_plate"]}
+    assert all(d["head_clearance_m"] >= 0.0 for d in refill.values())
     assert sorted(m.split()[1].rstrip(":") for lvl, m in got["actors"].findings
                   if lvl == "WARN") == ["drive_esc", "drive_pod", "drive_side_plates",
                                         "drive_top_plate"]
@@ -456,23 +484,38 @@ def test_repo_dev_batch_1_is_checked_on_its_own(dev_cad_reports):
     assert set(raw["return_paths"]) == {"rt_carrier_spider"}
     assert set(raw["gang_heads"]) == {"gh_arm_sandwich", "gh_esc"}
     results, passed = check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)
-    assert passed, [(r.name, r.findings) for r in results if r.status == "FAIL"]
+    d016_fails(results, ["st_build_frame"])
     full = spec_mod.station_index(spec_mod.load_spec(dev=True))
     cut = spec_mod.station_index(spec_mod.parse_spec(raw))
     assert {s: cut[s]["index_s"] for s in cut} == {s: full[s]["index_s"] for s in cut}
 
 
-@pytest.mark.parametrize("name", ["frame", "electronics", "closeout"])
-def test_repo_dev_every_milestone_passes_on_its_own(dev_cad_reports, name):
+@pytest.mark.parametrize("name, open_at", [("frame", ["st_build_frame"]), ("electronics", []),
+                                           ("closeout", ["st_fit_top_plate"])])
+def test_repo_dev_every_milestone_is_checked_on_its_own(dev_cad_reports, name, open_at):
+    """Each milestone on its own fails only on D-016's open magazine crossings inside it."""
     raw = spec_mod.milestone_subset(spec_mod.load_raw(dev=True), name)
     results, passed = check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)
-    assert passed, [(r.name, r.findings) for r in results if r.status == "FAIL"]
+    assert passed == (not open_at)
+    d016_fails(results, open_at)
 
 
-def test_repo_dev_frame_milestone_passes(dev_cad_reports):
-    raw = spec_mod.milestone_subset(spec_mod.load_raw(dev=True), "frame")
+def test_repo_dev_batch_2_is_checked_on_its_own(dev_cad_reports):
+    """D-016 batch 2: C, D, E. Their sources stand at y -0.27 (fd_top_plate 13 mm clear of the
+    0.32 m pallet lane); C and D park clear of every refill column, E does not."""
+    raw = spec_mod.station_subset(spec_mod.load_raw(dev=True),
+                                  ["st_fit_pod", "st_fit_side_plates", "st_fit_top_plate"])
+    spec = spec_mod.parse_spec(raw)
+    half = spec.layout.pallet_block.width / 2.0
+    import robot_geometry as rg
+    for fid in ("buf_pod", "fd_side_plate", "fd_top_plate"):
+        assert -half - rg.source_rect(spec, fid).y1 >= 0.010 - rg.EPS
     results, passed = check_line.run_checks(raw, cad_dir=dev_cad_reports, dev=True)
-    assert passed, [(r.name, r.findings) for r in results if r.status == "FAIL"]
+    d016_fails(results, ["st_fit_top_plate"])
+
+
+def test_repo_dev_frame_milestone_is_cut_to_its_stations():
+    raw = spec_mod.milestone_subset(spec_mod.load_raw(dev=True), "frame")
     assert list(raw["stations"]) == ["st_load_pallet", "st_build_frame"]
 
 
@@ -631,7 +674,8 @@ def test_a_milestone_keeps_the_gap_into_its_first_station(pass_raw):
     ("path_clearance", "arm_path_past_a_tall_rail", "FAIL",
      "scara_place: place pick_to_place: its tools comes 15.1 mm from gh_top rail; needs 20 mm"),
     ("refill_clearance", "parked_over_a_refilled_buffer", "FAIL",
-     "scara_place: parked: its tools crosses buf_mid's refill envelope by 84.9 mm"),
+     "scara_place: parked: its tools crosses buf_mid's refill envelope (buffer) by 84.9 mm in "
+     "plan"),
     ("wrist_inertia", "over_inertia_max", "FAIL", "> inertia_max 0.001"),
     ("park_clearance", "null_park_pose", "WARN",
      "UNRESOLVED scaras.scara_place.park_pose is null (st_place drives a gang head)"),
@@ -755,19 +799,59 @@ def test_a_pick_from_the_refilled_buffer_is_excluded_not_crossed(pass_raw):
     _refilled_buffer_under_the_park(pass_raw)
     rc = rg.refill_clearance(spec_mod.parse_spec(pass_raw), "scara_place", rg.CadHeights())
     assert rc["excluded"] == ["place park_to_pick: picks from buf_mid"]
-    assert set(rc["buffers"]["buf_mid"]) == {"parked", "path"}
-    assert rc["buffers"]["buf_mid"]["path"]["at"].startswith("place place_to_park")
+    assert set(rc["envelopes"]["buf_mid"]) == {"kind", "parked", "path", "head"}
+    assert rc["envelopes"]["buf_mid"]["path"]["at"].startswith("place place_to_park")
 
 
 def test_a_buffer_no_source_refills_has_no_refill_envelope(pass_raw):
-    """buf_fixture (carriers coming back on their own loop) and fd_mid_plate (a magazine an
-    operator refills) are not refilled by a source while the SCARA parks."""
+    """buf_fixture (carriers coming back on their own loop) is not refilled while the SCARA
+    parks; fd_mid_plate, a magazine an operator refills, is (D-016); the blow feeder is not."""
     import robot_geometry as rg
     from conftest import _slide_at_place
     _slide_at_place(0.5, 0.5)(pass_raw)
     s = spec_mod.parse_spec(pass_raw)
-    assert rg.refill_envelopes(s, "scara_place") == ({}, [])
+    envs, missing = rg.refill_envelopes(s, "scara_place")
+    assert missing == [] and {e: v[2] for e, v in envs.items()} == {"fd_mid_plate": "magazine"}
     assert rg.refill_envelopes(s, "scara_spider") == ({}, [])
+
+
+def test_an_operator_magazine_under_the_park_fails_and_the_head_is_checked_too(pass_raw):
+    """D-016: fd_mid_plate moved under scara_place's park pose (TCP 0.452, 0.328): the parked
+    arm crosses its refill column. Moved under gh_top's working box instead, the head does."""
+    import check_line
+    from conftest import _slide_at_place
+    _slide_at_place(0.5, 0.5)(pass_raw)
+    pass_raw["feeders"]["fd_mid_plate"]["offset"] = [-0.05, 0.33, 0.15, 0.0]
+    r = next(r for r in check_line.run_checks(pass_raw)[0] if r.name == "refill_clearance")
+    assert r.status == "FAIL"
+    assert any(m.startswith("scara_place: parked: ") and "fd_mid_plate's refill envelope "
+               "(magazine)" in m for _, m in r.findings)
+    pass_raw["feeders"]["fd_mid_plate"]["offset"] = [0.0, 0.0, 0.15, 0.0]
+    r = next(r for r in check_line.run_checks(pass_raw)[0] if r.name == "refill_clearance")
+    assert any(m.startswith("st_place: gh_top head (working) stands over fd_mid_plate's refill "
+                            "envelope (magazine)") for _, m in r.findings), r.findings
+
+
+def test_choose_park_never_eases_the_fold_for_a_magazine(pass_raw):
+    """D-016: with fd_mid_plate (operator-refilled) under every folded park pose, the chooser
+    names the station and the magazine instead of easing j2; the same footprint as a buffer
+    a source refills is allowed to ease it (D-015)."""
+    import robot_geometry as rg
+    from conftest import _refilled_buffer_under_the_park
+    _refilled_buffer_under_the_park(pass_raw)
+    raw = yaml.safe_load(yaml.safe_dump(pass_raw))
+    s = spec_mod.parse_spec(raw)
+    assert "error" not in rg.choose_park(s, "scara_place", rg.CadHeights())
+    del raw["sources"]["src_mid"]
+    raw["feeders"]["fd_mid"] = {"type": "magazine", "part": "mid_plate", "station": "st_place",
+                                "offset": raw["buffers"].pop("buf_mid")["offset"],
+                                "capacity": 20, "refill_s": 60.0}
+    raw["layout"]["feeder_footprints"]["fd_mid"] = raw["layout"]["feeder_footprints"].pop(
+        "buf_mid")
+    next(st for st in raw["sequence"] if st["id"] == "place")["from"] = "fd_mid"
+    c = rg.choose_park(spec_mod.parse_spec(raw), "scara_place", rg.CadHeights())
+    assert c.get("magazine_blocked") is True, c
+    assert c["error"].startswith("scara_place: no park pose at j2 ") and "fd_mid" in c["error"]
 
 
 def test_a_park_leg_runs_z_with_the_joints_and_a_place_goes_down_to_it():

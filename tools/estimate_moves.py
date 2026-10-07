@@ -388,13 +388,14 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
 
 
 def station_times(spec: LineSpec, doc: dict) -> dict:
-    """Per station with a SCARA, drive or actuate step (D-011..D-014):
+    """Per station with a SCARA, drive, actuate or load step (D-011..D-016):
 
         station_time = SCARA step times (tool switches and park moves in) + drive time
-                       + slide time + actuate time + the station's index
+                       + slide time + actuate time + load time + the station's index
 
     SCARA step times are the estimate's per-step times at cycle_derate; drive time = gang head
-    `drive_s` x passes, passes = ceil(qty / spindles); slide time = `slide.t_in + t_out` of a head
+    `drive_s` x passes, passes = ceil(qty / spindles); load time = the `duration_s` of a load
+    step no SCARA serves (the single-purpose loader, D-016); slide time = `slide.t_in + t_out` of a head
     on a slide, once per drive step (place, SCARA parks, slide in, drive, slide out); the index is
     spec.station_index (the old pitch / belt_speed is `index_s_old`, for comparison). A null
     input is UNRESOLVED; status FAIL when station_time > takt_s."""
@@ -405,17 +406,25 @@ def station_times(spec: LineSpec, doc: dict) -> dict:
     rows: dict = {}
     for sid, st in sorted(spec.stations.items(), key=lambda kv: kv[1].index):
         steps = [s for s in spec.sequence if s.status == "active" and s.station == sid
-                 and (robot_served(s) or s.capability in ("drive", "actuate"))]
+                 and (robot_served(s) or s.capability in ("drive", "actuate", "load"))]
         if not steps:
             continue
         si = stations.get(sid, {})
         idx = si.get("index_s")
-        row = {"scara_s": 0.0, "drive_s": 0.0, "slide_s": 0.0, "actuate_s": 0.0, "index_s": idx,
+        row = {"scara_s": 0.0, "drive_s": 0.0, "slide_s": 0.0, "actuate_s": 0.0, "load_s": 0.0,
+               "index_s": idx,
                "index_s_old": old and round(old, 3), "enter_m": si.get("enter_m"),
                "enter_from": si.get("from"), "total_s": None, "total_s_old_index": None,
                "takt_s": takt, "status": "UNRESOLVED", "steps": [],
                "unresolved": list(si.get("unresolved", []))}
         for s in steps:
+            if s.capability == "load" and not robot_served(s):
+                if s.duration_s is None:
+                    row["unresolved"].append(f"{s.id}: duration_s null (load, no SCARA)")
+                else:
+                    row["load_s"] += s.duration_s
+                    row["steps"].append({"id": s.id, "kind": "load", "time_s": s.duration_s})
+                continue
             if s.capability == "actuate":
                 if s.duration_s is None:
                     row["unresolved"].append(f"{s.id}: duration_s null (actuate {s.device})")
@@ -456,10 +465,11 @@ def station_times(spec: LineSpec, doc: dict) -> dict:
                 row["slide_s"] += slide
                 entry["slide_s"] = round(slide, 3)
             row["steps"].append(entry)
-        for k in ("scara_s", "drive_s", "slide_s", "actuate_s"):
+        for k in ("scara_s", "drive_s", "slide_s", "actuate_s", "load_s"):
             row[k] = round(row[k], 3)
         if not row["unresolved"]:
-            work = row["scara_s"] + row["drive_s"] + row["slide_s"] + row["actuate_s"]
+            work = (row["scara_s"] + row["drive_s"] + row["slide_s"] + row["actuate_s"]
+                    + row["load_s"])
             row["total_s"] = round(work + idx, 3)
             if old is not None:
                 row["total_s_old_index"] = round(work + old, 3)
@@ -470,12 +480,12 @@ def station_times(spec: LineSpec, doc: dict) -> dict:
 
 def print_station_table(rows: dict) -> None:
     print(f"{'station':<24}{'scara_s':>9}{'drive_s':>9}{'slide_s':>9}{'actuate':>9}"
-          f"{'idx_old':>9}{'index_s':>9}{'total_s':>9}{'takt_s':>8}  status")
+          f"{'load_s':>9}{'idx_old':>9}{'index_s':>9}{'total_s':>9}{'takt_s':>8}  status")
     for sid, r in rows.items():
         def f(v):
             return f"{v:>9.3f}" if v is not None else f"{'-':>9}"
         print(f"{sid:<24}{f(r['scara_s'])}{f(r['drive_s'])}{f(r['slide_s'])}"
-              f"{f(r.get('actuate_s', 0.0))}{f(r.get('index_s_old'))}{f(r['index_s'])}"
+              f"{f(r.get('actuate_s', 0.0))}{f(r.get('load_s', 0.0))}{f(r.get('index_s_old'))}{f(r['index_s'])}"
               f"{f(r['total_s'])}{r['takt_s']:>8g}  {r['status']}")
 
 
@@ -588,7 +598,7 @@ def main(argv: list[str] | None = None) -> int:
     print_table(doc)
     print_gaps(doc)
     print("station_time = SCARA steps (+ tool switches, park moves) + drive_s x passes + slide "
-          "t_in/t_out + actuate + index (enter distance / belt_speed + stop unit):")
+          "t_in/t_out + actuate + load + index (enter distance / belt_speed + stop unit):")
     print_station_table(rows)
     print(f"-> {report}")
     return 0 if doc["passed"] else 1

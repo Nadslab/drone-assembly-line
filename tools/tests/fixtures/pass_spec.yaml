@@ -135,7 +135,7 @@ layout:
   scara_base: {diameter: 0.10, height: 1.2}
   gang_head_box: [0.20, 0.20, 0.15]
   feeder_footprints:
-    fd_mid_plate: [0.15, 0.15, 1.05]
+    fd_mid_plate: [0.12, 0.12, 1.05]   # D-016: its refill column clears scara_place's park
     buf_plate: [0.15, 0.15, 1.0]
     buf_fixture: [0.15, 0.15, 1.0]
     buf_pod: [0.15, 0.15, 1.0]

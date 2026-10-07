@@ -202,6 +202,25 @@ def test_more_screws_than_spindles_take_more_passes(pass_raw):
     assert rows["st_drive"]["drive_s"] == pytest.approx(9.0)
 
 
+def test_a_loader_without_a_scara_gets_its_load_duration_and_index(pass_raw):
+    """D-016: the single-purpose loader's row is its load step's duration_s + its index."""
+    from conftest import _sub_line_loader
+    _sub_line_loader("buf_plate")(pass_raw)
+    del pass_raw["scaras"]["scara_load"]
+    spec = spec_mod.parse_spec(pass_raw)
+    row = em.station_times(spec, est(pass_raw))["st_load"]
+    assert row["scara_s"] == 0.0 and row["drive_s"] == 0.0 and row["actuate_s"] == 0.0
+    assert row["load_s"] == pytest.approx(5.0)
+    assert row["steps"] == [{"id": "load", "kind": "load", "time_s": 5.0}]
+    assert row["total_s"] == pytest.approx(5.0 + row["index_s"], abs=1e-3)
+    assert row["status"] == "PASS"
+
+    pass_raw["sequence"][0]["duration_s"] = None
+    row = em.station_times(spec_mod.parse_spec(pass_raw), est(pass_raw))["st_load"]
+    assert row["total_s"] is None and row["unresolved"] == [
+        "load: duration_s null (load, no SCARA)"]
+
+
 def test_station_time_over_takt_names_its_parts(pass_raw):
     import check_line
     pass_raw["gang_heads"]["gh_top"]["drive_s"] = 19.0
