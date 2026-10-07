@@ -1,7 +1,8 @@
 """Layout-level CAD assembly of the main line, from line_spec.yaml, for review in SolidWorks.
 
-    tools/.venv/bin/python tools/cad/layout.py [--dev] [--milestone NAME] [--no-reference]
-                                               [--spec PATH] [--out FILE.step]
+    tools/.venv/bin/python tools/cad/layout.py [--dev] [--milestone NAME | --stations IDS
+                                               [--name N]] [--no-reference] [--spec PATH]
+                                               [--out FILE.step]
 
 Simple solids in the line frame (origin = pallet datum at st_load_pallet, Z up; the floor is at
 z = -line.work_height), exported in millimetres:
@@ -31,7 +32,8 @@ z = -line.work_height), exported in millimetres:
              (SINK_SIZE square, floor to SINK_H below the put-down plane)
   Reference  non-physical solids: Floor (bbox of everything + 1 m), OperatorAisle (outside the
              fence on its side), Guard_Fence (D-013: one wall guard_offset outside everything
-             worked at, tunnelled where the conveyor and each return chute pass) and
+             worked at, tunnelled where the conveyor — the wider of belt and pallet — and each return
+             chute pass) and
              Guard_Partition_<A>_<B> (a wall across it at each milestone boundary), Scara_<Name>_Envelope (an annular cylinder, the model's r_min..reach,
              over the TCP's z range) and GangHead_<Name>_Slide (the volume a head on a slide
              sweeps between waiting and working)
@@ -70,8 +72,11 @@ survive, one STEP per group and a manifest.txt are written instead.
 `--dev` writes to <out dir>/dev/ and reports/layout.dev.json. `--milestone NAME` (D-012) draws
 only that milestone's stations, their SCARAs, gang heads, feeders and buffers
 (spec.milestone_subset), on a conveyor just long enough for them, into <out dir>[/dev]/<NAME>/
-with reports/layout.<NAME>[.dev].json. The STEP is generated: edit the spec, never the SolidWorks
-file.
+with reports/layout.<NAME>[.dev].json. `--stations a,b,...` (D-015) draws any run of
+consecutive stations the same way (spec.station_subset: their robots, heads, feeders, buffers and
+return paths; the partitions of the milestones it spans) into <out dir>[/dev]/batch/, with
+reports/layout.<--name>[.dev].json and reports/render/<--name>_{top,iso}.png (default `batch`).
+The STEP is generated: edit the spec, never the SolidWorks file.
 """
 
 from __future__ import annotations
@@ -99,8 +104,8 @@ import robot_geometry as rg  # noqa: E402
 import vendor  # noqa: E402
 from common import Values, lookup, pascal  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, LineSpec, SpecError, add_dev_argument,  # noqa: E402
-                  load_merged,
-                  milestone_subset, parse_spec, queue_gaps, report_path, scara_ids)
+                  load_merged, milestone_subset, parse_spec, parse_station_list, queue_gaps,
+                  report_path, scara_ids, station_subset)
 
 DEFAULT_OUT = Path("/mnt/c/Users/Admin/Documents/drone-line-cad/60_layout/line_layout.step")
 PHYSICAL_NAME = "line_layout_physical.step"   # the same assembly, Reference group dropped
@@ -573,6 +578,8 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
     # boundary, half-way between the two stations either side, tunnelled for the conveyor.
     offset = q(f"{L}.guard_offset")
     tunnel_top = belt_top + pallet[2] + const("TUNNEL_CLEAR")
+    # The tunnel passes the pallet riding on the belt (D-015): as wide as the wider of the two.
+    tunnel_sy = sy + dmax(belt_w, pallet[1]) - belt_w
     wall = const("GUARD_T")
     gz = span(floor_z, floor_z + const("GUARD_H"))
     tz = span(floor_z, tunnel_top)
@@ -584,7 +591,7 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
         inner = [(env[i][0] - offset, env[i][1] + offset) for i in range(2)]
         gx, gy = span(inner[0][0] - wall, inner[0][1] + wall), span(inner[1][0] - wall,
                                                                    inner[1][1] + wall)
-        cuts = [((gx[0], cy, tz[0]), (gx[1] + wall * 4.0, sy, tz[1]))]
+        cuts = [((gx[0], cy, tz[0]), (gx[1] + wall * 4.0, tunnel_sy, tz[1]))]
         for rid, rx, ry, rz, ux, uy, length, width in strips:
             xs = [rx + a * length * ux - b * width / 2.0 * uy for a in (0, 1) for b in (-1, 1)]
             ys = [ry + a * length * uy + b * width / 2.0 * ux for a in (0, 1) for b in (-1, 1)]
@@ -620,7 +627,7 @@ def plan(v: Values, spec: LineSpec, cad: rg.CadHeights, notes: dict | None = Non
                         break
             part = Item(f"Guard_Partition_{pascal(ma)}_{pascal(mb)}", "guard", "Reference",
                         (xp, gy[0], gz[0]), (wall, inner[1][1] - inner[1][0], gz[1]),
-                        cuts=[((xp, cy, tz[0]), (wall * 4.0, sy, tz[1]))])
+                        cuts=[((xp, cy, tz[0]), (wall * 4.0, tunnel_sy, tz[1]))])
             guards.append(part)
             items.append(part)
 
@@ -701,7 +708,8 @@ def park(v: Values, spec: LineSpec, cad: rg.CadHeights, items: list[Item], out_d
         except vendor.VendorError as exc:
             model, row["error"] = None, str(exc)
         pc = rg.park_clearance(spec, sid, joints, cad)
-        row["capsule_clearance_m"] = pc["clearance_m"]
+        row["capsule_clearance_m"] = pc["clearance_m"]          # in plan (D-015)
+        row["capsule_clearance_3d_m"] = pc["clearance_3d_m"]
         row["capsule_nearest"] = pc["nearest"]
         if model is None or k is None:
             continue
@@ -754,7 +762,7 @@ def park(v: Values, spec: LineSpec, cad: rg.CadHeights, items: list[Item], out_d
                                   (Dim(0.0),) * 3, shape=box))
         clear = pc["clearance_m"]
         title = (f"{st}: {sid} parked j1 {math.degrees(joints[0]):.1f} deg, j2 "
-                 f"{math.degrees(joints[1]):.1f} deg; capsule clearance "
+                 f"{math.degrees(joints[1]):.1f} deg; plan clearance "
                  + (f"{clear * 1000:.0f} mm" if clear is not None else "unknown")
                  + f"; STEP overlap {row['max_overlap_mm3']:g} mm3")
         shot = render_png.render_panels(shown, colour_of, out_dir / f"{st}_park.png", title,
@@ -1022,6 +1030,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="default reports/layout.json (layout.dev.json with --dev)")
     ap.add_argument("--milestone", default=None,
                     help="draw only this milestone (D-012) into <out dir>/<NAME>/")
+    ap.add_argument("--stations", nargs="+", default=None,
+                    help="draw only these consecutive stations (comma or space separated, D-015) "
+                         "into <out dir>/batch/")
+    ap.add_argument("--name", default="batch",
+                    help="report and render name for --stations (default batch)")
     ap.add_argument("--cad-reports", type=Path, default=None,
                     help=f"where cad_<part>.json live (default {rg.CAD_REPORTS})")
     ap.add_argument("--no-render", action="store_true",
@@ -1031,20 +1044,25 @@ def main(argv: list[str] | None = None) -> int:
                          f"{PHYSICAL_NAME} (always written) is unaffected")
     add_dev_argument(ap)
     args = ap.parse_args(argv)
+    stations = parse_station_list(args.stations)
+    if stations and args.milestone:
+        ap.error("--milestone and --stations are exclusive")
+    name = args.milestone or (args.name if stations else None)
 
     out_dir = args.out.parent / "dev" if args.dev else args.out.parent
     if args.milestone:
         out_dir = out_dir / args.milestone
+    elif stations:
+        out_dir = out_dir / "batch"
     step = out_dir / args.out.name
-    report = args.report or report_path(
-        f"layout.{args.milestone}" if args.milestone else "layout", args.dev)
+    report = args.report or report_path(f"layout.{name}" if name else "layout", args.dev)
     doc: dict = {"passed": False, "dev": args.dev, "generator": "tools/cad/layout.py",
                  "units": "mm", "frame": "line frame: origin = pallet datum at st_load_pallet, "
                  "Z up; floor at z = -line.work_height. Exported STEP only: rotated "
                  f"{EXPORT_ROT_X_DEG:g} deg about X so spec (x, y, z) -> STEP (x, z, -y) — "
                  "SolidWorks is Y-up, so its Top view is the plan view. layout.json, bbox_mm and "
                  "every check stay in the spec/line frame.",
-                 "milestone": args.milestone,
+                 "milestone": args.milestone, "stations": stations,
                  "outputs": {}, "counts": {}, "interference": {}, "verify": {},
                  "verify_physical": {},
                  "constants_m": {k: globals()[k] for k in (
@@ -1064,6 +1082,8 @@ def main(argv: list[str] | None = None) -> int:
         merged = load_merged(args.spec, args.dev)
         if args.milestone:
             merged.raw = milestone_subset(merged.raw, args.milestone)
+        elif stations:
+            merged.raw = station_subset(merged.raw, stations)
         spec = parse_spec(merged.raw)
     except SpecError as exc:
         doc["errors"] = exc.errors
@@ -1128,7 +1148,7 @@ def main(argv: list[str] | None = None) -> int:
     rss("write")
     t0 = time.monotonic()
     if not args.no_render:
-        shots = render_png.render(items, colour_of, REPORTS / "render", args.milestone or "line")
+        shots = render_png.render(items, colour_of, REPORTS / "render", name or "line")
         if "error" in shots:
             doc["warnings"].append(f"render: {shots['error']}")
         else:

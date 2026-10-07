@@ -1,6 +1,6 @@
 # 12 — Line architecture update (October 2026)
 
-**Status:** current architecture. **Date:** 2026-10-02.
+**Status:** current architecture. **Date:** 2026-10-02 (§3 loader, A, B times: 2026-10-06, D-015).
 **Supersedes:** the sections listed in §8 of this file, in `drone_assembly_line_summary.md` and
 `10_spec_driven_line_plan.md`. Where those documents disagree with this one, this one wins.
 Everything not listed in §8 is unchanged.
@@ -35,19 +35,22 @@ Everything not listed in §8 is unchanged.
 ## 3. Main line — current station plan
 
 Line balancing: each station combines steps until its time approaches takt with margin.
-Times below are **placeholder estimates** from the dev spec (D-014):
-- the SCARA runs at 0.5 × motion calibrated to Epson's 0.41 s standard cycle, so a pick-and-place
-  is ~1.8–2.3 s, including the move to and from its park pose around the drive;
-- a carrier/tray removal is timed as its own lift-off and put-down;
-- slide in+out takes 1.0 s;
-- the index is per station: 1.83 s from the last queue slot, 2.33 s after a 1.4 m gap, stop unit
-  included. It was a fixed 2.0 s.
+Times below are **placeholder estimates** from the dev spec. Loader, A and B are from D-015
+(batch 1). C–E are still the D-014 values; they were not re-run for the 0.32 m pallet.
+- The SCARA runs at 0.5 × Epson's real v_max (9.8 m/s), with a_max calibrated to the 0.41 s
+  standard cycle. A pick-and-place is ~2.2–2.5 s, including the move to and from its park pose
+  around the drive.
+- Park moves are J1/J2 rotations, timed in joint space (D-015).
+- A carrier/tray removal is timed as its own lift-off and put-down.
+- Slide in+out takes 1.0 s.
+- The index is per station, stop unit included. The 0.32 m pallet (0.37 m slot pitch) gives
+  3.10 s into A and 2.73 s into B, against 1.83 s in D-014.
 
 | Station | ID | Steps (in order) | Robot / head | Part sources | Est. time | % of 20.2 s |
 |---|---|---|---|---|---|---|
-| Loader | `st_load_pallet` | Bottom plate onto pallet at the pallet return | Sub-line C loader | `buf_plate` | — | — |
-| **A — Frame** | `st_build_frame` | Pins extend → place spider **in its carrier** → place mid plate between arms and suspended ESC → drive arm sandwich (~8) | SCARA A (carrier gripper + plate vacuum) + `gh_arm_sandwich` | `buf_spider`, `fd_mid_plate` | ~10.8 s | ~53% |
-| **B — ESC** | `st_seat_esc` | Install 4 standoffs (one gang pick) → ESC set onto stack positions, drive 4 → lift carrier off → empty carrier to return | SCARA B (standoff gang + carrier gripper) + `gh_esc` | `fd_standoff`, `rt_carrier_spider` | ~10.3 s | ~51% |
+| Loader | `st_load_pallet` | Bottom plate onto pallet at the pallet return | Sub-line C loader | `buf_plate` | ~8.2 s (load 6.0 PH + index 2.23) | ~41% |
+| **A — Frame** | `st_build_frame` | Pins extend → place spider **in its carrier** → place mid plate between arms and suspended ESC → drive arm sandwich (~8) | SCARA A (carrier gripper + plate vacuum) + `gh_arm_sandwich` | `buf_spider`, `fd_mid_plate` | ~12.4 s | ~61% |
+| **B — ESC** | `st_seat_esc` | Install 4 standoffs (one gang pick) → ESC set onto stack positions, drive 4 → lift carrier off → empty carrier to return | SCARA B (standoff gang + carrier gripper) + `gh_esc` | `fd_standoff`, `rt_carrier_spider` | ~11.2 s | ~55% |
 | **C — Pod** | `st_fit_pod` | Place pod **in its tray** → drive pod screws → lift tray off → empty tray to return | SCARA C (tray gripper) + `gh_pod` | `buf_pod`, `rt_carrier_pod` | ~10.3 s | ~51% |
 | **D — Sides** | `st_fit_side_plates` | Place both side plates (paired pick) → opposed horizontal heads drive (2 passes) → **servo mount (parked)** | SCARA D (pair gripper) + `gh_side_plates` | `fd_side_plate` | ~10.7 s + servo | ~53% + servo |
 | **E — Top** | `st_fit_top_plate` | Place top plate → drive ~5 countersunk screws from above | SCARA E (plate vacuum) + `gh_top_plate` | `fd_top_plate` | ~8.1 s | ~40% |
@@ -86,7 +89,7 @@ Verified against Epson's own product pages (Oct 2026):
 | Payload | ~2.5–3.5 kg est. (dual-tool end-effector + spider in carrier) | Rated 5 kg / max 10 kg | ✓ (estimate — carrier mass unknown) |
 | Repeatability | Pins Ø3 H7 with lead-in | ±0.02 mm (J1, J2) | ✓ |
 | Wrist rotation | Dual-tool switch by J4 | ±360° | ✓ |
-| Wrist inertia | Spider span ~0.3 m on J4 | **Rated 0.02 kg·m²** | **Check in CAD** |
+| Wrist inertia | Spider span ~0.3 m on J4 | **Rated 0.02 kg·m², max 0.3 kg·m²** | **Check in CAD** (dev: A 0.011, B 0.009; WARN > rated, FAIL > max, D-015) |
 | Air to tool | Vacuum + gripper | ø6 ×2, ø4 ×1 | ✓ |
 | Cycle time | Short picks | 0.41 s standard cycle | ✓ |
 | Mounting | Beside conveyor | Table top; J1 ±132°, J2 ±150° (not a full circle — face the work area toward the line) | ✓ |
@@ -129,8 +132,9 @@ the loader stays in scope.
 
 | Item | Blocks |
 |---|---|
-| Real SCARA motion: Epson's v_max/a_max ratio (the standard-cycle calibration gives a non-physical 14.2 m/s v_max with the dev ratio, D-014 K) and a measured `cycle_derate` | Final station times; whether B+C can merge |
-| Park moves timed on TCP distance (A swings j1 101°, D-014 L); slide frame vs the arm's place paths not checked (D-014 M) | Station A time; slide frame design |
+| Real SCARA motion: v_max 9.8 m/s is now Epson's (D-015); a_max is still derived from the standard cycle through a series move model, and `cycle_derate` is still a placeholder. Epson's per-joint J1/J2 speeds would bound the park moves | Final station times; whether B+C can merge |
+| Parked arms at A and B stand over operator-refilled magazines (`fd_mid_plate`, `fd_standoff`) in plan; only source-refilled buffers are checked (D-015) | Guarding, refill procedure |
+| C–E not re-run for the 0.32 m pallet (park poses, source offsets; `fd_top_plate` would run 7 mm into the pallet lane) | Batch 2 |
 | Wrist inertia of carrier + end-effector (§4) | SCARA speed settings |
 | Spider carrier geometry: bridge must leave room for the mid plate and the arm-sandwich head | Station A |
 | Slide frame dimensions (post, rail) — PLACEHOLDER | Gang head design |
@@ -163,4 +167,5 @@ the loader stays in scope.
 
 Decision log entries in the repo: D-009 (zoned gantries), D-010/D-011 (actor audit, station time),
 D-012 (SCARA per station), **D-013 (this update)**, D-014 (park pose, real links, per-station
-index, Epson calibration, slide frames).
+index, Epson calibration, slide frames), D-015 (batch 1: real SCARA speed, arc park timing,
+path and refill checks, pallet 0.32).

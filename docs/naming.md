@@ -17,6 +17,7 @@ One term per concept. Name a new thing by finding its row below, not by inventin
 | Pick-and-place robot, one per station | **scara** | `scara_<station without st_>` (`scara_build_frame`) | `Scara_<Name>` (`Scara_BuildFrame`); layout `Scara_<Name>_Base` (pedestal), `Scara_<Name>_<Part>` (vendor arm), `Scara_<Name>_Envelope` |
 | SCARA product used by a scara | **robot model** | `robot_models.<id>` (`epson_ls10b_700_z300`) | — |
 | Run of consecutive stations built and checked together | **milestone** | `milestones.<name>` (`frame`) | partition `Guard_Partition_<A>_<B>` at its boundary; the line's one fence `Guard_Fence` |
+| Ad-hoc run of consecutive stations picked on the command line (not in the spec) | **batch** | `--stations st_a,st_b --name batch1` | layout `60_layout/dev/batch/`, reports `<tool>.<name>[.dev].json` |
 | Screwdriving unit (fixed pattern) | **gang head** | `gh_arm_sandwich` | `GangHead_ArmSandwich`; on a slide, `GangHead_<Name>_Slide` (envelope) |
 | Rail and post carrying a gang head on its slide | **slide frame** | `gang_heads.<id>.slide.frame` | `GangHead_<Name>_Rail`, `GangHead_<Name>_Post` |
 | Where a SCARA waits while its station's gang head works | **park pose** | `scaras.<id>.park_pose` | close-up `reports/render/<station>_park.png` |

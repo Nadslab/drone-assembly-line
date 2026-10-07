@@ -233,7 +233,8 @@ class RobotModel(Model):
     payload_rated: Pos              # kg
     payload_max: Pos                # kg
     joint_limits: RobotJointLimits
-    inertia_rated: Pos              # kg m^2 about J4
+    inertia_rated: Pos              # kg m^2 about J4; above it J4 must slow down (WARN)
+    inertia_max: Pos | None = None  # kg m^2 about J4; above it the robot cannot carry it (FAIL)
     repeatability: Pos              # m
     step: str | None = None         # vendor STEP (layout.py places it at each base)
     link1: Pos | None
@@ -737,22 +738,49 @@ def head_station(raw: dict, hid: str) -> str | None:
 
 
 def milestone_subset(raw: dict, name: str) -> dict:
-    """The spec cut down to one milestone (D-012): its stations, the steps that stand there, their
-    SCARAs and gang heads, the feeders and buffers those steps (and a sub_line station) draw
-    from, the fasteners they drive and the sources that fill those buffers. A `requires` on a step
-    outside the milestone is dropped: that step ran upstream. Raises SpecError for an unknown
-    milestone. Parts, line, layout and defaults are kept whole."""
+    """The spec cut down to one milestone (D-012): `station_subset` of its stations. Raises
+    SpecError for an unknown milestone."""
     milestones = raw.get("milestones") or {}
     if name not in milestones:
         raise SpecError([f"milestone '{name}' does not exist (have: "
                          f"{', '.join(milestones) or 'none'})"])
+    return station_subset(raw, list(milestones[name]))
+
+
+def parse_station_list(values: list[str] | None) -> list[str] | None:
+    """`--stations a,b c` -> [a, b, c] (commas or spaces); None when not given."""
+    if not values:
+        return None
+    return [x for v in values for x in v.split(",") if x]
+
+
+def station_subset(raw: dict, stations: list[str]) -> dict:
+    """The spec cut down to a run of consecutive stations (D-012 milestones, D-015 batches): those
+    stations, the steps that stand there, their SCARAs and gang heads, the feeders and buffers
+    those steps (and a sub_line station) draw from, the fasteners they drive, the return paths
+    they own and the sources that fill those buffers. A `requires` on a step outside the run is
+    dropped: that step ran upstream. `pallet_in` lists what the pallet brings in from upstream,
+    `entry` the station before the run, so the first station's index is still the real gap
+    (D-014). The milestones are kept, each cut to the stations in the run, so a partition between
+    two of them is still drawn. Parts, line, layout and defaults are kept whole. Raises SpecError
+    for an unknown station or a run that is not consecutive in line order."""
     out, _ = resolve_anchors(raw)       # poses first: the cut drops the stations they chain from
     raw = out
     out = copy.deepcopy(out)
-    keep = set(milestones[name])
-    # What the pallet brings in: every part placed upstream and not removed upstream.
     index = {k: (v or {}).get("index") or 0 for k, v in (raw.get("stations") or {}).items()}
-    first = min(index[k] for k in keep if k in index) if keep & set(index) else 0
+    unknown = [s for s in stations if s not in index]
+    if unknown or not stations:
+        raise SpecError([f"station '{s}' does not exist" for s in unknown]
+                        or ["no station to cut the spec down to"])
+    line = sorted(index, key=lambda k: index[k])
+    run = sorted(set(stations), key=lambda k: index[k])
+    at = line.index(run[0])
+    if line[at:at + len(run)] != run:
+        raise SpecError([f"stations {', '.join(run)} are not consecutive in line order "
+                         f"({', '.join(line)})"])
+    keep = set(run)
+    # What the pallet brings in: every part placed upstream and not removed upstream.
+    first = index[run[0]]
     carried: list[str] = []
     for s in raw.get("sequence") or []:
         if s.get("status", "active") != "active" or not s.get("part") \
@@ -763,13 +791,17 @@ def milestone_subset(raw: dict, name: str) -> dict:
         elif s["part"] not in carried:
             carried.append(s["part"])
     out["pallet_in"] = carried
-    upstream = [k for k in index if index[k] < first]
-    if upstream:
-        prev = max(upstream, key=lambda k: index[k])
+    if at:
+        prev = line[at - 1]
         out["entry"] = {"after": prev, "pose": list(raw["stations"][prev].get("pose")
                                                     or [None] * 4)}
-    out["milestones"] = {name: list(milestones[name])}
-    out["stations"] = {k: v for k, v in (raw.get("stations") or {}).items() if k in keep}
+    milestones = raw.get("milestones") or {}
+    out["milestones"] = {m: [st for st in members if st in keep]
+                         for m, members in milestones.items()
+                         if any(st in keep for st in members)} if milestones else None
+    if out["milestones"] is None:
+        out.pop("milestones")
+    out["stations"] = {k: raw["stations"][k] for k in run}            # in line order
     steps = [s for s in raw.get("sequence") or [] if s.get("station") in keep]
     ids = {s["id"] for s in steps}
     out["sequence"] = []

@@ -2,7 +2,8 @@
 floats, no ROS, no CAD.
 
 Shared by check_line.py (`scara_reach`, `scara_clearance`, `safe_z`, `park_clearance`,
-`slide_clearance`, `payload`, `wrist_inertia`), estimate_moves.py, choose_park.py and
+`slide_clearance`, `path_clearance`, `refill_clearance`, `payload`, `wrist_inertia`),
+estimate_moves.py, choose_park.py and
 tools/cad/layout.py, so the checks, the estimate and the drawing cannot disagree about a base, a
 footprint or a height.
 
@@ -25,6 +26,10 @@ The arm (D-014). The parked arm is checked as capsules sized from the vendor STE
 (J1 -> J2, J2 -> the Z shaft), a disc for the shaft and one for the end-effector's tools, each
 over its z range. tools/cad/vendor.py measures them into reports/vendor_<robot model>.json (no
 `.dev`: the STEP is not a placeholder); a missing report makes the park clearance UNRESOLVED.
+D-015: the parked arm is held clear in plan; the same capsules, the shaft and tools following the
+TCP's z, are swept along every joint path against the waiting heads and their slide frames
+(`path_clearance`), and the parked arm and its park legs against the refill column of every
+buffer a source refills at the station (`refill_clearance`).
 """
 
 from __future__ import annotations
@@ -34,7 +39,7 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from spec import (REPO, LineSpec, robot_served, scara_base, scara_id, scara_model,  # noqa: F401
+from spec import (REPO, LineSpec, ParkPose, robot_served, scara_base, scara_id, scara_model,  # noqa: F401
                   scara_side, scara_yaw)
 
 CAD_REPORTS = REPO / "reports"
@@ -403,43 +408,52 @@ def fk(k: Kin, j1: float, j2: float) -> tuple[float, float]:
 PATH_SAMPLES = 48
 
 
-def joint_path(k: Kin, a: tuple[float, float], b: tuple[float, float]
-               ) -> list[tuple[float, float]] | None:
-    """The plan path of a point-to-point move a -> b: j1 and j2 interpolated together (how a
-    SCARA moves between two poses), on the elbow solution valid at both ends with the least joint
-    travel. None when no elbow solution is valid at both ends."""
-    sa, _ = ik(k, *a)
-    sb, _ = ik(k, *b)
-    pairs = [(p, q) for p in sa for q in sb if (p[1] >= 0) == (q[1] >= 0)]
-    if not pairs:
+def leg_ends(k: Kin, a, b, ja=None, jb=None
+             ) -> tuple[tuple[float, float], tuple[float, float]] | None:
+    """A leg's joint poses at its two ends: from joint pose `ja` (else plan point `a`) to `jb`
+    (else `b`). An end given as joints is held; the other end takes its IK solution on the same
+    elbow side with the least j1 travel (both plan points: the elbow solution valid at both ends
+    with the least joint travel). None when no such solution exists."""
+    if ja is not None and jb is not None:
+        return ja, jb
+    if ja is None and jb is None:
+        sa, _ = ik(k, *a)
+        sb, _ = ik(k, *b)
+        pairs = [(p, q) for p in sa for q in sb if (p[1] >= 0) == (q[1] >= 0)]
+        if not pairs:
+            return None
+        return min(pairs, key=lambda pq: abs(pq[0][0] - pq[1][0]) + abs(pq[0][1] - pq[1][1]))
+    fixed = ja if ja is not None else jb
+    other, _ = ik(k, *(b if ja is not None else a))
+    other = [o for o in other if (o[1] >= 0) == (fixed[1] >= 0)]
+    if not other:
         return None
-    p, q = min(pairs, key=lambda pq: abs(pq[0][0] - pq[1][0]) + abs(pq[0][1] - pq[1][1]))
-    return [fk(k, p[0] + (q[0] - p[0]) * t / PATH_SAMPLES, p[1] + (q[1] - p[1]) * t / PATH_SAMPLES)
-            for t in range(PATH_SAMPLES + 1)]
+    o = min(other, key=lambda o: abs(o[0] - fixed[0]))
+    return (ja, o) if ja is not None else (o, jb)
 
 
-def joint_path_j(k: Kin, p: tuple[float, float], q: tuple[float, float]
-                 ) -> list[tuple[float, float]]:
-    """The plan path of a move between two joint poses (j1, j2), joints interpolated."""
-    return [fk(k, p[0] + (q[0] - p[0]) * t / PATH_SAMPLES, p[1] + (q[1] - p[1]) * t / PATH_SAMPLES)
+def leg_joints(k: Kin, a, b, ja=None, jb=None) -> list[tuple[float, float]] | None:
+    """The joint poses along a leg (`leg_ends`, j1 and j2 interpolated together)."""
+    ends = leg_ends(k, a, b, ja, jb)
+    if ends is None:
+        return None
+    p, q = ends
+    return [(p[0] + (q[0] - p[0]) * t / PATH_SAMPLES, p[1] + (q[1] - p[1]) * t / PATH_SAMPLES)
             for t in range(PATH_SAMPLES + 1)]
 
 
 def leg_path(k: Kin, a, b, ja=None, jb=None) -> list[tuple[float, float]] | None:
-    """A leg's plan path: from joint pose `ja` (else plan point `a`) to `jb` (else `b`). An end
-    given as joints is held; the other end takes its IK solution on the same elbow side with the
-    least j1 travel."""
-    if ja is None and jb is None:
-        return joint_path(k, a, b)
-    fixed = ja if ja is not None else jb
-    other, _ = ik(k, *(b if ja is not None else a))
-    other = [o for o in other if (o[1] >= 0) == (fixed[1] >= 0)]
-    if ja is not None and jb is not None:
-        return joint_path_j(k, ja, jb)
-    if not other:
-        return None
-    o = min(other, key=lambda o: abs(o[0] - fixed[0]))
-    return joint_path_j(k, ja, o) if ja is not None else joint_path_j(k, o, jb)
+    """A leg's plan path (TCP points along `leg_joints`)."""
+    js = leg_joints(k, a, b, ja, jb)
+    return None if js is None else [fk(k, *j) for j in js]
+
+
+def joint_limits_from_tcp(k: Kin, v: float, a: float) -> dict[str, tuple[float, float]]:
+    """Angular speed and acceleration limits of J1 and J2 (D-015), from the TCP's v_max/a_max at
+    each joint's link radius: J1 turns the whole arm, so its radius is link1 + link2; J2 turns
+    link2 alone. {"j1": (w, alpha), "j2": (w, alpha)}, rad/s and rad/s^2."""
+    l1, l2 = k.links
+    return {"j1": (v / (l1 + l2), a / (l1 + l2)), "j2": (v / l2, a / l2)}
 
 
 def home(k: Kin, station_xy: tuple[float, float]) -> tuple[float, float] | None:
@@ -877,12 +891,16 @@ class Capsule:
     z1: float
 
 
-def arm_capsules(spec: LineSpec, sid: str, j1: float, j2: float, cad: CadHeights
-                 ) -> tuple[list[Capsule], list[str]]:
-    """The arm at (j1, j2) with the TCP at the top of its stroke, as capsules in the line frame
-    (D-014): link1 J1 -> J2, link2 J2 -> TCP and the shaft, sized from the vendor STEP
-    (reports/vendor_<model>.json, z relative to the TCP), plus the end-effector: a disc of
-    `end_effector_radius` from the TCP down by its longest tool reach (dims[2])."""
+def arm_capsules(spec: LineSpec, sid: str, j1: float, j2: float, cad: CadHeights,
+                 tcp: tuple[float, float] | None = None) -> tuple[list[Capsule], list[str]]:
+    """The arm at (j1, j2) as capsules in the line frame (D-014): link1 J1 -> J2, link2 J2 -> TCP
+    and the shaft, sized from the vendor STEP (reports/vendor_<model>.json, z relative to the TCP
+    at the top of its stroke), plus the end-effector: a disc of `end_effector_radius` from the TCP
+    down by its longest tool reach (dims[2]).
+
+    `tcp` (D-015) is the TCP's z range (lo, hi) while it is in this plan pose — a vertical move at
+    a pick or place sweeps lo..hi; default the top of the stroke. The links do not move in z (a
+    SCARA's Z axis is the shaft), so only the shaft and the tools follow the TCP."""
     k = kin(spec, sid)
     model = spec.scaras[sid].model
     if k is None:
@@ -900,28 +918,36 @@ def arm_capsules(spec: LineSpec, sid: str, j1: float, j2: float, cad: CadHeights
         missing.append(f"{sid}: tool dims/offset_r null (the end-effector's envelope)")
     if missing:
         return [], missing
-    l1, l2 = k.links
+    l1, _ = k.links
     a = k.yaw + j1
     elbow = (k.base[0] + l1 * math.cos(a), k.base[1] + l1 * math.sin(a))
-    tcp = fk(k, j1, j2)
+    xy = fk(k, j1, j2)
     j1xy = (k.base[0], k.base[1])
     top = k.z_hi
+    lo, hi = tcp if tcp is not None else (top, top)
     caps = rep["capsules"]
     out = [Capsule("link1", j1xy, elbow, caps["link1"]["radius_m"],
                    top + caps["link1"]["z_m"][0], top + caps["link1"]["z_m"][1]),
-           Capsule("link2", elbow, tcp, caps["link2"]["radius_m"],
+           Capsule("link2", elbow, xy, caps["link2"]["radius_m"],
                    top + caps["link2"]["z_m"][0], top + caps["link2"]["z_m"][1]),
-           Capsule("shaft", tcp, tcp, caps["shaft"]["radius_m"],
-                   top + caps["shaft"]["z_m"][0], top + caps["shaft"]["z_m"][1])]
+           Capsule("shaft", xy, xy, caps["shaft"]["radius_m"],
+                   lo + caps["shaft"]["z_m"][0], hi + caps["shaft"]["z_m"][1])]
     if spec.scaras[sid].tools:
-        out.append(Capsule("tools", tcp, tcp, ee, top - max(reach), top))
+        out.append(Capsule("tools", xy, xy, ee, lo - max(reach), hi))
     return out, []
 
 
-def head_envelopes(spec: LineSpec, sid: str, cad: CadHeights
+def plan_clearance(c: Capsule, rect: Rect) -> float:
+    """Plan (XY) clearance of a capsule to a rectangle, height ignored; negative = overlap."""
+    return seg_rect_dist(c.a, c.b, rect) - c.radius
+
+
+def head_envelopes(spec: LineSpec, sid: str, cad: CadHeights, retracted: bool = False
                    ) -> tuple[dict[str, list], list[str]]:
-    """{head: working envelope [(name, rect, z0, z1)]} for every gang head driven at the SCARA's
-    station, and what is missing (a null slide frame is listed, the head box is still used)."""
+    """{head: envelope [(name, rect, z0, z1)]} for every gang head driven at the SCARA's station,
+    and what is missing (a null slide frame is listed, the head box is still used). The envelope
+    is the head at its working position plus its slide frame; `retracted` (D-015): the head where
+    it waits on its slide while the SCARA moves, plus its slide frame."""
     st = spec.scaras[sid].station
     out, missing = {}, []
     for hid in spec.gang_heads:
@@ -932,14 +958,19 @@ def head_envelopes(spec: LineSpec, sid: str, cad: CadHeights
             missing += hb.unresolved
             continue
         missing += hb.frame_unresolved
-        out[hid] = hb.working_envelope()
+        if retracted:
+            out[hid] = [("head (retracted)", hb.rect, hb.z0, hb.z1)] + list(hb.frame)
+        else:
+            out[hid] = hb.working_envelope()
     return out, missing
 
 
 def park_clearance(spec: LineSpec, sid: str, joints: tuple[float, float], cad: CadHeights
                    ) -> dict:
-    """The parked arm against every working envelope at its station: the smallest clearance
-    (negative = overlap), between which arm capsule and which envelope part, and every pair."""
+    """The parked arm against every working envelope at its station (D-014), in plan (D-015):
+    the smallest XY clearance (negative = the arm is over or under the envelope in plan), between
+    which arm capsule and which envelope part, and every pair. Height separation is not
+    clearance here; the 3D value is reported next to it (`clearance_3d_m`) as extra margin."""
     caps, missing = arm_capsules(spec, sid, *joints, cad)
     envs, miss2 = head_envelopes(spec, sid, cad)
     missing += miss2
@@ -948,22 +979,242 @@ def park_clearance(spec: LineSpec, sid: str, joints: tuple[float, float], cad: C
         for name, rect, c0, c1 in env:
             for c in caps:
                 pairs.append({"arm": c.name, "head": hid, "part": name,
-                              "clearance_m": round(capsule_box_clearance(
+                              "clearance_m": round(plan_clearance(c, rect), 4),
+                              "clearance_3d_m": round(capsule_box_clearance(
                                   c.a, c.b, c.radius, c.z0, c.z1, rect, c0, c1), 4)})
     best = min(pairs, key=lambda p: p["clearance_m"]) if pairs else None
-    return {"clearance_m": best and best["clearance_m"], "nearest": best, "pairs": pairs,
+    best3 = min(pairs, key=lambda p: p["clearance_3d_m"]) if pairs else None
+    return {"clearance_m": best and best["clearance_m"], "nearest": best,
+            "clearance_3d_m": best3 and best3["clearance_3d_m"], "pairs": pairs,
             "heads": sorted(envs), "unresolved": missing}
+
+
+PATH_CLEAR_M = 0.02       # every arm path clears a slide frame or a waiting head by this (D-015)
+
+
+def _leg_tcp_z(label: str, i: int, n: int, travel: float, pick_z: float, place_z: float,
+               top: float) -> tuple[float, float]:
+    """The TCP's z range at sample i of n along a leg (D-015). Horizontal moves run at the
+    step's safe_z (`travel`). At a pick or a place the TCP also goes down to it, so the end
+    sample there spans down to that z. A leg to or from park ends at the top of the stroke: Z is
+    interpolated with J1/J2 (a point-to-point move), from safe_z at the pick/place end to the top
+    at the park end, and each sample spans the z of its neighbours."""
+    def z(t: int) -> float:
+        t = max(0, min(n, t))
+        if label.endswith("_to_park"):
+            return travel + (top - travel) * t / n
+        if label.startswith("park_to_"):
+            return top + (travel - top) * t / n
+        return travel
+    zs = [z(i - 1), z(i), z(i + 1)]
+    lo, hi = min(zs), max(zs)
+    start, end = label.split("_to_")
+    if i == 0 and start in ("pick", "place"):
+        lo = min(lo, pick_z if start == "pick" else place_z)
+    if i == n and end in ("pick", "place"):
+        lo = min(lo, pick_z if end == "pick" else place_z)
+    return lo, hi
+
+
+def path_clearance(spec: LineSpec, sid: str, cad: CadHeights) -> dict:
+    """D-015 (fixes D-014 M): the arm along every leg of every step (start -> pick, pick ->
+    place, place -> end, home or park at the ends; and the dual-tool switch at the step's start)
+    against every gang head at its station where it waits retracted on its slide while the SCARA
+    moves, and that head's slide frame (rail, post). The arm is its capsules (`arm_capsules`) at
+    every joint-path sample, the TCP at the step's safe_z (down to the pick/place at the ends, up
+    to the top of the stroke on a park leg). 3D clearance. {"steps": {id: {leg: {clearance_m,
+    arm, head, part}}}, "clearance_m", "nearest", "unresolved"}."""
+    out = {"scara": sid, "steps": {}, "clearance_m": None, "nearest": None, "heads": [],
+           "unresolved": []}
+    k = kin(spec, sid)
+    if k is None or k.links is None:
+        out["unresolved"].append(f"{sid}: base pose or links null")
+        return out
+    envs, missing = head_envelopes(spec, sid, cad, retracted=True)
+    out["heads"] = sorted(envs)
+    out["unresolved"] += missing
+    if not envs:
+        return out
+    switches = set(tool_switches(spec, sid))
+    worst = None
+    for step in scara_steps(spec, sid):
+        sz = step_safe_z(spec, sid, step, cad, switch=step.id in switches)
+        legs = step_legs(spec, sid, step, k)
+        pick, place = step_points(spec, step)
+        if sz.unresolved or sz.value is None or legs is None:
+            out["unresolved"] += sz.unresolved or [f"{step.id}: legs or safe_z unknown"]
+            continue
+        rows = out["steps"].setdefault(step.id, {})
+        samples = []
+        for label, a, b, _, ja, jb in legs:
+            js = leg_joints(k, a, b, ja, jb)
+            if js is None:
+                out["unresolved"].append(f"{step.id}: no joint path for {label}")
+                continue
+            for i, j in enumerate(js):
+                samples.append((label, j, _leg_tcp_z(label, i, len(js) - 1, sz.value, pick[2],
+                                                     place[2], k.z_hi)))
+        if step.id in switches and legs:
+            first = legs[0]
+            j0 = first[4] if first[4] is not None else (leg_ends(k, first[1], first[2]) or
+                                                         [None])[0]
+            if j0 is not None:
+                lo, hi = (min(sz.value, k.z_hi), max(sz.value, k.z_hi)) \
+                    if first[4] is not None else (sz.value, sz.value)
+                samples.append(("tool_switch", j0, (lo, hi)))
+        for label, j, tz in samples:
+            caps, miss = arm_capsules(spec, sid, j[0], j[1], cad, tcp=tz)
+            if miss:
+                out["unresolved"] += miss
+                break
+            for hid, env in envs.items():
+                for name, rect, c0, c1 in env:
+                    for c in caps:
+                        cl = capsule_box_clearance(c.a, c.b, c.radius, c.z0, c.z1, rect, c0, c1)
+                        row = rows.get(label)
+                        if row is None or cl < row["clearance_m"]:
+                            rows[label] = {"clearance_m": round(cl, 4), "arm": c.name,
+                                           "head": hid, "part": name}
+                        if worst is None or cl < worst[0]:
+                            worst = (cl, {"step": step.id, "leg": label, "arm": c.name,
+                                          "head": hid, "part": name})
+    out["unresolved"] = list(dict.fromkeys(out["unresolved"]))
+    if worst is not None:
+        out["clearance_m"] = round(worst[0], 4)
+        out["nearest"] = worst[1]
+    return out
+
+
+def refill_envelopes(spec: LineSpec, sid: str) -> tuple[dict[str, tuple[Rect, float]], list[str]]:
+    """{buffer: (plan footprint, pick plane z)} of every buffer at the SCARA's station that a
+    source refills (D-015): the source drops into it from above, so its refill envelope is the
+    column over its footprint from its pick plane up."""
+    st = spec.scaras[sid].station
+    out, missing = {}, []
+    filled = {src.buffer for src in spec.sources.values()}
+    for bid, b in spec.buffers.items():
+        if b.station != st or bid not in filled:
+            continue
+        rect = source_rect(spec, bid)
+        if rect is None or b.pose is None or b.pose[2] is None:
+            missing.append(f"buffers.{bid}: pose null (its refill envelope)")
+            continue
+        fp = spec.layout.feeder_footprints.get(bid) if spec.layout else None
+        if fp is None or None in fp[:2]:
+            missing.append(f"layout.feeder_footprints.{bid} null (its refill envelope)")
+            continue
+        out[bid] = (rect, b.pose[2])
+    return out, missing
+
+
+REFILL_TOP = 100.0        # m: the refill column has no top (the source drops in from above)
+
+
+def refill_clearance(spec: LineSpec, sid: str, cad: CadHeights) -> dict:
+    """D-015: while the SCARA is parked its station's source may refill a buffer, so the parked
+    arm and its paths into and out of park must not cross that buffer's refill envelope (the
+    column over its footprint, from its pick plane up). A leg out of park that picks from that
+    same buffer ends in it by design: it is listed as `excluded` (the refill must be done before
+    the SCARA goes in — an interlock, not a geometry). Clearance per buffer, in plan wherever the
+    arm is above the pick plane (3D otherwise); negative = the arm crosses the envelope."""
+    out = {"scara": sid, "buffers": {}, "clearance_m": None, "nearest": None, "excluded": [],
+           "unresolved": []}
+    envs, missing = refill_envelopes(spec, sid)
+    out["unresolved"] += missing
+    if not envs:
+        return out
+    k = kin(spec, sid)
+    joints = park_joints(spec, sid)
+    if k is None or k.links is None:
+        out["unresolved"].append(f"{sid}: base pose or links null")
+        return out
+    ends, starts = park_steps(spec, sid)
+    if not ends and not starts:
+        return out
+    if joints is None:
+        out["unresolved"].append(f"scaras.{sid}.park_pose is null")
+        return out
+    samples = [("parked", joints, (k.z_hi, k.z_hi))]
+    for step in scara_steps(spec, sid):
+        if step.id not in ends | starts:
+            continue
+        sz = step_safe_z(spec, sid, step, cad)
+        legs = step_legs(spec, sid, step, k)
+        pick, place = step_points(spec, step)
+        if sz.unresolved or sz.value is None or legs is None:
+            out["unresolved"] += sz.unresolved or [f"{step.id}: legs or safe_z unknown"]
+            continue
+        for label, a, b, _, ja, jb in legs:
+            if "park" not in label:
+                continue
+            if label.startswith("park") and step.from_ in envs:
+                out["excluded"].append(f"{step.id} {label}: picks from {step.from_}")
+                continue
+            js = leg_joints(k, a, b, ja, jb)
+            if js is None:
+                out["unresolved"].append(f"{step.id}: no joint path for {label}")
+                continue
+            samples += [(f"{step.id} {label}", j, _leg_tcp_z(label, i, len(js) - 1, sz.value,
+                                                             pick[2], place[2], k.z_hi))
+                        for i, j in enumerate(js)]
+    worst = None
+    for label, j, tz in samples:
+        caps, miss = arm_capsules(spec, sid, j[0], j[1], cad, tcp=tz)
+        if miss:
+            out["unresolved"] += miss
+            break
+        for bid, (rect, z0) in envs.items():
+            for c in caps:
+                cl = capsule_box_clearance(c.a, c.b, c.radius, c.z0, c.z1, rect, z0, REFILL_TOP)
+                where = "parked" if label == "parked" else "path"
+                row = out["buffers"].setdefault(bid, {})
+                if where not in row or cl < row[where]["clearance_m"]:
+                    row[where] = {"clearance_m": round(cl, 4), "at": label, "arm": c.name}
+                if worst is None or cl < worst[0]:
+                    worst = (cl, {"buffer": bid, "at": label, "arm": c.name})
+    out["unresolved"] = list(dict.fromkeys(out["unresolved"]))
+    if worst is not None:
+        out["clearance_m"] = round(worst[0], 4)
+        out["nearest"] = worst[1]
+    return out
+
+
+def with_park(spec: LineSpec, sid: str, joints: tuple[float, float]) -> LineSpec:
+    """A copy of `spec` with `sid` parked at `joints` (what choose_park tries)."""
+    sc = spec.scaras[sid].model_copy(update={"park_pose": ParkPose(j1=joints[0], j2=joints[1])})
+    return spec.model_copy(update={"scaras": {**spec.scaras, sid: sc}})
 
 
 PARK_CLEAR_M = 0.03       # an auto-chosen park pose clears the working envelope by this much
 PARK_STEP_DEG = 0.5
+PARK_FOLD_STEP_DEG = 5.0  # D-015: j2 eased off its limit in these steps when no folded pose clears
+
+
+def _parked_refill(spec: LineSpec, sid: str, joints, cad: CadHeights) -> float | None:
+    """Plan/3D clearance of the parked arm alone to the station's refill envelopes (cheap: no
+    paths), for choose_park's first cut."""
+    envs, _ = refill_envelopes(spec, sid)
+    if not envs:
+        return None
+    caps, miss = arm_capsules(spec, sid, *joints, cad)
+    if miss:
+        return None
+    return min(capsule_box_clearance(c.a, c.b, c.radius, c.z0, c.z1, rect, z0, REFILL_TOP)
+               for rect, z0 in envs.values() for c in caps)
 
 
 def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CLEAR_M) -> dict:
-    """The dev park pose (D-014): j2 folded to its limit on the elbow side of the place pose,
-    j1 searched over its limits in PARK_STEP_DEG steps for the value closest to the place pose's
-    j1 whose park_clearance is >= `need`. {"j1", "j2", "clearance_m", "place_j", ...} or
-    {"error"}."""
+    """The dev park pose (D-014, D-015): j2 folded on the elbow side of the place pose, j1
+    searched over its limits in PARK_STEP_DEG steps for the value closest to the place pose's j1
+    that
+      - clears its station's working envelope(s) in plan by >= `need` (park_clearance),
+      - keeps the parked arm >= `need` clear of every refill envelope at the station, and its
+        legs into and out of park clear of them (refill_clearance >= 0),
+      - keeps every path >= PATH_CLEAR_M clear of the waiting heads and their slide frames
+        (path_clearance; the park legs change with the pose).
+    j2 is at its limit first (D-014). Only when no such pose exists there is j2 eased off the
+    limit in PARK_FOLD_STEP_DEG steps (D-015), the most folded level that works winning.
+    {"j1", "j2", "clearance_m", "place_j", "fold_eased_deg", ...} or {"error"}."""
     k = kin(spec, sid)
     st = spec.stations[spec.scaras[sid].station].pose
     if k is None or k.links is None or None in st[:2]:
@@ -971,28 +1222,52 @@ def choose_park(spec: LineSpec, sid: str, cad: CadHeights, need: float = PARK_CL
     sols, why = ik(k, st[0], st[1])
     if not sols:
         return {"error": f"{sid}: place pose not reachable ({why})"}
-    best = None
     n = int(math.floor(math.degrees(k.j1_lim) / PARK_STEP_DEG))
-    for pj1, pj2 in sols:
-        j2 = math.copysign(k.j2_lim, pj2 if pj2 != 0 else 1.0)
-        for i in range(-n, n + 1):
-            j1 = math.radians(i * PARK_STEP_DEG)
-            pc = park_clearance(spec, sid, (j1, j2), cad)
-            if pc["unresolved"] and pc["clearance_m"] is None:
-                return {"error": "; ".join(pc["unresolved"])}
-            if pc["clearance_m"] is None or pc["clearance_m"] < need - EPS:
+    levels = int(math.floor(math.degrees(k.j2_lim) / PARK_FOLD_STEP_DEG))
+    rejected: dict[str, int] = {}
+    tried = 0
+    for level in range(levels + 1):
+        ease = math.radians(level * PARK_FOLD_STEP_DEG)
+        cands = []
+        for pj1, pj2 in sols:
+            j2 = math.copysign(k.j2_lim - ease, pj2 if pj2 != 0 else 1.0)
+            for i in range(-n, n + 1):
+                j1 = math.radians(i * PARK_STEP_DEG)
+                pc = park_clearance(spec, sid, (j1, j2), cad)
+                if pc["unresolved"] and pc["clearance_m"] is None:
+                    return {"error": "; ".join(pc["unresolved"])}
+                if pc["clearance_m"] is None or pc["clearance_m"] < need - EPS:
+                    continue
+                cands.append(((abs(j1 - pj1), abs(j2 - pj2)), j1, j2, pc, (pj1, pj2)))
+        tried += len(cands)
+        for key, j1, j2, pc, place in sorted(cands, key=lambda c: c[0]):
+            parked = _parked_refill(spec, sid, (j1, j2), cad)
+            if parked is not None and parked < need - EPS:
+                rejected["refill (parked)"] = rejected.get("refill (parked)", 0) + 1
                 continue
-            key = (abs(j1 - pj1), abs(j2 - pj2))
-            if best is None or key < best[0]:
-                best = (key, j1, j2, pc, (pj1, pj2))
-    if best is None:
-        return {"error": f"{sid}: no j1 within ±{math.degrees(k.j1_lim):g}° clears its "
-                         f"station's gang head(s) by {need:g} m"}
-    _, j1, j2, pc, place = best
-    return {"j1": round(j1, 4), "j2": round(j2, 6), "j1_deg": round(math.degrees(j1), 1),
-            "j2_deg": round(math.degrees(j2), 1), "clearance_m": pc["clearance_m"],
-            "nearest": pc["nearest"], "place_j": [round(place[0], 4), round(place[1], 4)],
-            "unresolved": pc["unresolved"]}
+            trial = with_park(spec, sid, (j1, j2))
+            rc = refill_clearance(trial, sid, cad)
+            if rc["clearance_m"] is not None and rc["clearance_m"] < -EPS:
+                rejected["refill (path)"] = rejected.get("refill (path)", 0) + 1
+                continue
+            path = path_clearance(trial, sid, cad)
+            if path["clearance_m"] is None and path["unresolved"]:
+                rejected["path unresolved"] = rejected.get("path unresolved", 0) + 1
+                continue
+            if path["clearance_m"] is not None and path["clearance_m"] < PATH_CLEAR_M - EPS:
+                rejected["path"] = rejected.get("path", 0) + 1
+                continue
+            return {"j1": round(j1, 4), "j2": round(j2, 6), "j1_deg": round(math.degrees(j1), 1),
+                    "j2_deg": round(math.degrees(j2), 1), "clearance_m": pc["clearance_m"],
+                    "clearance_3d_m": pc["clearance_3d_m"], "nearest": pc["nearest"],
+                    "refill_clearance_m": rc["clearance_m"],
+                    "path_clearance_m": path["clearance_m"],
+                    "place_j": [round(place[0], 4), round(place[1], 4)],
+                    "fold_eased_deg": level * PARK_FOLD_STEP_DEG,
+                    "rejected_nearer": rejected, "unresolved": pc["unresolved"]}
+    return {"error": f"{sid}: no park pose clears its station's gang head(s) by {need:g} m in "
+                     f"plan with its refill envelopes and paths clear ({tried} plan-clear "
+                     f"pose(s) tried over every fold; rejected: {rejected})"}
 
 
 def slide_clearance(spec: LineSpec, hid: str, cad: CadHeights) -> dict:

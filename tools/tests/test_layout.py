@@ -198,7 +198,8 @@ def test_a_head_on_a_slide_has_a_rail_and_a_post_in_the_robots_group(tmp_path, p
     assert post["bbox_mm"]["min"][2] == pytest.approx(-raw["line"]["work_height"] * 1000.0)
     assert "gang_heads.gh_top.slide.frame.post[0]" in post["dims"]["size_x"]["spec_keys"]
     assert "gang_head ∩ slide_frame (same gang head)" in doc["interference"]["allowed_rules"]
-    assert doc["park"]["st_place"]["capsule_clearance_m"] == pytest.approx(0.3432, abs=1e-4)
+    assert doc["park"]["st_place"]["capsule_clearance_m"] == pytest.approx(0.110, abs=1e-4)
+    assert doc["park"]["st_place"]["capsule_clearance_3d_m"] == pytest.approx(0.3432, abs=1e-4)
 
 
 def test_a_slide_frame_on_something_else_is_an_interference(tmp_path, pass_raw):
@@ -259,6 +260,18 @@ def test_a_milestone_is_drawn_on_its_own(tmp_path, pass_raw):
     conveyor = next(s for s in doc["solids"] if s["name"] == "Conveyor")["bbox_mm"]
     # st_test (1.5) to st_pod (2.5), half a pitch beyond each end.
     assert (conveyor["min"][0], conveyor["max"][0]) == pytest.approx((1250.0, 2750.0), abs=1e-3)
+
+
+def test_a_station_run_across_a_milestone_boundary_keeps_its_partition(tmp_path, pass_raw):
+    """D-015 --stations: st_drive and st_test, one from each milestone, drawn into out/batch/
+    with the front | back partition between them; nothing from the other stations."""
+    code, doc = run(tmp_path, layout_raw(pass_raw), "--stations", "st_drive,st_test", "--name",
+                    "b1", "--no-render")
+    assert code == 0, doc["errors"]
+    got = names(doc)
+    assert doc["stations"] == ["st_drive", "st_test"] and "/out/batch/" in doc["outputs"]["step"]
+    assert "Guard_Partition_Front_Back" in got and "GangHead_Top" in got
+    assert not {"Scara_Place_Base", "Scara_Spider_Base", "Feeder_MidPlate"} & set(got)
 
 
 # ---------------------------------------------------------------- what it refuses

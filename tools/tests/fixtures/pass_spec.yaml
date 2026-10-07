@@ -73,6 +73,7 @@ robot_models:
     payload_max: 6.0
     joint_limits: {j1: 3.0, j2: 2.281994, j4: 6.283185}
     inertia_rated: 0.02
+    inertia_max: 0.3
     repeatability: 0.00002
     link1: 0.12
     link2: 0.12

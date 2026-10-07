@@ -72,6 +72,26 @@ def _park_pose_unknown(s):
     s["scaras"]["scara_place"]["park_pose"] = {"j1": None, "j2": None}
 
 
+def _rail_in_the_place_path(s):
+    """gh_top's rail made 0.5 m tall: it now stands beside the pallet from z -0.02 to 0.48, and
+    the plate tool (radius 0.085) placing at the datum comes within 15 mm of it in plan."""
+    _slide_at_place(0.5, 0.5)(s)
+    s["gang_heads"]["gh_top"]["slide"]["frame"]["rail"] = [0.08, 0.5]
+
+
+def _refilled_buffer_under_the_park(s):
+    """The mid plate comes from buf_mid, a buffer src_mid refills, standing right under
+    scara_place's park pose (TCP 0.452, 0.328): the parked arm is over its refill envelope."""
+    _slide_at_place(0.5, 0.5)(s)
+    del s["feeders"]["fd_mid_plate"]
+    del s["layout"]["feeder_footprints"]["fd_mid_plate"]
+    s["buffers"]["buf_mid"] = {"station": "st_place", "offset": [-0.05, 0.33, 0.1, 0.0]}
+    s["layout"]["feeder_footprints"]["buf_mid"] = [0.06, 0.06, 1.0]
+    s["sources"]["src_mid"] = {"output": "mid_plate", "buffer": "buf_mid", "interval_s": 20.0,
+                               "buffer_capacity": 3}
+    _seq(s, "place")["from"] = "buf_mid"
+
+
 def _second_head(station, requires):
     """A second gang head, gh_two, driving at `station`."""
     def mutate(s):
@@ -262,6 +282,9 @@ FAILING = [
     ("wrist_inertia", "over_inertia_rated",
      _set(["robot_models", "test_scara", "inertia_rated"], 0.001), "WARN"),
     ("wrist_inertia", "null_part_mass", _set(["parts", "carrier_pod", "mass"], None), "WARN"),
+    # D-015: above inertia_max the robot cannot carry it.
+    ("wrist_inertia", "over_inertia_max",
+     _set(["robot_models", "test_scara", "inertia_max"], 0.001), "FAIL"),
     ("robot_load", "scara_over_budget",
      _set(["robot_models", "test_scara", "motion", "v_max"], 0.02), "FAIL"),
     ("robot_load", "null_grip_time", _set(["scara_defaults", "grip_s"], None), "WARN"),
@@ -275,6 +298,11 @@ FAILING = [
     ("slide_clearance", "part_lands_on_the_retracted_head", _slide_at_place(0.5, 0.5, 0.05),
      "FAIL"),
     ("slide_clearance", "null_slide_stroke", _slide_at_place(0.5, 0.5, None), "WARN"),
+    # path_clearance (D-015): every arm path 20 mm clear of the waiting head and its frame.
+    ("path_clearance", "arm_path_past_a_tall_rail", _rail_in_the_place_path, "FAIL"),
+    # refill_clearance (D-015): the parked arm keeps out of a refilled buffer's drop-in column.
+    ("refill_clearance", "parked_over_a_refilled_buffer", _refilled_buffer_under_the_park,
+     "FAIL"),
     # station_time with a slide (D-012): place + 1 pass x 3 s + 9 + 9 s of slide + index > 20 s.
     ("station_time", "slide_too_slow", _slide_at_place(9.0, 9.0), "FAIL"),
     ("station_time", "null_slide_time", _slide_at_place(None, 0.5), "WARN"),

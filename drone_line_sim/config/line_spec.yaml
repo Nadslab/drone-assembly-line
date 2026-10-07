@@ -93,9 +93,10 @@ return_paths:
 
 # ---------- equipment ----------
 # Robot models (D-013): one SCARA product used everywhere. Values from Epson's LS10-B product
-# pages (docs/12 §4); angles in rad (j1 ±132°, j2 ±150°, j4 ±360°). D-014: `motion` v_max/a_max
-# are derived from standard_cycle (estimate_moves.py --calibrate) and run x cycle_derate; null here
-# until a measured motion profile replaces the derivation.
+# pages (docs/12 §4); angles in rad (j1 ±132°, j2 ±150°, j4 ±360°). D-015: `motion.v_max` is the
+# vendor's J1+J2 maximum operating speed; a_max is derived from standard_cycle at that v_max
+# (estimate_moves.py --calibrate) and is null here until a measured motion profile replaces the
+# derivation. Moves run at both x cycle_derate.
 robot_models:
   epson_ls10b_700_z300:
     vendor: Epson LS10-B, 700 mm, Z 300 mm
@@ -105,11 +106,13 @@ robot_models:
     payload_max: 10.0               # kg
     joint_limits: {j1: 2.303835, j2: 2.617994, j4: 6.283185}   # ±132°, ±150°, ±360°
     inertia_rated: 0.02             # kg m^2 about J4
+    inertia_max: 0.3                # kg m^2 about J4; Epson LS10-B 700 spec
     repeatability: 0.00002          # m (±0.02 mm, J1+J2)
     step: /mnt/c/Users/Admin/Documents/drone-line-cad/05_vendor/epson_ls10b_700_z300.step
     link1: 0.325                    # m, measured from Epson STEP LS10-B703S
     link2: 0.375                    # m, measured from Epson STEP LS10-B703S
-    motion: {v_max: null, a_max: null, j4_speed: null}   # TCP m/s, m/s^2; J4 rad/s
+    # TCP m/s, m/s^2; J4 rad/s. v_max: Epson LS10-B 700 spec (J1+J2 max operating speed)
+    motion: {v_max: 9.8, a_max: null, j4_speed: null}
     # Epson LS10-B 700 mm spec sheet
     standard_cycle: {time_s: 0.41, horizontal_m: 0.300, vertical_m: 0.025, payload_kg: 2.0, motion: round_trip_arch}
 

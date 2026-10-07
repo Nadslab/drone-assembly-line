@@ -238,18 +238,27 @@ def test_cli_writes_the_report_and_exits_on_overload(tmp_path, pass_raw):
 
 # ---------------------------------------------------------------- D-014
 
-def test_calibration_reproduces_the_standard_cycle_and_keeps_the_ratio():
-    """Epson LS10-B: 0.41 s for 300 mm across, 25 mm up and down, there and back."""
+def test_calibration_keeps_v_max_and_solves_a_max():
+    """Epson LS10-B (D-015): v_max 9.8 m/s is the vendor's J1+J2 maximum; the standard cycle
+    (0.41 s for 300 mm across, 25 mm up and down, there and back) fixes a_max alone."""
     sc = spec_mod.StandardCycle(time_s=0.41, horizontal_m=0.3, vertical_m=0.025, payload_kg=2.0,
                                 motion="round_trip_arch")
-    c = em.calibrate(sc, 2.0, 10.0)
-    assert c["a_max"] / c["v_max"] == pytest.approx(5.0, rel=1e-4)
-    assert em.standard_cycle_time(sc, c["v_max"], c["a_max"]) == pytest.approx(0.41, abs=1e-4)
-    # Every leg is triangular at these speeds, so only a_max matters: 4 sqrt(d/a) per leg pair.
+    c = em.calibrate(sc, 9.8)
+    assert c["v_max"] == 9.8
+    assert em.standard_cycle_time(sc, 9.8, c["a_max"]) == pytest.approx(0.41, abs=1e-4)
+    # No leg reaches 9.8 m/s (v^2/a = 1.35 m > 0.3 m): every leg is triangular, 4 sqrt(d/a) per
+    # leg pair, so a_max is the D-014 value whatever v_max is above it.
     a = c["a_max"]
+    assert c["reaches_v_max"] == {"vertical": False, "horizontal": False}
     assert 2 * (2 * 2 * math.sqrt(0.025 / a) + 2 * math.sqrt(0.3 / a)) == pytest.approx(0.41,
                                                                                     abs=1e-4)
-    assert em.calibrate(sc, c["v_max"], c["a_max"])["scale"] == pytest.approx(1.0, abs=1e-4)
+    assert a == pytest.approx(71.0444, abs=1e-3)
+    # A v_max low enough to bind: a_max rises to make up for it, the cycle still fits.
+    slow = em.calibrate(sc, 2.0)
+    assert slow["a_max"] > a and slow["reaches_v_max"]["horizontal"]
+    assert em.standard_cycle_time(sc, 2.0, slow["a_max"]) == pytest.approx(0.41, abs=1e-4)
+    # Too slow at any acceleration: 0.7 m of travel at 1 m/s alone is 0.7 s.
+    assert "error" in em.calibrate(sc, 1.0)
 
 
 def test_stored_motion_that_misses_the_standard_cycle_fails(pass_raw):
@@ -261,7 +270,8 @@ def test_stored_motion_that_misses_the_standard_cycle_fails(pass_raw):
     assert any("robot_models.test_scara.motion" in e and "re-run estimate_moves.py --calibrate"
                in e for e in doc["errors"])
     c = em.calibrate(spec_mod.parse_spec(pass_raw).robot_models["test_scara"].standard_cycle,
-                     1.0, 2.0)
+                     2.0)
+    pass_raw["robot_models"]["test_scara"]["motion"]["v_max"] = 2.0
     pass_raw["robot_models"]["test_scara"]["motion"].update(v_max=c["v_max"], a_max=c["a_max"])
     doc = est(pass_raw)
     assert doc["calibration"]["test_scara"]["ok"] is True and doc["passed"]
@@ -295,3 +305,48 @@ def test_around_a_drive_the_scara_parks_and_starts_again_from_park(pass_raw):
     assert g["park_tcp"] == pytest.approx(list(park), abs=1e-4)
     assert step["dist_m"]["place_to_end"] == pytest.approx(math.hypot(park[0] - 0.5, park[1]),
                                                            abs=1e-4)
+
+
+# ---------------------------------------------------------------- D-015
+
+
+def test_a_park_leg_is_timed_in_joint_space(pass_raw):
+    """D-015 (D-014 L): place -> park and park -> pick are J1/J2 rotations, each joint on its own
+    trapezoid at v_max/a_max x derate over its link radius (J1: link1 + link2, J2: link2); the
+    slower joint sets the time. The straight TCP line is not used for them."""
+    from conftest import _slide_at_place
+    _slide_at_place(0.5, 0.5)(pass_raw)
+    spec = spec_mod.parse_spec(pass_raw)
+    g = est(pass_raw)["scaras"]["scara_place"]
+    step = g["steps"][0]
+    k = rg.kin(spec, "scara_place")
+    der = pass_raw["scara_defaults"]["cycle_derate"]
+    v, a = 1.0 * der, 2.0 * der                       # test_scara motion x derate
+    lim = rg.joint_limits_from_tcp(k, v, a)
+    assert lim["j1"] == pytest.approx((v / 0.24, a / 0.24))
+    assert lim["j2"] == pytest.approx((v / 0.12, a / 0.12))
+    park = (2.5, 2.281994)
+    for leg, ends in (("park_to_pick", rg.leg_ends(k, None, step["pick"][:2], ja=park)),
+                      ("place_to_park", rg.leg_ends(k, step["place"][:2], None, jb=park))):
+        (p1, p2), (q1, q2) = ends
+        want = max(em.axis_time(q1 - p1, *lim["j1"]), em.axis_time(q2 - p2, *lim["j2"]))
+        assert step["park_legs"][leg]["time_s"] == pytest.approx(want)
+        assert step["cycle"][leg] == pytest.approx(want, abs=1e-4)
+        assert step["park_legs"][leg]["dj1_deg"] == pytest.approx(math.degrees(q1 - p1), abs=0.01)
+    # The straight line would be shorter: 0.11 m at 0.5 m/s, but the arm swings j1 ~91 deg.
+    assert step["cycle"]["place_to_park"] > em.axis_time(step["dist_m"]["place_to_end"], v, a)
+
+
+def test_cli_stations_estimates_only_that_run(tmp_path, pass_raw):
+    spec = tmp_path / "spec.yaml"
+    spec.write_text(yaml.safe_dump(pass_raw))
+    report = tmp_path / "move_estimate.b.json"
+    proc = subprocess.run([sys.executable, str(TOOLS / "estimate_moves.py"), "--spec", str(spec),
+                           "--report", str(report), "--cad-reports", str(FIXTURES / "cad"),
+                           "--stations", "st_spider", "st_pod", "--name", "b"],
+                          capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    doc = json.loads(report.read_text())
+    assert set(doc["scaras"]) == {"scara_spider", "scara_pod"}
+    assert doc["stations"] == ["st_spider", "st_pod"]
+    assert doc["station_index"]["st_spider"]["from"] == "slot 1 after st_test"

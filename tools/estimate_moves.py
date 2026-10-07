@@ -1,8 +1,9 @@
 """Static move-time estimate: each SCARA's pick-and-places per drone, against the takt budget.
 
     tools/.venv/bin/python tools/estimate_moves.py [--spec PATH] [--dev] [--cad-reports DIR]
-    tools/.venv/bin/python tools/estimate_moves.py --dev --calibrate   # v_max/a_max from the
+    tools/.venv/bin/python tools/estimate_moves.py --dev --calibrate   # a_max from the
                                                                       # standard cycle
+    tools/.venv/bin/python tools/estimate_moves.py --dev --stations st_a,st_b [--name batch]
 
 No ROS, no Gazebo: arithmetic on the spec. One SCARA pick-and-place (D-012) is
 
@@ -18,17 +19,20 @@ model's `motion.v_max`/`a_max` x `scara_defaults.cycle_derate`:
 
 Every time is also given at derate 1.0 (the vendor-optimised speed) for comparison.
 
-Calibration (D-014): `motion.v_max`/`a_max` are derived from the model's `standard_cycle` — the
-same trapezoids over its round trip (up vertical_m, across horizontal_m, down; and back), grip
-and settle excluded, must take its time_s. `--calibrate` keeps the current a_max / v_max ratio
-and solves the one scale factor; every run reports the standard-cycle time at the stored values
-and fails when they no longer reproduce it. A step whose payload (every tool on the
+Calibration (D-014, D-015): `motion.v_max` is the vendor's J1+J2 maximum operating speed;
+`a_max` is derived from the model's `standard_cycle` — the same trapezoids over its round trip
+(up vertical_m, across horizontal_m, down; and back), grip and settle excluded, must take its
+time_s. `--calibrate` keeps v_max and solves a_max; every run reports the standard-cycle time at
+the stored values and fails when they no longer reproduce it. A step whose payload (every tool on the
 end-effector + the part and what rides in it) exceeds standard_cycle.payload_kg is a WARN: its
 times are optimistic there.
 
 Start and end are home — the TCP folded in to the model's r_min, straight out from the base
 towards its station — except around a gang head's drive (D-014): the SCARA step before it ends at
-`park_pose` and the next one starts from there (robot_geometry.park_steps). Z runs between the
+`park_pose` and the next one starts from there (robot_geometry.park_steps). A park leg is timed in
+joint space (D-015): J1 and J2 each on a trapezoid over its own rotation, angular limits =
+v_max/a_max x cycle_derate at the joint's link radius (link1 + link2 for J1, link2 for J2), the
+slower joint setting the time. Z runs between the
 step's own safe_z (tools/robot_geometry.py, path-based, D-013) and the pose's z.
 
 Dual-tool switch (D-013): a step whose tool differs from the SCARA's previous step's (read
@@ -46,6 +50,10 @@ Station time (D-011..D-014): SCARA steps (tool switches and the park moves inclu
 drive_s x passes + slide t_in + t_out + `actuate` step durations + the station's index, against
 takt. The old fixed index (pitch / belt_speed) is reported next to it.
 
+`--stations a,b,...` (D-015) estimates only that run of consecutive stations
+(spec.station_subset; the first one keeps its real upstream gap) into
+reports/move_estimate.<name>[.dev].json (`--name`, default `batch`).
+
 Writes reports/move_estimate.json (`--dev`: move_estimate.dev.json). A null the estimate needs is
 UNRESOLVED, not a failure (the check_line.py convention). Exits non-zero on a failure.
 """
@@ -61,9 +69,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import robot_geometry as rg  # noqa: E402
-from spec import (DEFAULT_SPEC, LineSpec, SpecError, add_dev_argument, index_s,  # noqa: E402
-                  load_merged, parse_spec, queue_gaps, report_path, robot_served, scara_base,
-                  scara_model, station_index)
+from spec import (DEFAULT_SPEC, LineSpec, Merged, SpecError, add_dev_argument,  # noqa: E402
+                  index_s, load_merged, parse_spec, parse_station_list, queue_gaps, report_path,
+                  robot_served, scara_base, scara_model, station_index, station_subset)
 
 STANDARD_CYCLE_TOL_S = 0.001    # stored v_max/a_max must reproduce standard_cycle.time_s this close
 
@@ -89,23 +97,26 @@ def standard_cycle_time(sc, v: float, a: float) -> float:
     return 2.0 * one_way
 
 
-def calibrate(sc, v0: float, a0: float) -> dict:
-    """The one factor k with standard_cycle_time(k v0, k a0) == sc.time_s (keeps a0 / v0), by
-    bisection: the time falls monotonically as k grows."""
-    lo, hi = 1e-6, 1e6
+def calibrate(sc, v: float) -> dict:
+    """The a_max at which the move model covers the standard cycle in sc.time_s with v_max fixed
+    at `v` (D-015: v_max is the vendor's J1+J2 maximum operating speed), by bisection: the time
+    falls monotonically as a grows. {"error"} when even infinite acceleration is too slow at v."""
+    fastest = standard_cycle_time(sc, v, 1e12)
+    if fastest >= sc.time_s:
+        return {"error": f"v_max {v:g} m/s covers the standard cycle in no less than "
+                         f"{fastest:.4f} s > {sc.time_s:g} s"}
+    lo, hi = 1e-6, 1e9
     for _ in range(200):
         mid = math.sqrt(lo * hi)
-        if standard_cycle_time(sc, mid * v0, mid * a0) > sc.time_s:
+        if standard_cycle_time(sc, v, mid) > sc.time_s:
             lo = mid
         else:
             hi = mid
-    k = math.sqrt(lo * hi)
-    v, a = k * v0, k * a0
-    return {"scale": round(k, 6), "v_max": round(v, 4), "a_max": round(a, 4),
-            "ratio_a_over_v": round(a0 / v0, 6),
-            "check_s": round(standard_cycle_time(sc, round(v, 4), round(a, 4)), 5),
-            "reaches_v_max": {"vertical": sc.vertical_m >= v * v / a,
-                              "horizontal": sc.horizontal_m >= v * v / a}}
+    acc = math.sqrt(lo * hi)
+    return {"v_max": v, "a_max": round(acc, 4),
+            "check_s": round(standard_cycle_time(sc, v, round(acc, 4)), 5),
+            "reaches_v_max": {"vertical": sc.vertical_m >= v * v / acc,
+                              "horizontal": sc.horizontal_m >= v * v / acc}}
 
 
 def calibration(spec: LineSpec) -> dict:
@@ -129,9 +140,11 @@ def calibration(spec: LineSpec) -> dict:
 # ---------------------------------------------------------------- one cycle
 
 def cycle(home, pick, place, motion, d, safe_z: float, derate: float = 1.0, end=None,
-          start_label: str = "home", end_label: str = "home") -> dict:
+          start_label: str = "home", end_label: str = "home", start_s: float | None = None,
+          end_s: float | None = None) -> dict:
     """One pick-and-place from `home` (or the start pose) and on to `end` (default: back to
-    home), split into its phases (seconds)."""
+    home), split into its phases (seconds). `start_s` / `end_s` replace the first / last leg's
+    straight-line time (a park leg is timed in joint space, D-015)."""
     v, a = motion.v_max * derate, motion.a_max * derate
     end = home if end is None else end
 
@@ -141,7 +154,7 @@ def cycle(home, pick, place, motion, d, safe_z: float, derate: float = 1.0, end=
     down_pick = t(safe_z - pick[2])
     down_place = t(safe_z - place[2])
     out = {
-        f"{start_label}_to_pick": t(plan_dist(home, pick)),
+        f"{start_label}_to_pick": t(plan_dist(home, pick)) if start_s is None else start_s,
         "z_down_pick": down_pick + d.settle_s,
         "grip": d.grip_s,
         "z_up_pick": down_pick + d.settle_s,
@@ -149,11 +162,45 @@ def cycle(home, pick, place, motion, d, safe_z: float, derate: float = 1.0, end=
         "z_down_place": down_place + d.settle_s,
         "release": d.release_s,
         "z_up_place": down_place + d.settle_s,
-        f"place_to_{end_label}": t(plan_dist(place, end)),
+        f"place_to_{end_label}": t(plan_dist(place, end)) if end_s is None else end_s,
     }
     out = {k: round(val, 4) for k, val in out.items()}
     out["total"] = round(sum(out.values()), 4)
     return out
+
+
+def joint_move_time(k: rg.Kin, ja, jb, motion, derate: float) -> dict:
+    """A point-to-point move between two joint poses (D-015, fixes D-014 L): J1 and J2 each on
+    a trapezoid over its own rotation, with angular limits from v_max/a_max x derate at its link
+    radius (rg.joint_limits_from_tcp); the joints move together, so the slower one sets the time.
+    {"time_s", "dj1_deg", "dj2_deg", "j1_s", "j2_s"}."""
+    lim = rg.joint_limits_from_tcp(k, motion.v_max * derate, motion.a_max * derate)
+    d1, d2 = jb[0] - ja[0], jb[1] - ja[1]
+    t1, t2 = axis_time(d1, *lim["j1"]), axis_time(d2, *lim["j2"])
+    return {"time_s": max(t1, t2), "dj1_deg": round(math.degrees(d1), 2),
+            "dj2_deg": round(math.degrees(d2), 2), "j1_s": round(t1, 4), "j2_s": round(t2, 4)}
+
+
+def park_legs(k: rg.Kin, pick, place, park_j, starts: bool, ends: bool, motion, derate: float
+              ) -> tuple[dict | None, dict | None, list[str]]:
+    """Joint-space timing of the park legs of one step: park -> pick (when it `starts` at park)
+    and place -> park (when it `ends` there). The pick/place end takes its IK solution on the
+    park pose's elbow side with the least j1 travel (rg.leg_ends, as the paths do)."""
+    first = last = None
+    errors = []
+    if starts:
+        e = rg.leg_ends(k, None, pick[:2], ja=park_j)
+        if e is None:
+            errors.append("park -> pick: no IK solution on the park pose's elbow side")
+        else:
+            first = joint_move_time(k, e[0], e[1], motion, derate)
+    if ends:
+        e = rg.leg_ends(k, place[:2], None, jb=park_j)
+        if e is None:
+            errors.append("place -> park: no IK solution on the park pose's elbow side")
+        else:
+            last = joint_move_time(k, e[0], e[1], motion, derate)
+    return first, last, errors
 
 
 def _nulls(label: str, values: dict) -> list[str]:
@@ -191,8 +238,11 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
                                    "there (D-014)",
                            "tool_switch": "pi / (j4_speed x cycle_derate), in series",
                            "profile": "trapezoid on the TCP distance (plan straight line, or "
-                                      "the Z drop) at cycle_derate x motion.v_max/a_max, "
-                                      "calibrated to standard_cycle (D-014)"}}
+                                      "the Z drop) at cycle_derate x motion.v_max/a_max, a_max "
+                                      "calibrated to standard_cycle (D-014, D-015)",
+                           "park_legs": "joint space: J1, J2 trapezoids at v_max/a_max x "
+                                        "cycle_derate over link1 + link2 (J1) and link2 (J2); "
+                                        "the slower joint sets the time (D-015)"}}
     for mid, row in cal.items():
         if row["ok"] is False:
             doc["errors"].append(f"robot_models.{mid}.motion: v_max {row['v_max']:g} / a_max "
@@ -275,14 +325,23 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
         for key, k_derate in (("plan", derate), ("at_1", 1.0)):
             total = 0.0
             sw = switch_time(spec, sid, k_derate) if switches else 0.0
-            for i, (s, pick, plc) in enumerate(legs):
+            for s, pick, plc in legs:
                 qty = s.qty or 1
                 z = sz.steps[s.id]["safe_z"]
                 first = park if s.id in starts else home
                 last = park if s.id in ends else home
+                pf, pl, perr = park_legs(k, pick, plc, row["park_pose"], s.id in starts,
+                                         s.id in ends, model.motion, k_derate) \
+                    if (s.id in starts or s.id in ends) else (None, None, [])
+                if perr:
+                    if key == "plan":
+                        row["errors"] += [f"{s.id}: {e}" for e in perr]
+                        doc["errors"] += [f"{sid}: {s.id}: {e}" for e in perr]
+                    continue
                 one = cycle(first, pick, plc, model.motion, d, z, k_derate, end=last,
                             start_label="park" if s.id in starts else "home",
-                            end_label="park" if s.id in ends else "home")
+                            end_label="park" if s.id in ends else "home",
+                            start_s=pf and pf["time_s"], end_s=pl and pl["time_s"])
                 if qty > 1:         # the repeats run home to home; only the ends touch park
                     rep = cycle(home, pick, plc, model.motion, d, z, k_derate)
                     step_t = one["total"] + (qty - 1) * rep["total"]
@@ -300,10 +359,13 @@ def estimate(spec: LineSpec, cad: rg.CadHeights | None = None) -> dict:
                         "dist_m": {"start_to_pick": round(plan_dist(first, pick), 4),
                                    "pick_to_place": round(plan_dist(pick, plc), 4),
                                    "place_to_end": round(plan_dist(plc, last), 4)},
+                        "park_legs": {k_: v_ for k_, v_ in (("park_to_pick", pf),
+                                                             ("place_to_park", pl)) if v_},
                         "cycle": one, "tool_switch_s": round(switch, 4),
                         "time_s": round(step_s, 3)})
                 else:
-                    row["steps"][i]["time_s_at_1"] = round(step_s, 3)
+                    next(x for x in row["steps"] if x["id"] == s.id)["time_s_at_1"] = \
+                        round(step_s, 3)
                 total += step_s
             totals[key] = total
             if key == "plan":
@@ -471,14 +533,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--cad-reports", type=Path, default=None,
                     help=f"where cad_<part>.json live (default {rg.CAD_REPORTS})")
     ap.add_argument("--calibrate", action="store_true",
-                    help="print v_max/a_max that reproduce each model's standard_cycle (the "
-                         "current a_max / v_max ratio kept) and exit")
+                    help="print the a_max that reproduces each model's standard_cycle at its "
+                         "stored v_max (kept) and exit")
+    ap.add_argument("--stations", nargs="+", default=None,
+                    help="estimate only these consecutive stations (comma or space separated, "
+                         "D-015); report reports/move_estimate.<name>[.dev].json")
+    ap.add_argument("--name", default="batch", help="report name for --stations (default batch)")
     add_dev_argument(ap)
     args = ap.parse_args(argv)
 
-    report = args.report or report_path("move_estimate", args.dev)
+    stations = parse_station_list(args.stations)
+    report = args.report or report_path(
+        f"move_estimate.{args.name}" if stations else "move_estimate", args.dev)
     try:
         merged = load_merged(args.spec, args.dev)
+        if stations:
+            merged = Merged(station_subset(merged.raw, stations), merged.placeholders,
+                            merged.shadowed)
         spec = parse_spec(merged.raw)
     except SpecError as exc:
         doc = {"passed": False, "dev": args.dev, "errors": exc.errors}
@@ -489,18 +560,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.calibrate:
         code = 0
         for mid, m in spec.robot_models.items():
-            if m.standard_cycle is None or m.motion.v_max is None or m.motion.a_max is None:
-                print(f"calibrate {mid}: no standard_cycle or no v_max/a_max ratio to keep")
+            if m.standard_cycle is None or m.motion.v_max is None:
+                print(f"calibrate {mid}: no standard_cycle or no v_max to keep")
                 code = 1
                 continue
-            c = calibrate(m.standard_cycle, m.motion.v_max, m.motion.a_max)
-            print(f"calibrate {mid}: x{c['scale']:g} -> v_max {c['v_max']:g} m/s, a_max "
-                  f"{c['a_max']:g} m/s^2 (a/v {c['ratio_a_over_v']:g}); standard cycle "
-                  f"{c['check_s']:.4f} s; reaches v_max: {c['reaches_v_max']}")
+            c = calibrate(m.standard_cycle, m.motion.v_max)
+            if "error" in c:
+                print(f"calibrate {mid}: FAIL — {c['error']}")
+                code = 1
+                continue
+            print(f"calibrate {mid}: v_max {c['v_max']:g} m/s (kept) -> a_max {c['a_max']:g} "
+                  f"m/s^2; standard cycle {c['check_s']:.4f} s; reaches v_max: "
+                  f"{c['reaches_v_max']}")
         return code
     est = estimate(spec, rg.CadHeights(args.cad_reports, args.dev))
     rows = station_times(spec, est)
-    doc = {"dev": args.dev, **est, "station_times": rows,
+    doc = {"dev": args.dev, "stations": stations, **est, "station_times": rows,
            "placeholders": [p["path"] for p in merged.placeholders]}
     doc["passed"] = est["passed"] and all(r["status"] != "FAIL" for r in rows.values())
     report.parent.mkdir(parents=True, exist_ok=True)
@@ -508,6 +583,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.dev:
         print(f"DEV MODE: {len(merged.placeholders)} placeholder value(s) from the overlay; "
               "results are not deliverable")
+    if stations:
+        print(f"STATIONS {args.name}: {', '.join(merged.raw['stations'])}")
     print_table(doc)
     print_gaps(doc)
     print("station_time = SCARA steps (+ tool switches, park moves) + drive_s x passes + slide "

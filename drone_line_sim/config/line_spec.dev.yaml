@@ -9,8 +9,8 @@
 # Layout assumptions (D-013: everything is an anchor gap or an offset in a station's frame, the
 # poses are derived): stations on a straight line along +x from station 1 (the origin, y = 0).
 # Every working station is one cell in the same pattern: its SCARA stands 0.45 m out on -y facing
-# the line, its sources (and its return chute) 0.35 m either side of it in x, 0.25 m out on -y,
-# and its gang head waits on its slide on +y. Gaps: 1.4 m inside a milestone (2 x the 0.7 m
+# the line, its sources (and its return chute) 0.35 m either side of it in x, 0.25 m out on -y
+# (0.27 m at A and B since the 0.32 m pallet, D-015), and its gang head waits on its slide on +y. Gaps: 1.4 m inside a milestone (2 x the 0.7 m
 # reach: no shared reach zone), 2.0 m across a milestone boundary (the partition wall stands
 # guard_offset clear of both envelopes). Every offset z is on the datum plane, so
 # `line.work_height` alone says how high the line stands.
@@ -101,7 +101,7 @@ drone:
 
 feeders:
   fd_mid_plate:
-    offset: [0.35, -0.25, 0.1, null]     # PLACEHOLDER
+    offset: [0.35, -0.27, 0.1, null]     # PLACEHOLDER (D-015: 13 mm clear of the 0.32 m pallet lane)
     refill_s: 60.0                       # PLACEHOLDER
   fd_top_plate:
     offset: [0.35, -0.25, 0.1, null]     # PLACEHOLDER
@@ -110,7 +110,7 @@ feeders:
     offset: [0.35, -0.25, 0.17, null]    # PLACEHOLDER (218 mm magazine clears the frame top)
     refill_s: 60.0                       # PLACEHOLDER
   fd_standoff:
-    offset: [0.35, -0.25, 0.15, null]    # PLACEHOLDER (nest pick plane)
+    offset: [0.35, -0.27, 0.15, null]    # PLACEHOLDER (nest pick plane; D-015: clear of the 0.32 m pallet lane)
     refill_s: 300.0                      # PLACEHOLDER
   fd_screw_m3x8:
     feed_s: 0.5                          # PLACEHOLDER
@@ -124,7 +124,7 @@ sources:
     buffer_capacity: 3                   # PLACEHOLDER
 buffers:
   buf_spider:
-    offset: [-0.35, -0.25, 0.1, null]    # PLACEHOLDER
+    offset: [-0.35, -0.27, 0.1, null]    # PLACEHOLDER (D-015: clear of the 0.32 m pallet lane)
   buf_pod:
     offset: [-0.35, -0.25, 0.1, null]    # PLACEHOLDER
   buf_plate:
@@ -142,12 +142,11 @@ return_paths:
     length: 1.4                          # PLACEHOLDER
     width: 0.20                          # PLACEHOLDER
 
-# Motion (D-014): v_max/a_max derived from standard_cycle by estimate_moves.py --calibrate, keeping
-# the earlier dev ratio a_max / v_max = 10 / 2 (that ratio is the placeholder in them).
+# Motion (D-015): v_max 9.8 m/s is real (base spec); a_max is derived from standard_cycle at that
+# v_max by estimate_moves.py --calibrate. The series move model is the placeholder in it.
 robot_models:
   epson_ls10b_700_z300:
     motion:
-      v_max: 14.2089                     # PLACEHOLDER (derived from standard_cycle; m/s, TCP)
       a_max: 71.0444                     # PLACEHOLDER (derived from standard_cycle; m/s^2, TCP)
       j4_speed: 20.0                     # PLACEHOLDER (rad/s, times the dual-tool switch)
 
@@ -177,10 +176,10 @@ tools:
 scaras:
   scara_build_frame:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER (beside the belt on -y, facing +y)
-    park_pose: {j1: 0.8029, j2: 2.617994}     # PLACEHOLDER (auto-chosen) j1 46°, j2 150°, clears 31 mm
+    park_pose: {j1: -2.2689, j2: 2.268928}    # PLACEHOLDER (auto-chosen) j1 -130°, j2 130°, clears 32 mm in plan
   scara_seat_esc:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER
-    park_pose: {j1: -0.9163, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -52.5°, j2 150°, clears 30 mm
+    park_pose: {j1: -0.9163, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -52.5°, j2 150°, clears 30 mm in plan
   scara_fit_pod:
     offset: [0.0, -0.45, 0.0, 1.570796]  # PLACEHOLDER
     park_pose: {j1: -0.9599, j2: 2.617994}    # PLACEHOLDER (auto-chosen) j1 -55°, j2 150°, clears 52 mm
@@ -264,12 +263,12 @@ layout:
     top_height: 0.93                     # PLACEHOLDER
     belt_speed: 0.3                      # PLACEHOLDER
   pallet_block:
-    length: 0.20                         # PLACEHOLDER (tools/cad/pallet.py body)
-    width: 0.20                          # PLACEHOLDER
+    length: 0.32                         # PLACEHOLDER (7-inch footprint ~244 mm + carrier/gripper/pin margin; final from pallet.py)
+    width: 0.32                          # PLACEHOLDER (7-inch footprint ~244 mm + carrier/gripper/pin margin; final from pallet.py)
     thickness: 0.02                      # PLACEHOLDER
   stop_unit_length: 0.30                 # PLACEHOLDER
   stop_unit_cycle_s: 1.0                 # PLACEHOLDER
-  slot_gap: 0.05                         # PLACEHOLDER (pallets queue at 0.25 m pitch)
+  slot_gap: 0.05                         # PLACEHOLDER (pallets queue at 0.37 m pitch)
   scara_base:
     diameter: 0.20                       # PLACEHOLDER
     height: 1.25                         # PLACEHOLDER (floor to the shoulder, 0.3 m over the datum)

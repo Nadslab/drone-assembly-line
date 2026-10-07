@@ -1,7 +1,8 @@
 """Static checks on line_spec.yaml (P2). No ROS, no Gazebo.
 
     tools/.venv/bin/python tools/check_line.py [--spec PATH] [--report PATH] [--dev]
-                                               [--milestone NAME] [-v]
+                                               [--milestone NAME | --stations IDS [--name N]]
+                                               [-v]
 
 Prints a table, writes reports/line_check.json (`passed: true|false`), and exits non-zero on
 any FAIL. WARN never fails the run: a `null` in the spec is WARN "UNRESOLVED" until the phase
@@ -9,7 +10,9 @@ that needs the value.
 
 `--milestone NAME` checks only that milestone (D-012): its stations, their SCARAs and gang heads,
 and the feeders and buffers they draw from (spec.milestone_subset), and writes
-reports/line_check.<name>.json.
+reports/line_check.<name>.json. `--stations a,b,...` (D-015) does the same for any run of
+consecutive stations (spec.station_subset; the first keeps its real upstream gap for the index),
+writing reports/line_check.<--name, default batch>.json.
 """
 
 from __future__ import annotations
@@ -27,8 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import estimate_moves  # noqa: E402
 import robot_geometry as rg  # noqa: E402
 from spec import (DEFAULT_SPEC, REPO, LineSpec, Merged, SpecError, add_dev_argument,  # noqa: E402
-                  load_merged, milestone_subset, parse_spec, report_path, robot_served,
-                  scara_base, scara_id, scara_model)
+                  load_merged, milestone_subset, parse_spec, parse_station_list, report_path,
+                  robot_served, scara_base, scara_id, scara_model, station_subset)
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 
@@ -638,8 +641,10 @@ def check_park_clearance(spec: LineSpec, r: Result) -> None:
     `park_pose`. The arm there — link capsules sized from the vendor STEP (vendor_<model>.json),
     the shaft and the end-effector's tools, TCP at the top of its stroke — against every head's
     working envelope at that station (the head at its working position plus its slide frame).
-    FAIL on any overlap or a park pose outside the joint limits; the clearance per station is
-    reported. A null park pose, a missing capsule report or a null frame is UNRESOLVED."""
+    D-015: the clearance is in plan (XY): no part of the parked arm may be over or under the
+    working envelope; height separation is only extra margin (reported as clearance_3d_m).
+    FAIL on any plan overlap or a park pose outside the joint limits. A null park pose, a missing
+    capsule report or a null frame is UNRESOLVED."""
     r.info["stations"] = {}
     for sid, sc in spec.scaras.items():
         ends, starts = rg.park_steps(spec, sid)
@@ -660,13 +665,63 @@ def check_park_clearance(spec: LineSpec, r: Result) -> None:
             r.unresolved(u)
         r.info["stations"][sc.station] = {
             "scara": sid, "park_pose_deg": [round(math.degrees(j), 2) for j in joints],
-            "heads": pc["heads"], "clearance_m": pc["clearance_m"], "nearest": pc["nearest"]}
+            "heads": pc["heads"], "clearance_m": pc["clearance_m"],
+            "clearance_3d_m": pc["clearance_3d_m"], "nearest": pc["nearest"]}
         for pair in pc["pairs"]:
             if pair["clearance_m"] < -rg.EPS:
                 r.add(FAIL, f"{sid} parked at j1 {math.degrees(joints[0]):.1f}°, j2 "
                             f"{math.degrees(joints[1]):.1f}°: its {pair['arm']} overlaps "
-                            f"{pair['head']} {pair['part']} by {-pair['clearance_m'] * 1000:.1f} "
-                            "mm")
+                            f"{pair['head']} {pair['part']} in plan by "
+                            f"{-pair['clearance_m'] * 1000:.1f} mm (3D "
+                            f"{pair['clearance_3d_m'] * 1000:.1f} mm)")
+
+
+def check_path_clearance(spec: LineSpec, r: Result) -> None:
+    """D-015 (D-014 M): every SCARA path — start -> pick, pick -> place, place -> end (home or
+    park), and the dual-tool switch — sampled along its joint-space path, the arm's capsules
+    (links, shaft, tools; TCP at the step's safe_z, down to the pick/place, up to the top of the
+    stroke on a park leg) against every gang head at its station waiting retracted on its slide
+    and that head's slide frame. FAIL on contact or a 3D clearance under PATH_CLEAR_M."""
+    need = r.cfg.get("path_clear", rg.PATH_CLEAR_M)
+    r.info["need_m"] = need
+    r.info["stations"] = {}
+    for sid, sc in spec.scaras.items():
+        pc = rg.path_clearance(spec, sid, r.cfg["cad"])
+        for u in pc["unresolved"]:
+            r.unresolved(u)
+        if not pc["heads"]:
+            continue
+        r.info["stations"][sc.station] = {"scara": sid, "heads": pc["heads"],
+                                          "clearance_m": pc["clearance_m"],
+                                          "nearest": pc["nearest"], "steps": pc["steps"]}
+        for step, legs in pc["steps"].items():
+            for leg, d in legs.items():
+                if d["clearance_m"] < need - rg.EPS:
+                    r.add(FAIL, f"{sid}: {step} {leg}: its {d['arm']} comes "
+                                f"{d['clearance_m'] * 1000:.1f} mm from {d['head']} {d['part']};"
+                                f" needs {need * 1000:g} mm")
+
+
+def check_refill_clearance(spec: LineSpec, r: Result) -> None:
+    """D-015: a buffer a source refills while the SCARA is parked keeps its refill envelope (the
+    column over its footprint from its pick plane up) free: the parked arm and its legs into and
+    out of park must not cross it. A leg out of park that picks from that buffer is excluded (the
+    refill finishes first). FAIL on any crossing."""
+    r.info["stations"] = {}
+    for sid, sc in spec.scaras.items():
+        rc = rg.refill_clearance(spec, sid, r.cfg["cad"])
+        for u in rc["unresolved"]:
+            r.unresolved(u)
+        if not rc["buffers"]:
+            continue
+        r.info["stations"][sc.station] = {"scara": sid, "clearance_m": rc["clearance_m"],
+                                          "nearest": rc["nearest"], "buffers": rc["buffers"],
+                                          "excluded": rc["excluded"]}
+        for bid, row in rc["buffers"].items():
+            for where, d in row.items():
+                if d["clearance_m"] < -rg.EPS:
+                    r.add(FAIL, f"{sid}: {d['at']}: its {d['arm']} crosses {bid}'s refill "
+                                f"envelope by {-d['clearance_m'] * 1000:.1f} mm")
 
 
 def check_slide_clearance(spec: LineSpec, r: Result) -> None:
@@ -734,19 +789,29 @@ def check_payload(spec: LineSpec, r: Result) -> None:
 
 
 def check_wrist_inertia(spec: LineSpec, r: Result) -> None:
-    """Sum of (I_cm + m r^2) about J4 for the tools and the carried part (D-013, docs/12 §4),
-    against the model's inertia_rated. Above it the robot still works with reduced J4
-    acceleration, so it is a WARN; UNRESOLVED if any mass is null."""
+    """Sum of (I_cm + m r^2) about J4 for the tools and the carried part (D-013, docs/12 §4).
+    Above the model's inertia_rated the robot still works with reduced J4 acceleration: WARN.
+    Above inertia_max it cannot carry it: FAIL (D-015). UNRESOLVED if any mass is null, or
+    inertia_max is not stated."""
     for sid in spec.scaras:
         w = rg.wrist_load(spec, sid, r.cfg["cad"])
+        imax = scara_model(spec, sid).inertia_max
         r.info.setdefault("scaras", {})[sid] = {k: w[k] for k in (
-            "tools_inertia", "part", "part_inertia", "inertia", "inertia_rated")}
+            "tools_inertia", "part", "part_inertia", "inertia", "inertia_rated")} | {
+            "inertia_max": imax}
         if w["missing"]:
             r.unresolved(f"{sid}: wrist inertia not evaluable ({', '.join(w['missing'])})")
-        elif w["inertia"] > w["inertia_rated"] + rg.EPS:
-            r.add(WARN, f"{sid}: {w['inertia']:.4f} kg m^2 about J4 (tools "
-                        f"{w['tools_inertia']:.4f} + {w['part']} {w['part_inertia']:.4f}) > "
-                        f"inertia_rated {w['inertia_rated']:g}: J4 acceleration must be reduced")
+            continue
+        detail = (f"{w['inertia']:.4f} kg m^2 about J4 (tools {w['tools_inertia']:.4f} + "
+                  f"{w['part']} {w['part_inertia']:.4f})")
+        if imax is None:
+            r.unresolved(f"robot_models.{spec.scaras[sid].model}.inertia_max is not stated")
+        elif w["inertia"] > imax + rg.EPS:
+            r.add(FAIL, f"{sid}: {detail} > inertia_max {imax:g}")
+            continue
+        if w["inertia"] > w["inertia_rated"] + rg.EPS:
+            r.add(WARN, f"{sid}: {detail} > inertia_rated {w['inertia_rated']:g}: J4 "
+                        "acceleration must be reduced")
 
 
 def check_feeder_rate(spec: LineSpec, r: Result) -> None:
@@ -899,6 +964,8 @@ CHECKS = [
     ("safe_z", check_safe_z),
     ("park_clearance", check_park_clearance),
     ("slide_clearance", check_slide_clearance),
+    ("path_clearance", check_path_clearance),
+    ("refill_clearance", check_refill_clearance),
     ("payload", check_payload),
     ("wrist_inertia", check_wrist_inertia),
     ("robot_load", check_robot_load),
@@ -959,7 +1026,8 @@ def _summary(r: Result) -> str:
             top = max(done, key=lambda s: done[s]["total_s"])
             return (f"max {top} {done[top]['total_s']:.2f} s of {done[top]['takt_s']:g} s"
                     + (" — " + _count(r) if r.status == FAIL else ""))
-    if r.name in ("park_clearance", "slide_clearance") and r.info.get("stations") \
+    if r.name in ("park_clearance", "slide_clearance", "path_clearance", "refill_clearance") \
+            and r.info.get("stations") \
             and any(d["clearance_m"] is not None for d in r.info["stations"].values()):
         return ", ".join(f"{st} {d['clearance_m'] * 1000:.0f} mm"
                          for st, d in r.info["stations"].items()
@@ -1057,16 +1125,28 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--milestone", default=None,
                     help="check only this milestone's stations and their robots, feeders and "
                          "buffers (D-012); report reports/line_check.<name>[.dev].json")
+    ap.add_argument("--stations", nargs="+", default=None,
+                    help="check only these consecutive stations (comma or space separated) and "
+                         "their robots, heads, feeders, buffers and return paths (D-015)")
+    ap.add_argument("--name", default="batch",
+                    help="report name for --stations: reports/line_check.<name>[.dev].json")
     ap.add_argument("-v", "--verbose", action="store_true", help="also print warnings")
     args = ap.parse_args(argv)
+    stations = parse_station_list(args.stations)
+    if stations and args.milestone:
+        ap.error("--milestone and --stations are exclusive")
 
-    name = f"line_check.{args.milestone}" if args.milestone else "line_check"
+    name = (f"line_check.{args.milestone}" if args.milestone
+            else f"line_check.{args.name}" if stations else "line_check")
     report = args.report or report_path(name, args.dev)
     t0 = time.monotonic()
     try:
         merged = load_merged(args.spec, args.dev)
         if args.milestone:
             merged = Merged(milestone_subset(merged.raw, args.milestone), merged.placeholders,
+                            merged.shadowed)
+        elif stations:
+            merged = Merged(station_subset(merged.raw, stations), merged.placeholders,
                             merged.shadowed)
     except SpecError as exc:
         write_report([Result("schema", [(FAIL, e) for e in exc.errors])], False, args.spec,
@@ -1083,6 +1163,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  [WARN] overlay {sh['path']}={sh['overlay']!r} ignored: base has {sh['base']!r}")
     if args.milestone:
         print(f"MILESTONE {args.milestone}: {', '.join(merged.raw['stations'])}")
+    elif stations:
+        print(f"STATIONS {args.name}: {', '.join(merged.raw['stations'])}")
     print_table(results, passed, args.verbose)
     return 0 if passed else 1
 

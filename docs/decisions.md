@@ -1035,3 +1035,157 @@ than D-013's 1 m/s, 5 m/s². A pick-and-place is now ~1.8–2.3 s, against ~3.3 
 - Wrist inertia, the spider-carrier bridge vs the mid plate and head, gap B (fasteners for
   drive_esc / drive_pod / drive_side_plates / drive_top_plate) and gap C (mount_servo parked) are
   carried.
+
+---
+
+## D-015 — Batch 1: real SCARA speed, arc park timing, path and refill checks, pallet 0.32
+
+**Date:** 2026-10-06
+
+**Context.** D-014 left K (calibrated v_max 14.2 m/s, not physical), L (park legs timed on the
+TCP's straight line) and M (slide frames not checked along the arm's paths) open. This batch
+takes them on for st_load_pallet, st_build_frame (A) and st_seat_esc (B) only, and sizes the
+pallet for a 7" drone.
+
+**Decision — station batches (`--stations`).** `check_line.py`, `estimate_moves.py`,
+`layout.py` and `choose_park.py` take `--stations a,b,...`:
+- `spec.station_subset` cuts the spec to a run of consecutive stations. It keeps their SCARAs,
+  heads, feeders, buffers, return paths and sources. `milestone_subset` is now the same cut,
+  by name.
+- The first station keeps its real upstream gap (`entry`), so its index is unchanged.
+- Each milestone keeps its stations in the run, so a partition inside the batch is still drawn.
+- A run that is not consecutive, or names an unknown station, is a SpecError.
+- Reports are `<tool>.<--name>[.dev].json`; layout writes `60_layout/dev/batch/`.
+
+**Decision — real SCARA speed (fixes K).** In the base spec, "Epson LS10-B 700 spec":
+- `robot_models.epson_ls10b_700_z300.motion.v_max: 9.8` m/s (J1+J2 max operating speed);
+- `inertia_max: 0.3` kg·m².
+
+`--calibrate` now keeps v_max and solves a_max only. Result: **a_max = 71.0444 m/s²**, unchanged
+from D-014. At 9.8 m/s no leg of the standard cycle reaches v_max (v²/a = 1.35 m, longer than the
+0.30 m horizontal leg), so the 0.41 s fixes a alone. a_max stays a PLACEHOLDER in the overlay:
+the series move model is the assumption in it. `cycle_derate` 0.5 is kept (PLACEHOLDER), so moves
+plan at 4.9 m/s and 35.5 m/s².
+
+**Decision — wrist inertia limits.** `wrist_inertia` WARNs above inertia_rated (J4 must slow
+down) and FAILs above inertia_max. A null inertia_max is UNRESOLVED. A: 0.0112, B: 0.0091 kg·m²,
+both under 0.02.
+
+**Decision — park legs in joint space (fixes L).** place → park and park → pick are now J1/J2
+rotations:
+- Each joint runs its own trapezoid. Angular limits are v_max / a_max × derate at the joint's link
+  radius: link1 + link2 (0.70 m) for J1, link2 (0.375 m) for J2. At ×0.5: J1 7.0 rad/s,
+  50.7 rad/s²; J2 13.1 rad/s, 94.7 rad/s².
+- The slower joint sets the time.
+- The pick/place end takes its IK solution on the park pose's elbow side with the least j1
+  travel, the same rule as the paths.
+
+The other legs stay straight-line TCP trapezoids.
+
+**Decision — new check `path_clearance` (fixes M).** It covers every leg of every SCARA step:
+start → pick, pick → place, place → end (home or park), and the dual-tool switch at the step's
+start.
+- Each leg is sampled along its joint path (48 steps).
+- The arm is its capsules (link1, link2, shaft, tools disc). It is checked against every head at
+  the station, waiting retracted on its slide, and that head's rail and post.
+- TCP z at each sample:
+  - the step's safe_z;
+  - the end sample also goes down to the pick or place z;
+  - on a park leg, Z is interpolated with J1/J2 from safe_z to the top of the stroke.
+- The links do not move in z: only the shaft and tools follow the TCP (`arm_capsules(tcp=)`).
+- 3D clearance; FAIL on contact or under 0.02 m.
+
+The first version held a park leg at safe_z..top along the whole leg. That put the tools beside
+the rail at the place point and failed E at 15.1 mm. A point-to-point move interpolates Z with
+the joints, as the plan path already does, so the leg was corrected; the threshold is unchanged.
+
+**Decision — `park_clearance` in plan.** The parked arm must clear the working head and its
+frame in XY. Height separation is only extra margin, reported as `clearance_3d_m`. FAIL on any
+plan overlap. The fixture shows the difference: link2 2 mm above a head but 30 mm over it in
+plan now FAILs.
+
+**Decision — new check `refill_clearance`.**
+- **Envelope.** A buffer at a SCARA's station that a source refills has a refill envelope: the
+  column over its footprint, from its pick plane up.
+- **Rule.** The parked arm, and its legs into and out of park, must not cross it.
+- **Exception.** A leg out of park that picks from that buffer ends in it by design. It is listed
+  as `excluded`: the refill must finish first, which is an interlock, not geometry.
+- **Not covered.** Operator-refilled magazines (`feeders`) are not covered.
+
+**Decision — park re-chosen for A and B.**
+- `choose_park` now requires all of:
+  - plan park clearance ≥ 0.03 m;
+  - parked refill clearance ≥ 0.03 m;
+  - refill paths ≥ 0;
+  - path_clearance ≥ 0.02 m.
+- Search order: j2 at its limit first (D-014). Only if no pose works there is j2 eased in 5°
+  steps; the most folded level that works wins.
+- **A.** No folded pose works:
+  - with the elbow on the −x side, the elbow stands over `buf_spider` at the place pose;
+  - with the elbow on the +x side, the TCP sweeps across `buf_spider` on its way to a −x park;
+  - a +x park folded to 150° brings the tool disc back within 30 mm of the head in plan.
+
+  A now parks at **j1 −130°, j2 130°** (fold eased 20°) on the fd_mid_plate side.
+- **B.** Unchanged: j1 −52.5°, j2 150°.
+
+**Decision — pallet 0.32 m.** `layout.pallet_block.length/width: 0.32` (PLACEHOLDER: "7-inch
+footprint ~244 mm + carrier/gripper/pin margin; final from pallet.py"). The slot pitch follows:
+0.37 m.
+- **Fewer slots.** The 1.0 m gap into A holds 1 slot (was 3), entered over 0.63 m. The 2.0 m gap
+  into B holds 4 (was 7), entered over 0.52 m.
+- **Layout interferences.** layout.py then found two:
+  - **Pallet lane.** The pallets leaving A ran 7 mm into `fd_mid_plate` (magazine edge at
+    y −0.153, pallet edge at −0.16).
+  - **Partition.** A queued pallet hit the partition: the guard tunnels were cut conveyor-wide
+    (0.30 m), narrower than the pallet.
+- **Fixes.**
+  - Tunnels are now cut to the wider of belt and pallet.
+  - A's and B's sources (`fd_mid_plate`, `buf_spider`, `fd_standoff`, PLACEHOLDER) moved from
+    y −0.25 to −0.27: 13–20 mm clear of the pallet lane.
+
+**Result on the dev overlay (PLACEHOLDER values, not deliverable).** pytest: 478 passed.
+`check_line.py --dev` PASS on the full line. `--stations st_load_pallet,st_build_frame,
+st_seat_esc` PASS. `estimate_moves.py --dev --stations ...` PASS. `layout.py --dev --stations
+...`: 58 solids, 0 interferences, STEP hierarchy and opacity verified, 0 mm³ STEP overlap at
+both park poses.
+
+| station | SCARA | drive | slide | pins | index | total | % takt | D-014 total |
+|---|---|---|---|---|---|---|---|---|
+| st_load_pallet | — (load 6.00, PH) | — | — | — | 2.23 | 8.23 | 40.8% | — |
+| st_build_frame | 4.79 | 3.00 | 1.00 | 0.50 | 3.10 | **12.39** | 61.3% | 10.79 |
+| st_seat_esc | 4.46 | 3.00 | 1.00 | — | 2.73 | **11.20** | 55.4% | 10.29 |
+
+- **Index** (+1.27 s at A, +0.90 s at B): the wider pallet leaves fewer, coarser slots, so the
+  pallet enters over a longer distance.
+- **A's SCARA** (+0.32 s): its park legs swing j1 75° (place → park, 0.33 s) and 131°
+  (park → buf_spider, 0.46 s, J1-limited).
+- **B's park legs** move j2 50° each (0.19 s).
+- The loader's time is its `load_pallet` duration (PLACEHOLDER) plus its index; station_time
+  has no row for it.
+
+| | A | B |
+|---|---|---|
+| park pose | −130° / 130° | −52.5° / 150° |
+| park_clearance (plan) | 32 mm (tools to head) | 30 mm (tools to head) |
+| path_clearance | 70 mm (link2 to rail, place_spider) | 47 mm (tools to rail, park → pick) |
+| slide_clearance | 40 mm | 40 mm |
+| refill_clearance (buf_spider) | parked 215 mm, path 181 mm | — (no refilled buffer) |
+| wrist inertia (rated 0.02 / max 0.3) | 0.0112 | 0.0091 |
+
+**Unresolved (not tuned away):**
+- **Parked arms over operator-refilled sources.** The park renders show A's link2 over
+  `fd_mid_plate` and B's over `fd_standoff` in plan. refill_clearance covers only buffers a
+  source refills. If an operator refills a magazine during the drive, the arm is over their
+  hands. Fix: give magazines a refill envelope too, or refill only behind a light curtain with
+  the SCARA locked out.
+- **C–E keep their D-014 park poses.** They pass, but E's plan park clearance is 12 mm, below
+  choose_park's 30 mm. Their overlay comments still quote D-014's 3D values. Their sources are
+  still at 0.25 m: `fd_top_plate` at E will run 7 mm into the 0.32 m pallet lane, as
+  fd_mid_plate did. Fix: `choose_park.py --dev --write --stations st_fit_pod,st_fit_side_plates,
+  st_fit_top_plate`, and move their sources to 0.27 m, in the next batch.
+- **Per-joint speed limits.** J1/J2 limits come from v_max at the link radius (the brief's rule).
+  Epson's per-joint maximum speeds, if they are lower, would slow the park legs. Take them from
+  the Epson spec sheet.
+- **Payload.** A's place_spider carries 2.10 kg, over the standard cycle's 2.0 kg (WARN, carried
+  from D-014).
+- Gap B (fasteners for drive_esc etc.) and gap C are carried.
