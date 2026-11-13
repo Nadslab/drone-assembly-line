@@ -1,0 +1,4 @@
+# M1.7 docs 2026-11-13T09:11:13-05:00
+docs/decisions.md: D-017 (MuJoCo replaces Gazebo; Blender renders; ROS 2 via mujoco_ros2_control later; Gazebo code kept as reference)
+README.md: MuJoCo section (regenerate MJCF, 3.12 gate, match check, bench, viewer)
+M1.7 PASS D-017 + README MuJoCo section written

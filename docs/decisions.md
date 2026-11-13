@@ -1342,3 +1342,50 @@ other fixture cases.
   the magazine). E's plan park clearance stays at 12 mm.
 - **Epson J1/J2 speeds:** the assumption above.
 - Carried: A's payload 2.10 kg over the standard cycle's 2.0 kg (WARN), gaps B and C.
+
+## D-017 — MuJoCo replaces Gazebo as the sim backend (M1: look and move)
+
+**Date:** 2026-11-13
+
+**Context.** Gazebo (gz-harmonic, D-005..D-007) needed hand-tuned workarounds for the line's
+robots: position mode cannot lift a vertical axis under gravity, moves are planned at half speed,
+and the world is a Jinja template that duplicates the layout. The next milestones need three
+things it does poorly: an interactive editor whose edits go back to the spec (M2), fast exact
+kinematics for the SCARAs and gang heads, and a contact-rich physics cell for the pick and place
+at one station.
+
+**Decision.**
+- **MuJoCo is the sim backend:** for the editor (M2 writes viewer edits back through spec-ID body
+  names), for kinematics, and later for the physics cell.
+- **Renders come from Blender**, not from the simulator. The MuJoCo offscreen PNGs in verify/
+  are only for checking.
+- **ROS 2 comes later**, through mujoco_ros2_control (`ros-jazzy-mujoco-ros2-control` 0.1.2,
+  built on `ros-jazzy-mujoco-vendor` with MuJoCo 3.12.0). Until then the generated MJCF stays
+  inside MuJoCo 3.12's MJCF (`tools/checks/mjcf_gate_312.sh`).
+- **Gazebo code is kept as reference** — gen_world.py, gen_models.py, templates/, launch/,
+  urdf/, tools/checks/*smoke* — untouched and no longer maintained.
+- **One layout implementation.** `tools/gen_mjcf.py` builds the MJCF with MjSpec from
+  `tools/cad/layout.py`'s `plan()` solids, `robot_geometry.kin()` and the vendor arm capsules. It
+  adds no placement of its own. Bodies with a spec ID (st_, scara_, gh_, fd_, buf_, rt_) sit at
+  their resolved spec pose. Everything else is named after its layout solid, and those names
+  are not stable.
+- **The MJCF is generated** (drone_line_sim/mjcf/line[.dev].xml, header "GENERATED — do not
+  edit"). Dev output is gitignored like the dev SDF. The base spec cannot be exported until its
+  nulls are filled: the run exits 1 and lists them.
+- **tools/check_mjcf_match.py** is the gate between the two. It compares every spec-ID body,
+  site and layout solid's AABB (1 mm / 0.1°) and the overlap and bbox pair lists, which must be
+  equal to `layout.interference` with the same ALLOWED_OVERLAPS. It does this at the `folded`
+  keyframe and at each `parked_<scara>` keyframe. Pairs inside one assembly (one SCARA, one
+  carrier) are not compared: their convex proxies overlap where the STEP solids do not.
+- **Kinematic, not physical, for now:** gravity off, `implicitfast` integrator (Euler diverges
+  on the light J4 shaft under the actuator damping), PLACEHOLDER actuator gains, joint
+  stiffness/damping unset.
+
+**Status (M1).**
+- Loader + station A: match PASS.
+- Full line: the MJCF matches every pose, AABB and overlap set. The check's second attempt was
+  flaky: its shape cache reused shapes across parked samples. That is a check bug, not an MJCF
+  mismatch, and its fix waits on the user (KNOWN_ISSUES).
+- Headless physics runs at 30–120× real time.
+- The viewer's 4.9 % real time was rendering on WSL's D3D12 layer, with one physics step per
+  frame. `tools/view_mjcf.py` steps physics to the wall clock instead.
