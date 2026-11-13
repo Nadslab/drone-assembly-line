@@ -1,0 +1,8 @@
+# M1.1 environment 2026-11-12T23:27:48-05:00
+tools/.venv: mujoco 4.0.1, numpy 2.5.3, ruamel.yaml 0.19.1
+--- MUJOCO_GL=egl
+egl OK (120, 160, 3) 18
+--- MUJOCO_GL=osmesa
+AttributeError: 'NoneType' object has no attribute 'glGetError'
+GL backend: egl
+M1.1 PASS mujoco 4.0.1 in tools/.venv, offscreen GL=egl (osmesa unavailable)
