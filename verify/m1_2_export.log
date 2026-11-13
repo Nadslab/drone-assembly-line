@@ -1,0 +1,14 @@
+# M1.2 exporter 2026-11-12T23:45:51-05:00
+--- base spec (must fail, list missing values)
+exit 1 (expected 1)
+44 missing values listed in reports/gen_mjcf.loader_a.json
+--- dev
+gen_mjcf: DEV MODE — 366 placeholder value(s); line.loader_a.dev.xml is not a deliverable
+gen_mjcf: OK — 20 bodies, 41 geoms, 5 joints, 5 actuators, 2 keyframes -> /home/nadslab/ros2_ws/src/drone-line/drone_line_sim/mjcf/line.loader_a.dev.xml
+8.70 s, peak 609936 KB
+exit 0
+--- 3.12 gate
+mjcf_gate_312: OK mujoco 3.12.0 drone_line_sim/mjcf/line.loader_a.dev.xml (20 bodies, 41 geoms, 5 joints)
+exit 0
+leftover throwaway venvs in /tmp: 0
+M1.2 PASS gen_mjcf.py: loader_a 20 bodies/41 geoms/5 joints/5 actuators/2 keyframes; base run exits 1 listing missing values; loads in mujoco 3.12.0

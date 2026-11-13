@@ -17,3 +17,7 @@ drone_line_sim/worlds/*.dev.sdf
 # Dev-overlay controller config: generated from line_spec.dev.yaml placeholders
 drone_line_sim/config/controllers.dev.yaml
 drone_line_sim/config/line_spec.merged.dev.yaml
+
+# Dev-overlay MJCF (M1): generated from line_spec.dev.yaml placeholders, never a deliverable
+drone_line_sim/mjcf/*.dev.xml
+drone_line_sim/mjcf/meshes/dev/
