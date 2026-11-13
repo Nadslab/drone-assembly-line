@@ -23,3 +23,24 @@ Open problems logged instead of blocking a run. Newest milestone first.
   known D-016 item — no park pose clears fd_mid_plate / fd_top_plate. Not fixed in M1.
 - **No timed motion.** No choreography YAML exists; the match check samples each SCARA in two
   static poses (folded, as layout.py draws it, and parked at `park_pose`).
+- **Overlaps inside one assembly are not compared.** One SCARA's convex proxies (pedestal,
+  housing bbox, link capsules, shaft) overlap at its joints (link2 ∩ shaft ~99 mm deep), and a
+  carrier's per-solid collision boxes nest (CarrierSpider_2_2 ∩ _3, 24 mm); the vendor/carrier
+  STEP solids layout.py intersects do not. `check_mjcf_match.py` leaves pairs within one SCARA or
+  one carrier out of the overlap comparison on both sides (listed in the report) and the MJCF
+  excludes contact between one SCARA's bodies. Arm-vs-arm clashes between two SCARAs and
+  arm-vs-everything-else are still compared.
+- **The match check proves agreement, not a clean layout.** A real clash present in both the
+  spec's layout and the MJCF passes (verified: Buffer_Spider ∩ Conveyor in a scratch spec);
+  layout.py's interference check is still what fails a clashing layout.
+- **mj_collision cannot see static-vs-static pairs.** Every fixed body is welded to the world, so
+  MuJoCo never collides two of them. The check uses mj_geomDistance on every bbox candidate
+  (same narrowphase) and only requires mj_collision's contacts to be a subset.
+- **Arm housing is a box.** The vendor base housing is its layout bbox (`Scara_<S>_Housing`); the
+  pedestal keeps the layout name `Scara_<S>_Base` (layout.py gives both solids that name).
+- **Actuator gains are PLACEHOLDER** (kp/kv in gen_mjcf.py), gravity is off: enough for viewer
+  sliders, not a motion model.
+- **Coplanar faces flicker in renders.** Each station footprint shares its side faces with the
+  conveyor (an allowed overlap in layout.py), so renders z-fight there.
+- **D-016 refill columns are not in the MJCF.** Operator refill zones are not layout solids, so
+  the refill_clearance FAIL at A/E has no MuJoCo counterpart yet.

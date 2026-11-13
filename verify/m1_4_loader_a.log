@@ -1,0 +1,8 @@
+# M1.4 loader + station A 2026-11-12T23:46:21-05:00
+23.04 s, peak 823988 KB
+folded: within-assembly pairs not compared (MJCF): ['CarrierSpider_2_2 ∩ CarrierSpider_2_3', 'Scara_BuildFrame_Housing ∩ Scara_BuildFrame_Link1', 'Scara_BuildFrame_Housing ∩ Scara_BuildFrame_Link2', 'Scara_BuildFrame_Link1 ∩ Scara_BuildFrame_Link2', 'Scara_BuildFrame_Link2 ∩ Scara_BuildFrame_Shaft']
+folded: mj_collision ncon 8, non-allowed []
+parked_scara_build_frame: within-assembly pairs not compared (MJCF): ['CarrierSpider_2_2 ∩ CarrierSpider_2_3', 'Scara_BuildFrame_Housing ∩ Scara_BuildFrame_Link1', 'Scara_BuildFrame_Link1 ∩ Scara_BuildFrame_Link2', 'Scara_BuildFrame_Link2 ∩ Scara_BuildFrame_Shaft']
+parked_scara_build_frame: mj_collision ncon 4, non-allowed []
+renders: {'iso': '/home/nadslab/ros2_ws/src/drone-line/verify/m1_loader_a_iso.png', 'top': '/home/nadslab/ros2_ws/src/drone-line/verify/m1_loader_a_top.png'}
+M1.4 PASS loader_a: 20 bodies, 74 pose/AABB checks, 0 off; samples folded PASS (0/0 overlaps, 46/46 bbox pairs), parked_scara_build_frame PASS (0/0 overlaps, 43/43 bbox pairs)
