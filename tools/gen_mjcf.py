@@ -43,7 +43,8 @@ Every joint has a position actuator of the same name, so the viewer's sliders mo
 stroke, every head waiting) and `parked_<scara>` (that arm at its park_pose, its station's heads
 working, the rest folded).
 
-Fixed base, no physics tuning (a later milestone): gravity off, joint stiffness/damping unset, and
+Fixed base, no physics tuning (a later milestone): gravity off, integrator implicitfast (the
+actuator damping on the light J4 shaft is unstable under Euler), joint stiffness/damping unset, and
 the actuator gains below are PLACEHOLDER numbers only good for moving sliders. The output stays
 inside MuJoCo 3.12's MJCF (ros-jazzy-mujoco-vendor; tools/checks/mjcf_gate_312.sh): actuators are
 written as `general` with explicit gain/bias, not set_to_position (4.0 writes input="pos").
@@ -323,6 +324,10 @@ def build(merged, dev: bool, cad_reports: Path | None = None) -> Export:
     s.compiler.degree = False
     s.compiler.autolimits = True
     s.option.gravity = [0.0, 0.0, 0.0]          # kinematic: physics is a later milestone
+    # The shaft's inertia about J4 is ~1.6e-4 kg m^2: explicit Euler with the PLACEHOLDER kv below
+    # diverges within two steps (QACC NaN at the j4 DOF, M1 benchmark). implicitfast integrates the
+    # actuators' velocity damping implicitly, so the sliders stay stable (3.12-compatible).
+    s.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
     s.visual.global_.offwidth, s.visual.global_.offheight = 1600, 1000
     s.visual.headlight.ambient = [0.45, 0.45, 0.45]
     s.visual.headlight.diffuse = [0.55, 0.55, 0.55]

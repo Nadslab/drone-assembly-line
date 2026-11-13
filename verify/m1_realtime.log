@@ -1,0 +1,37 @@
+# M1 viewer real-time investigation 2026-11-13T09:08:05-05:00
+## Renderer (glxinfo -B / eglinfo -B)
+    Device: D3D12 (NVIDIA GeForce RTX 3060 Laptop GPU) (0xffffffff)
+    Version: 25.2.8
+    Accelerated: yes
+GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA; EGL (offscreen) also D3D12 (NVIDIA GeForce RTX 3060 Laptop GPU)
+## MJCF settings: timestep 0.002, Euler (before) -> implicitfast (after), Newton solver, iterations 100, ls_iterations 50, tolerance 1e-8, contacts on, gravity 0
+## Before: generator output with the Euler integrator (copy with integrator attribute removed)
+
+
+bench_mjcf: line.loader_a.dev.xml rest: 63743 steps/s = 12749% real time (timestep 0.002, mjINT_EULER, ncon max 8, solver iters max 0, warnings none)
+bench_mjcf: line.loader_a.dev.xml moving: 20142 steps/s = 4028% real time (timestep 0.002, mjINT_EULER, ncon max 24, solver iters max 4, warnings {'mjWARN_BADQACC': 1})
+bench_mjcf: line.dev.xml rest: 20733 steps/s = 4147% real time (timestep 0.002, mjINT_EULER, ncon max 40, solver iters max 0, warnings none)
+bench_mjcf: line.dev.xml moving: 4155 steps/s = 831% real time (timestep 0.002, mjINT_EULER, ncon max 108, solver iters max 5, warnings {'mjWARN_BADQACC': 1})
+M1.bench FAIL real time, no rendering: line.loader_a.dev.xml 12749%/4028% (rest/moving); line.dev.xml 4147%/831% (rest/moving)
+## After: integrator implicitfast (gen_mjcf.py)
+bench_mjcf: line.loader_a.dev.xml rest: 59924 steps/s = 11985% real time (timestep 0.002, mjINT_IMPLICITFAST, ncon max 8, solver iters max 1, warnings none)
+bench_mjcf: line.loader_a.dev.xml moving: 44568 steps/s = 8914% real time (timestep 0.002, mjINT_IMPLICITFAST, ncon max 10, solver iters max 2, warnings none)
+bench_mjcf: line.dev.xml rest: 22198 steps/s = 4440% real time (timestep 0.002, mjINT_IMPLICITFAST, ncon max 36, solver iters max 1, warnings none)
+bench_mjcf: line.dev.xml moving: 15210 steps/s = 3042% real time (timestep 0.002, mjINT_IMPLICITFAST, ncon max 40, solver iters max 2, warnings none)
+M1.bench PASS real time, no rendering: line.loader_a.dev.xml 11985%/8914% (rest/moving); line.dev.xml 4440%/3042% (rest/moving)
+## Render cost, offscreen EGL on D3D12 (scratch benchmark, frame time per mjr_render)
+line.loader_a.dev.xml: 1600x1000 default 56 ms (17.7 fps); shadows off 26 ms; 800x500 default 61 ms
+line.dev.xml:          1600x1000 default 254 ms (3.9 fps); shadows off 97 ms; shadows+reflections off 86 ms; 800x500 259 ms
+llvmpipe (software) for comparison: line.dev.xml default 73 ms, loader_a default 37 ms
+-> resolution-independent: per-draw-call overhead in Mesa's D3D12 translation layer; the 4096
+   shadow map pass roughly doubles it.
+## Cause
+Physics is 40-120x faster than real time headless. 4.9% real time = 0.002 s timestep x ~25 frames/s:
+the viewer advanced one physics step per rendered frame, and a frame costs ~40-60 ms on D3D12
+(~250 ms for the full line). Rendering-only: no MJCF change for it (KNOWN_ISSUES).
+Separate bug found by the moving benchmark: Euler + PLACEHOLDER actuator damping on the light J4
+shaft (inertia ~1.6e-4 kg m^2) diverges (mjWARN_BADQACC at DOF 3 within 4 ms) -> gen_mjcf.py now
+sets integrator implicitfast (3.12-compatible, gate OK).
+## Fix
+tools/view_mjcf.py (M1.6) steps physics to the wall clock (as many mj_step per frame as needed,
+frames capped at 60 Hz) and turns shadows off in memory by default (--shadows to keep them).
