@@ -1,0 +1,31 @@
+# M1.6 viewer launcher (headless --list only; the window is not opened during verification) 2026-11-13T09:10:14-05:00
+25 joints / 25 slider actuators:
+  scara_build_frame_j1               hinge (rad)  [-2.3038, +2.3038]
+  scara_build_frame_j2               hinge (rad)  [-2.6180, +2.6180]
+  scara_build_frame_j3               slide (m)    [-0.3000, +0.0000]
+  scara_build_frame_j4               hinge (rad)  [-6.2832, +6.2832]
+  scara_seat_esc_j1                  hinge (rad)  [-2.3038, +2.3038]
+  scara_seat_esc_j2                  hinge (rad)  [-2.6180, +2.6180]
+  scara_seat_esc_j3                  slide (m)    [-0.3000, +0.0000]
+  scara_seat_esc_j4                  hinge (rad)  [-6.2832, +6.2832]
+  scara_fit_pod_j1                   hinge (rad)  [-2.3038, +2.3038]
+  scara_fit_pod_j2                   hinge (rad)  [-2.6180, +2.6180]
+  scara_fit_pod_j3                   slide (m)    [-0.3000, +0.0000]
+  scara_fit_pod_j4                   hinge (rad)  [-6.2832, +6.2832]
+  scara_fit_side_plates_j1           hinge (rad)  [-2.3038, +2.3038]
+  scara_fit_side_plates_j2           hinge (rad)  [-2.6180, +2.6180]
+  scara_fit_side_plates_j3           slide (m)    [-0.3000, +0.0000]
+  scara_fit_side_plates_j4           hinge (rad)  [-6.2832, +6.2832]
+  scara_fit_top_plate_j1             hinge (rad)  [-2.3038, +2.3038]
+  scara_fit_top_plate_j2             hinge (rad)  [-2.6180, +2.6180]
+  scara_fit_top_plate_j3             slide (m)    [-0.3000, +0.0000]
+  scara_fit_top_plate_j4             hinge (rad)  [-6.2832, +6.2832]
+  gh_arm_sandwich_slide              slide (m)    [+0.0000, +0.4000]
+  gh_esc_slide                       slide (m)    [+0.0000, +0.4000]
+  gh_pod_slide                       slide (m)    [+0.0000, +0.4000]
+  gh_side_plates_slide               slide (m)    [+0.0000, +0.4000]
+  gh_top_plate_slide                 slide (m)    [+0.0000, +0.4000]
+keyframes: folded, parked_scara_build_frame, parked_scara_seat_esc, parked_scara_fit_pod, parked_scara_fit_side_plates, parked_scara_fit_top_plate
+exit 0
+keyframes: folded, parked_scara_build_frame
+M1.6 PASS tools/view_mjcf.py: loads line.dev.xml (25 joints/25 sliders, 6 keyframes), wall-clock stepping, shadows off by default; window not opened (headless rule)
