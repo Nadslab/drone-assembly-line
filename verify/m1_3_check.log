@@ -1,0 +1,20 @@
+## negative A: tampered XML (fd_mid_plate body moved 0.4 m in -x, into the SCARA pedestal)
+1
+check_mjcf_match: neg_a: 20 bodies, 74 pose/AABB checks, 4 off; samples folded FAIL (0/1 overlaps, 46/47 bbox pairs), parked_scara_build_frame FAIL (0/1 overlaps, 43/44 bbox pairs)
+NEG_A FAIL neg_a: 20 bodies, 74 pose/AABB checks, 4 off; samples folded FAIL (0/1 overlaps, 46/47 bbox pairs), parked_scara_build_frame FAIL (0/1 overlaps, 43/44 bbox pairs)
+exit 1
+['body fd_mid_plate', 'site fd_mid_plate_mount', 'folded: AABB Feeder_MidPlate', 'parked_scara_build_frame: AABB Feeder_MidPlate']
+{'folded': (['Feeder_MidPlate ∩ Scara_BuildFrame_Base'], []), 'parked_scara_build_frame': (['Feeder_MidPlate ∩ Scara_BuildFrame_Base'], [])}
+## negative B: scratch spec, buf_spider dev offset y -0.27 -> -0.10 (onto the conveyor)
+128c128
+<     offset: [-0.35, -0.27, 0.1, null]    # PLACEHOLDER (D-015: clear of the 0.32 m pallet lane)
+---
+>     offset: [-0.35, -0.10, 0.1, null]    # PLACEHOLDER (D-015: clear of the 0.32 m pallet lane)
+gen_mjcf: OK — 20 bodies, 41 geoms, 5 joints, 5 actuators, 2 keyframes -> /tmp/claude-1000/-home-nadslab-ros2-ws-src-drone-line/5df205e1-9084-47ba-81ec-c21ea1d2c204/scratchpad/neg_b/line.neg_b.dev.xml
+check_mjcf_match: neg_b: 20 bodies, 74 pose/AABB checks, 0 off; samples folded PASS (1/1 overlaps, 47/47 bbox pairs), parked_scara_build_frame PASS (1/1 overlaps, 44/44 bbox pairs)
+NEG_B PASS neg_b: 20 bodies, 74 pose/AABB checks, 0 off; samples folded PASS (1/1 overlaps, 47/47 bbox pairs), parked_scara_build_frame PASS (1/1 overlaps, 44/44 bbox pairs)
+exit 0
+{'folded': (['Buffer_Spider ∩ Conveyor'], ['Buffer_Spider ∩ Conveyor'], 'PASS'), 'parked_scara_build_frame': (['Buffer_Spider ∩ Conveyor'], ['Buffer_Spider ∩ Conveyor'], 'PASS')}
+
+# check_mjcf_match.py self-test 2026-11-12T23:46:21-05:00: A must FAIL (tampered pose), B must PASS with a non-empty, equal overlap set
+M1.3 PASS check_mjcf_match.py: tampered XML caught (4 pose/AABB + 1 overlap), real clash Buffer_Spider∩Conveyor found on both sides
