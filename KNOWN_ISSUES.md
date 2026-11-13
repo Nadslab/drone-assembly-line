@@ -42,17 +42,12 @@ Open problems logged instead of blocking a run. Newest milestone first.
   sliders, not a motion model.
 - **Coplanar faces flicker in renders.** Each station footprint shares its side faces with the
   conveyor (an allowed overlap in layout.py), so renders z-fight there.
-- **M1.5 open: check_mjcf_match.py's shape cache is unsafe across parked samples.** `keyed()`
-  caches built shapes by `id(item)`; the parked samples' temporary vendor-arm Items are freed
-  and Python reuses their ids, so a later sample can get an earlier arm's shape (seen: the
-  reference put scara_fit_pod's housing at scara_build_frame's x, a 3.4 m AABB error and 2–3
-  phantom overlaps; the MJCF was right). Fix: cache only the plan's own items (pinned), build the
-  parked arm's solids fresh. Not applied — step 5 hit its 2-attempt limit; waiting for the user.
-  The single-parked-sample loader_a run (M1.4) cannot hit it.
-- **Full-line match check takes ~50 s (> 30 s budget).** layout.plan (11 s, the vendor STEP),
-  posing five vendor arms and their optimal bounding boxes. The reference already calls
-  layout.interference per cross-assembly pair (the arm's own STEP-vs-STEP booleans were 22 s
-  per sample).
+- **Full-line match check takes 34–41 s without renders (> 30 s budget), ~52 s with
+  `--render`.** No check was cut. Most of it is layout.plan (~11 s, the vendor STEP) and the
+  optimal bounding boxes and booleans of five vendor arms in six samples. The vendor STEP is
+  loaded once per run, each parked arm is a transformed instance, shapes are cached by solid
+  name + placement, and layout.interference runs per cross-assembly pair. Renders are off by
+  default (`--render`). loader_a takes ~17 s.
 - **Viewer frame rate on WSL2 (rendering only, MJCF unchanged).** Mesa's D3D12 layer (RTX 3060)
   costs ~1.5 ms per draw call, independent of resolution: ~56 ms per frame for loader_a, ~250 ms
   for the full line; the 4096 shadow map doubles it (llvmpipe is faster, 73 ms). A viewer loop

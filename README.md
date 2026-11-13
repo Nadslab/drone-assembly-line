@@ -19,7 +19,8 @@ tools/checks/mjcf_gate_312.sh drone_line_sim/mjcf/line.dev.xml     # must also l
 ```
 
 **Run the match check** (MJCF vs spec poses, layout.py solids and its interference check;
-writes `reports/mjcf_match[.<name>].dev.json` and `verify/m1_<name>_{iso,top}.png`):
+writes `reports/mjcf_match[.<name>].dev.json`; `--render` adds `verify/m1_<name>_{iso,top}.png`;
+the full line takes ~35 s):
 
 ```bash
 tools/.venv/bin/python tools/check_mjcf_match.py --dev             # full line

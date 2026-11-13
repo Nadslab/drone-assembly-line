@@ -18,3 +18,15 @@ exit 0
 
 # check_mjcf_match.py self-test 2026-11-12T23:46:21-05:00: A must FAIL (tampered pose), B must PASS with a non-empty, equal overlap set
 M1.3 PASS check_mjcf_match.py: tampered XML caught (4 pose/AABB + 1 overlap), real clash Buffer_Spider∩Conveyor found on both sides
+
+# re-run after per-pair reference + assembly rule on bbox lists 2026-11-13T08:58:25-05:00
+NEG_A FAIL neg_a: 20 bodies, 74 pose/AABB checks, 4 off; samples folded FAIL (0/1 overlaps, 39/40 bbox pairs), parked_scara_build_frame FAIL (0/1 overlaps, 37/38 bbox pairs)
+exit 1 (expected 1)
+NEG_B PASS neg_b: 20 bodies, 74 pose/AABB checks, 0 off; samples folded PASS (1/1 overlaps, 40/40 bbox pairs), parked_scara_build_frame PASS (1/1 overlaps, 38/38 bbox pairs)
+exit 0 (expected 0, 1/1 overlaps)
+
+# re-run after the name+pose shape cache and cached arm posing (M1.5 attempt 3) 2026-11-13T09:34:06-05:00
+NEG_A FAIL neg_a: 20 bodies, 74 pose/AABB checks, 4 off; samples folded FAIL (0/1 overlaps, 39/40 bbox pairs), parked_scara_build_frame FAIL (0/1 overlaps, 37/38 bbox pairs)
+exit 1 (expected 1)
+NEG_B PASS neg_b: 20 bodies, 74 pose/AABB checks, 0 off; samples folded PASS (1/1 overlaps, 40/40 bbox pairs), parked_scara_build_frame PASS (1/1 overlaps, 38/38 bbox pairs)
+exit 0 (expected 0, 1/1 overlaps)

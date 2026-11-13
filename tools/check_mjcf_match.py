@@ -1,7 +1,7 @@
 """Check the generated MJCF against the placement code it came from (M1).
 
     tools/.venv/bin/python tools/check_mjcf_match.py [--dev] [--stations IDS [--name N]]
-                                                     [--xml PATH] [--no-render] [--step M1.3]
+                                                     [--xml PATH] [--render] [--step M1.3]
 
 The reference is never the exporter: it is spec.py's resolved poses, robot_geometry's kinematics
 and arm capsules, and tools/cad/layout.py's `plan()` solids and `interference()` — what the layout
@@ -21,7 +21,8 @@ Poses (tolerance POS_TOL / ANG_TOL):
     checks with, at that sample's joints; a gang head at its working box when parked; a carrier's
     visual mesh vs the union of its layout solids.
 Collisions, at every sample:
-  * reference: layout.interference() on the layout solids at that sample (a parked arm is the
+  * reference: layout.interference() — called per pair of solids from different assemblies —
+    on the layout solids at that sample (a parked arm is the
     vendor STEP posed by vendor.placed at its park_pose, the head moved to its working box) — the
     overlapping pairs; and every pair whose bounding boxes overlap by more than BBOX_EPS on each
     axis (layout.interference's own prefilter, with that tolerance so float noise on two touching
@@ -32,13 +33,13 @@ Collisions, at every sample:
     are both welded to the world (every static body here), so it only sees pairs with a moving
     arm or head; its contacts must be a subset of the geomDistance overlaps.
   Pairs inside one assembly (one SCARA's pedestal, housing and link capsules; one carrier's
-  per-solid boxes) are not compared on either side: the convex proxies of one arm overlap at its
+  per-solid boxes) are not compared on either side, in the overlap set or the bbox list: the convex proxies of one arm overlap at its
   joints and a carrier's boxes nest, where the vendor/carrier STEP solids do not. They are listed
   in the report. The MJCF excludes contact between one SCARA's bodies for the same reason.
   Both lists must be equal. Envelopes are visual-only and are left out of the pair lists on both
   sides in the overlap set (allowed with everything), kept in the bbox list.
-Also renders verify/m1_<name>_{iso,top}.png (folded, guards and envelopes hidden, offscreen,
-MUJOCO_GL=egl; skipped below 1 GB free).
+With --render, also renders verify/m1_<name>_{iso,top}.png (folded, guards and envelopes
+hidden, offscreen, MUJOCO_GL=egl; skipped below 1 GB free).
 
 Report: reports/mjcf_match[.<name>][.dev].json; last line `<step> PASS|FAIL <summary>`.
 """
@@ -57,6 +58,7 @@ from pathlib import Path
 os.environ.setdefault("MUJOCO_GL", "egl")
 import mujoco  # noqa: E402
 import numpy as np  # noqa: E402
+from build123d import Location  # noqa: E402
 
 TOOLS = Path(__file__).resolve().parent
 sys.path[:0] = [str(TOOLS), str(TOOLS / "cad")]
@@ -87,9 +89,51 @@ def wrap(a: float) -> float:
 
 # ---------------------------------------------------------------- reference side
 
+_SHAPES: dict[tuple, object] = {}      # (solid name, pose, size) -> built shape, bbox memoised
+_ARMS: dict[tuple, list] = {}          # (scara, j1, j2) -> [(role, posed solid)]
+
+
+def memo_bbox(shape):
+    """`shape` with its (optimal, slow on a vendor STEP) bounding box computed once: every later
+    call — layout.interference's included — returns that box."""
+    bb = shape.bounding_box()
+    shape.bounding_box = lambda *a, **k: bb
+    return shape
+
+
+def shape_key(it: layout.Item) -> tuple:
+    """A solid by name and placement — never by object identity (ids are reused once freed)."""
+    r = lambda dims: tuple(round(d.value, 9) for d in dims)   # noqa: E731
+    return (it.name, it.subgroup, r(it.centre), r(it.size),
+            round(it.yaw.value, 9) if it.yaw is not None else None,
+            r(it.hollow) if it.hollow else None, it.cylinder,
+            tuple((r(c), r(z)) for c, z in it.cuts))
+
+
 def keyed(it: layout.Item) -> layout.Item:
-    """A copy of the solid named by its MJCF geom key, so layout.interference reports keys."""
-    return dataclasses.replace(it, name=gen_mjcf.item_key(it), shape=None)
+    """A copy of the solid named by its MJCF geom key, so layout.interference reports keys. Its
+    shape is built once per run per name + placement and shared by every sample that has it."""
+    key = shape_key(it)
+    if key not in _SHAPES:
+        _SHAPES[key] = memo_bbox(layout.build_shape(it))
+    return dataclasses.replace(it, name=gen_mjcf.item_key(it), shape=_SHAPES[key])
+
+
+def parked_arm(line, sid: str, j1: float, j2: float) -> list:
+    """The vendor arm at (j1, j2), in the line frame, mm: its STEP loaded once per run
+    (vendor.load is cached) and each solid a transformed instance of that geometry
+    (vendor's own posing, without vendor.placed's deep copy, which only STEP export needs)."""
+    key = (sid, round(j1, 9), round(j2, 9))
+    if key not in _ARMS:
+        rm = line.robot_models[line.scaras[sid].model]
+        model = vendor.load(rm.step)
+        k = rg.kin(line, sid)
+        mount = k.z_hi - model.shaft_bottom / 1000.0
+        loc = Location((k.base[0] * 1000.0, k.base[1] * 1000.0, mount * 1000.0),
+                       (0.0, 0.0, math.degrees(k.yaw)))
+        _ARMS[key] = [(role, memo_bbox(vendor._at(solid, loc)))
+                      for role, solid in model.posed(j1, j2)]
+    return _ARMS[key]
 
 
 def sample_items(items, line, v, cad, sample: str):
@@ -109,18 +153,12 @@ def sample_items(items, line, v, cad, sample: str):
     for it in items:
         if it.subgroup == name and it.solid is not None:
             continue                                   # the folded vendor solids: re-posed below
-        it = keyed(it)
         if it.name in heads:
             w = heads[it.name].working
-            it.centre = (layout.Dim((w.x0 + w.x1) / 2.0), layout.Dim((w.y0 + w.y1) / 2.0),
-                         it.centre[2])
-        out.append(it)
-    rm = line.robot_models[line.scaras[sid].model]
-    model = vendor.load(rm.step)
-    k = rg.kin(line, sid)
-    mount = k.z_hi - model.shaft_bottom / 1000.0
-    for role, solid in vendor.placed(model, j1, j2, k.base[0] * 1000.0, k.base[1] * 1000.0,
-                                     mount * 1000.0, k.yaw):
+            it = dataclasses.replace(it, centre=(layout.Dim((w.x0 + w.x1) / 2.0),
+                                                 layout.Dim((w.y0 + w.y1) / 2.0), it.centre[2]))
+        out.append(keyed(it))
+    for role, solid in parked_arm(line, sid, j1, j2):
         bb = solid.bounding_box()
         out.append(keyed(layout.Item(
             f"{name}_{role}", "robot", "Robots",
@@ -132,7 +170,8 @@ def sample_items(items, line, v, cad, sample: str):
 def reference_pairs(its) -> tuple[dict, set, set]:
     """(key -> AABB in m, bbox pairs, overlap pairs) from layout.py's own shapes and check."""
     for it in its:
-        it.shape = layout.build_shape(it)
+        if it.shape is None:
+            it.shape = memo_bbox(layout.build_shape(it))
     raw = []                                      # mm, one optimal bbox per solid
     for it in its:
         bb = it.shape.bounding_box()
@@ -144,7 +183,8 @@ def reference_pairs(its) -> tuple[dict, set, set]:
         if it.name in boxes:
             lo, hi = np.minimum(lo, boxes[it.name][0]), np.maximum(hi, boxes[it.name][1])
         boxes[it.name] = (lo, hi)
-    bbox = set()
+    bbox, overlaps = set(), set()
+    asm = [assembly_of(it) for it in its]
     for i in range(len(its)):
         for j in range(i + 1, len(its)):
             if its[i].name == its[j].name:
@@ -153,9 +193,13 @@ def reference_pairs(its) -> tuple[dict, set, set]:
             hi = np.minimum(raw[i][1], raw[j][1])
             if np.all(hi - lo > BBOX_EPS * 1000.0):
                 bbox.add(frozenset((its[i].name, its[j].name)))
-    res = layout.interference(its)
-    overlaps = {frozenset((f["a"].removesuffix("_PH"), f["b"].removesuffix("_PH")))
-                for f in res["failures"]}
+            # layout.py's check, one cross-assembly candidate at a time: the same prefilter,
+            # ALLOWED_OVERLAPS and boolean, without the vendor-solid booleans inside one arm
+            # (most of its run time) that the comparison leaves out anyway.
+            if asm[i] == asm[j] or not np.all(hi - lo > 0.0):
+                continue
+            for f in layout.interference([its[i], its[j]])["failures"]:
+                overlaps.add(frozenset((f["a"].removesuffix("_PH"), f["b"].removesuffix("_PH"))))
     return boxes, bbox, overlaps
 
 
@@ -240,11 +284,11 @@ def mj_pairs(m, d, geoms, boxes, cat, owner, assembly):
             if not np.all(hi - lo > BBOX_EPS):
                 continue
             pair = frozenset((a, b))
+            if assembly[a] == assembly[b]:
+                intra.add(pair)                # proxies of one arm or carrier: not compared
+                continue
             bbox.add(pair)
             if layout.allowed(cat[a], cat[b], owner.get(a), owner.get(b)):
-                continue
-            if assembly[a] == assembly[b]:
-                intra.add(pair)                # proxies of one arm or carrier: not a clash
                 continue
             dmin = min(mujoco.mj_geomDistance(m, d, ga, gb, 0.01, ft)
                        for ga in geoms[a] for gb in geoms[b])
@@ -315,7 +359,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--name", default="batch")
     ap.add_argument("--xml", type=Path, default=None, help="default the exporter's output path")
     ap.add_argument("--cad-reports", type=Path, default=None)
-    ap.add_argument("--no-render", action="store_true")
+    ap.add_argument("--render", action="store_true",
+                    help="also render verify/m1_<name>_{iso,top}.png (off by default: the full "
+                         "line already takes ~35 s without it)")
+    ap.add_argument("--no-render", action="store_true", help=argparse.SUPPRESS)  # the default
     ap.add_argument("--step", default="M1.3", help="label of the closing PASS|FAIL line")
     add_dev_argument(ap)
     args = ap.parse_args(argv)
@@ -429,6 +476,8 @@ def main(argv: list[str] | None = None) -> int:
         its = sample_items(items, line, v, cad, kname)
         ref_boxes, ref_bbox, ref_all = reference_pairs(its)
         ref_over = {p for p in ref_all if len({assembly[k] for k in p}) == 2}
+        ref_bbox_intra = {p for p in ref_bbox if len({assembly[k] for k in p}) == 1}
+        ref_bbox -= ref_bbox_intra
         geoms, boxes = mj_state(m, d, set(ref_boxes))
         # arm links: robot_geometry capsules at this sample's joints, and the arm sites
         for sid in line.scaras:
@@ -478,6 +527,7 @@ def main(argv: list[str] | None = None) -> int:
             "reference_overlaps_within_assembly": names(ref_all - ref_over),
             "mjcf_pairs_within_assembly_not_compared": names(intra),
             "bbox_pairs": len(ref_bbox), "mjcf_bbox_pairs": len(mj_bbox),
+            "reference_bbox_pairs_within_assembly_not_compared": names(ref_bbox_intra),
             "bbox_only_reference": names(ref_bbox - mj_bbox),
             "bbox_only_mjcf": names(mj_bbox - ref_bbox),
             "mj_collision": {"ncon": ncon, "non_allowed_pairs": names(contacts),
@@ -487,7 +537,7 @@ def main(argv: list[str] | None = None) -> int:
         ok_sets &= same
         doc["samples"][kname] = row
 
-    if not args.no_render:
+    if args.render and not args.no_render:
         free = _free_mb()
         if free is not None and free < 1000:
             doc["warnings"].append(f"render skipped: {free} MB free")

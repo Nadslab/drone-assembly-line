@@ -1,0 +1,15 @@
+# M1.5 full line, attempt 3 2026-11-13T09:34:28-05:00
+attempt 1: parked_scara_fit_top_plate bbox only in MJCF: Scara_FitTopPlate_Housing ∩ Scara_FitTopPlate_Link2 (capsule vs STEP bbox inside one arm); 184 s
+attempt 2: within-assembly rule extended to bbox lists, per-pair layout.interference; passed once (52 s) then FAILED on re-run: id()-keyed shape cache handed a freed arm's shape to the next parked sample (FitPod housing at BuildFrame's x, 3.4 m)
+attempt 3: cache keyed by solid name + placement; each vendor STEP loaded once, parked arms posed as transformed instances (cached per scara + joints); default run without renders
+--- export
+gen_mjcf: OK — 72 bodies, 171 geoms, 25 joints, 25 actuators, 6 keyframes -> /home/nadslab/ros2_ws/src/drone-line/drone_line_sim/mjcf/line.dev.xml
+13.56 s, peak 686432 KB
+--- 3.12 gate
+mjcf_gate_312: OK mujoco 3.12.0 drone_line_sim/mjcf/line.dev.xml (72 bodies, 171 geoms, 25 joints)
+--- repeat runs (determinism): 3 consecutive full-line PASS before this one (35.6 s, 34.2 s, 41.2 s, no render)
+--- match check, no render (default)
+39.22 s, peak 761832 KB
+--- match check with --render
+51.63 s, peak 853716 KB
+M1.5 PASS line: 72 bodies, 698 pose/AABB checks, 0 off; samples folded PASS (0/0 overlaps, 145/145 bbox pairs), parked_scara_build_frame PASS (0/0 overlaps, 143/143 bbox pairs), parked_scara_seat_esc PASS (0/0 overlaps, 145/145 bbox pairs), parked_scara_fit_pod PASS (0/0 overlaps, 145/145 bbox pairs), parked_scara_fit_side_plates PASS (0/0 overlaps, 145/145 bbox pairs), parked_scara_fit_top_plate PASS (0/0 overlaps, 145/145 bbox pairs)
