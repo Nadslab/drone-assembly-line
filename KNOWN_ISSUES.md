@@ -52,7 +52,8 @@ Open problems logged instead of blocking a run. Newest milestone first.
   costs ~1.5 ms per draw call, independent of resolution: ~56 ms per frame for loader_a, ~250 ms
   for the full line; the 4096 shadow map doubles it (llvmpipe is faster, 73 ms). A viewer loop
   that steps once per frame runs at ~5 % real time. `tools/view_mjcf.py` steps physics to the
-  wall clock and turns shadows off in memory. Headless physics: full line 44x (rest) / 30x
+  wall clock; `--fast` (shadows, reflections, envelope/proxy/guard groups off, MJCF untouched)
+  takes a full-line frame from ~430 to ~140 ms (2.3 -> 7.1 fps; verify/m1_viewer_fast.log). Headless physics: full line 44x (rest) / 30x
   (every joint moving) real time (verify/m1_realtime.log).
 - **D-016 refill columns are not in the MJCF.** Operator refill zones are not layout solids, so
   the refill_clearance FAIL at A/E has no MuJoCo counterpart yet.

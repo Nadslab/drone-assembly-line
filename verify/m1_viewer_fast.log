@@ -1,0 +1,12 @@
+# M1 viewer --fast frame time, full line 2026-11-13T09:37:34-05:00
+offscreen EGL on the same driver the viewer window uses: OpenGL core profile renderer: D3D12 (NVIDIA GeForce RTX 3060 Laptop GPU)
+(headless rule: the GLFW window itself was not opened; mjv_updateScene + mjr_render + glFinish per frame, 1 mj_step per frame, 5 s each)
+line.dev.xml, 1600x1000
+  without --fast (MuJoCo viewer defaults: groups 0-2, shadows+reflections)  430.5 ms/frame    2.3 fps  (180 geoms drawn)
+  without --fast, groups 3-5 toggled on in the viewer         499.5 ms/frame    2.0 fps  (212 geoms drawn)
+  with --fast (view_mjcf.apply_fast)                          141.6 ms/frame    7.1 fps  (180 geoms drawn)
+line.loader_a.dev.xml, 1600x1000
+  without --fast (MuJoCo viewer defaults: groups 0-2, shadows+reflections)   62.1 ms/frame   16.1 fps  (38 geoms drawn)
+  without --fast, groups 3-5 toggled on in the viewer          79.1 ms/frame   12.6 fps  (52 geoms drawn)
+  with --fast (view_mjcf.apply_fast)                           22.7 ms/frame   44.1 fps  (38 geoms drawn)
+Note: frames step physics to the wall clock in view_mjcf.py, so real time stays ~100% at any of these frame rates; --fast only makes the picture smoother. Groups 3-5 are already hidden by MuJoCo's default MjvOption; --fast keeps them hidden even if toggled on.

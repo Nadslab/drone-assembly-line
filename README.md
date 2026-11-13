@@ -36,10 +36,12 @@ or pytest (RAM).
 ```bash
 tools/.venv/bin/python tools/view_mjcf.py                          # line.dev.xml, folded keyframe
 tools/.venv/bin/python tools/view_mjcf.py drone_line_sim/mjcf/line.loader_a.dev.xml --key parked_scara_build_frame
+tools/.venv/bin/python tools/view_mjcf.py --fast                   # no shadows/reflections/envelopes/guards: ~3x faster frames
 tools/.venv/bin/python tools/view_mjcf.py --list                   # joints and keyframes, no window
 ```
 
 The right panel's Control sliders move the joints (`scara_<station>_j1..j4`,
-`gh_<head>_slide`); keyframes (`folded`, `parked_<scara>`) are under Simulation > Key. Shadows
-are off by default (`--shadows` keeps them; they halve the frame rate on WSL's D3D12 layer). The
-console prints the real-time factor every 5 s.
+`gh_<head>_slide`); keyframes (`folded`, `parked_<scara>`) are under Simulation > Key. Physics
+is stepped to the wall clock, so it runs at real time even when frames are slow (WSL's D3D12
+layer: ~430 ms per full-line frame by default, ~140 ms with `--fast`). The console prints the
+real-time factor every 5 s.
